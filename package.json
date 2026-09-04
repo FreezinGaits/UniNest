@@ -1,0 +1,9 @@
+{
+  "name": "uninest-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "cd uninest-app && npm run build",
+    "dev": "cd uninest-app && npm run dev",
+    "start": "cd uninest-app && npm run start"
+  }
+}

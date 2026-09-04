@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd uninest-app && npm run build",
+  "outputDirectory": "uninest-app/.next"
+}
