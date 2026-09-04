@@ -76,18 +76,14 @@ export default function LoginPage() {
             From finding a PG to living there — all in one place. Verified listings, digital agreements, 
             automated rent, and a complete rental lifecycle platform.
           </p>
-          <div className="mt-8 flex items-center gap-6 text-sm text-brand-200">
+          <div className="mt-8 flex items-center gap-4 text-sm text-brand-200">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-brand-300 rounded-full" />
-              <span>84 Verified PGs</span>
+              <div className="w-2 h-2 bg-brand-300 rounded-full animate-pulse" />
+              <span>Demo Environment</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-brand-300 rounded-full" />
-              <span>720+ Students</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-brand-300 rounded-full" />
-              <span>Ludhiana</span>
+              <span>Pilot: Ludhiana</span>
             </div>
           </div>
         </div>
