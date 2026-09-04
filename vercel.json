@@ -1,0 +1,5 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "cd uninest-app && prisma generate && next build",
+  "outputDirectory": "uninest-app/.next"
+}
