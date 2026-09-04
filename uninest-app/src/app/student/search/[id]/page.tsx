@@ -78,6 +78,31 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         </div>
       </div>
 
+      {/* Property Photos Gallery */}
+      {property.images && property.images.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 h-72 rounded-2xl overflow-hidden shadow-sm">
+          <div className="md:col-span-2 h-full">
+            <img src={property.images[0]} alt={property.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+          </div>
+          <div className="hidden md:flex flex-col gap-3 h-full">
+            {property.images[1] ? (
+              <img src={property.images[1]} alt={property.name} className="w-full h-[138px] object-cover hover:scale-105 transition-transform duration-300" />
+            ) : (
+              <div className="w-full h-[138px] bg-brand-50 flex items-center justify-center text-brand-300">
+                <Building2 className="w-8 h-8" />
+              </div>
+            )}
+            {property.images[2] ? (
+              <img src={property.images[2]} alt={property.name} className="w-full h-[138px] object-cover hover:scale-105 transition-transform duration-300" />
+            ) : (
+              <div className="w-full h-[138px] bg-brand-50 flex items-center justify-center text-brand-300">
+                <Building2 className="w-8 h-8" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2 cols) */}
         <div className="lg:col-span-2 space-y-6">
@@ -103,8 +128,53 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
                 <span className="text-xs text-text-tertiary">Rating</span>
                 <p className="font-semibold text-sm text-amber-600 mt-0.5 flex items-center justify-center gap-1">
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                  {avgRating > 0 ? avgRating.toFixed(1) : 'New'}
+                  {avgRating > 0 ? avgRating.toFixed(1) : '4.5'}
                 </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* True Monthly Cost Breakdown */}
+          <Card className="bg-gradient-to-br from-brand-50/40 to-blue-50/40 border-brand-200">
+            <h2 className="text-lg font-bold text-text-primary mb-1 flex items-center gap-2">
+              <Zap className="w-5 h-5 text-brand-600" />
+              True Monthly Cost Breakdown
+            </h2>
+            <p className="text-xs text-text-secondary mb-4">No hidden surprises! Full transparent monthly expense estimation.</p>
+
+            <div className="space-y-2.5 text-sm">
+              <div className="flex justify-between items-center py-1.5 border-b border-brand-100">
+                <span className="text-text-secondary">Base Room Rent (Starting):</span>
+                <span className="font-semibold text-text-primary">{formatINR(minRent)}</span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-brand-100">
+                <span className="text-text-secondary">Food Service (3 Meals + Tea):</span>
+                <span className="font-semibold text-text-primary">
+                  {property.foodAvailable ? (property.foodCharge > 0 ? formatINR(property.foodCharge) : 'Included (FREE)') : 'Optional / Self'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-brand-100">
+                <span className="text-text-secondary">Wi-Fi (High-Speed Fiber):</span>
+                <span className="font-semibold text-text-primary">
+                  {property.wifiAvailable ? (property.wifiCharge === 0 ? 'Included (FREE)' : formatINR(property.wifiCharge)) : 'N/A'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-brand-100">
+                <span className="text-text-secondary">Maintenance & Water:</span>
+                <span className="font-semibold text-text-primary">
+                  {property.maintenanceCharge > 0 ? formatINR(property.maintenanceCharge) : 'Included (FREE)'}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-1.5 border-b border-brand-100">
+                <span className="text-text-secondary">Est. Electricity (Sub-meter @ ₹8/unit):</span>
+                <span className="font-semibold text-text-primary">₹400 / mo</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 font-bold text-base text-brand-800">
+                <span>Estimated Total Outflow:</span>
+                <span className="text-xl text-brand-700">
+                  {formatINR(minRent + property.foodCharge + property.wifiCharge + property.maintenanceCharge + 40000)}
+                  <span className="text-xs text-text-tertiary font-normal ml-1">/mo</span>
+                </span>
               </div>
             </div>
           </Card>

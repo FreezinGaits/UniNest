@@ -60,6 +60,7 @@ export default function StudentSearchPage() {
     gender: '',
     amenity: '',
     verifiedOnly: false,
+    maxDistance: '',
   });
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function StudentSearchPage() {
         if (filters.sharing) params.set('sharing', filters.sharing);
         if (filters.gender) params.set('gender', filters.gender);
         if (filters.verifiedOnly) params.set('verified', 'true');
+        if (filters.maxDistance) params.set('maxDistance', filters.maxDistance);
         if (sortBy) params.set('sort', sortBy);
 
         const res = await fetch(`/api/properties/search?${params.toString()}`);
@@ -181,7 +183,7 @@ export default function StudentSearchPage() {
         <Card className="animate-fade-in">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-text-primary">Filters</h3>
-            <button onClick={() => setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false })} className="text-xs text-brand-600 font-medium">
+            <button onClick={() => setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false, maxDistance: '' })} className="text-xs text-brand-600 font-medium">
               Clear All
             </button>
           </div>
@@ -220,6 +222,18 @@ export default function StudentSearchPage() {
                 { value: '', label: 'Any' },
                 { value: 'MALE', label: 'Boys' },
                 { value: 'FEMALE', label: 'Girls' },
+              ]}
+            />
+            <Select
+              label="Max Distance"
+              value={filters.maxDistance}
+              onChange={(e) => setFilters({ ...filters, maxDistance: e.target.value })}
+              options={[
+                { value: '', label: 'Any Distance' },
+                { value: '1', label: '< 1 km from PCTE' },
+                { value: '2', label: '< 2 km from PCTE' },
+                { value: '3', label: '< 3 km from PCTE' },
+                { value: '5', label: '< 5 km from PCTE' },
               ]}
             />
             <div className="flex items-end">
@@ -279,7 +293,7 @@ export default function StudentSearchPage() {
           title="No PGs Found"
           description="Try adjusting your search or filters to find more options."
           action={
-            <Button variant="outline" onClick={() => { setSearchQuery(''); setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false }); }}>
+            <Button variant="outline" onClick={() => { setSearchQuery(''); setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false, maxDistance: '' }); }}>
               Clear Filters
             </Button>
           }
@@ -292,12 +306,14 @@ export default function StudentSearchPage() {
                 {/* Image */}
                 <div className="relative h-44 bg-gradient-to-br from-brand-100 to-blue-100">
                   {property.images && property.images.length > 0 ? (
-                    <div className="w-full h-full bg-surface-tertiary flex items-center justify-center">
-                      <Building2 className="w-10 h-10 text-text-tertiary" />
-                    </div>
+                    <img
+                      src={property.images[0]}
+                      alt={property.name}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Building2 className="w-10 h-10 text-brand-300" />
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-50 to-blue-100">
+                      <Building2 className="w-12 h-12 text-brand-300" />
                     </div>
                   )}
                   {/* Badges */}

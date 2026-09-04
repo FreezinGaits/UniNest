@@ -102,6 +102,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const maxDistance = searchParams.get('maxDistance');
+    if (maxDistance) {
+      const maxDistNum = parseFloat(maxDistance);
+      sorted = sorted.filter(p => {
+        const d = p.collegeLinks[0]?.distance;
+        return d !== null && d !== undefined && d <= maxDistNum;
+      });
+    }
+
     return NextResponse.json({ properties: sorted });
   } catch (error) {
     console.error('Search error:', error);
