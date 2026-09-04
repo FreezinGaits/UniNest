@@ -152,7 +152,7 @@ export default function MyStayDetailsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-brand-600" /> Accidental Micro-Damage Protection
+              <ShieldCheck className="w-5 h-5 text-brand-600" /> Up to ₹5,000 Accidental Micro-Damage Protection
             </h2>
             <p className="text-xs text-text-secondary">UniNest automatically covers up to ₹5,000 in minor accidental property damage per tenancy</p>
           </div>

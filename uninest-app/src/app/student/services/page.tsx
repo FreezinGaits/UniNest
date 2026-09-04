@@ -75,7 +75,7 @@ export default function OnDemandServicesPage() {
             </Badge>
             <h2 className="text-xl font-bold">1-Click Service Orders & Subscriptions</h2>
             <p className="text-xs text-brand-200">
-              Orders automatically split payouts: <strong>85% Provider</strong> · <strong>10% UniNest Platform Fee</strong> · <strong>5% Landlord Commission</strong>
+              Illustrative Demo Commission Split: <strong>85% Provider</strong> · <strong>10% UniNest Platform Fee</strong> · <strong>5% Landlord Commission</strong> (Percentages configurable in Admin settings)
             </p>
           </div>
         </div>

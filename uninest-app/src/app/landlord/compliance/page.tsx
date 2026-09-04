@@ -68,8 +68,11 @@ export default async function TenantVerificationPoliceClearancePage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Tenant Verification</h1>
-          <p className="text-text-secondary mt-1">UniNest facilitates and tracks the applicable tenant-verification workflow</p>
+          <h1 className="text-2xl font-bold text-text-primary">Tenant Verification Workflow</h1>
+          <p className="text-text-secondary mt-1">UniNest facilitates and tracks the applicable tenant-verification workflow.</p>
+          <p className="text-xs text-amber-800 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200 mt-2 font-medium">
+            ⚠️ Disclaimer: UniNest standardizes document collection & submission workflows. Official tenant background/police verification remains strictly with the relevant municipal or police authority.
+          </p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Shield className="w-6 h-6 text-brand-600" />
