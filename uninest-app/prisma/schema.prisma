@@ -1,0 +1,944 @@
+// UniNest — Student PG Accommodation Platform
+// Database Schema: PostgreSQL + Prisma
+// Money stored as integer paise (₹1 = 100 paise)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  STUDENT
+  LANDLORD
+  ADMIN
+  COLLEGE
+  PROVIDER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  ANY
+}
+
+enum BedStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  NOTICE_PERIOD
+  MAINTENANCE_HOLD
+  BLOCKED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  KYC_PENDING
+  AGREEMENT_PENDING
+  VERIFICATION_PENDING
+  MOVE_IN_READY
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum PaymentType {
+  RESERVATION_FEE
+  RENT
+  DEPOSIT
+  ELECTRICITY
+  SERVICE
+  SUBSCRIPTION
+  COMMISSION
+}
+
+enum KYCStatus {
+  NOT_STARTED
+  SUBMITTED
+  IN_PROGRESS
+  VERIFIED
+  NEEDS_ACTION
+}
+
+enum VerificationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  NEEDS_RECHECK
+  SUSPENDED
+}
+
+enum TenantVerificationStatus {
+  READY
+  SUBMITTED
+  PROCESSING
+  INFO_REQUIRED
+  COMPLETED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  REOPENED
+}
+
+enum DisputeStatus {
+  OPEN
+  EVIDENCE_SUBMITTED
+  RESPONSE_PENDING
+  UNDER_REVIEW
+  RESOLVED
+  ESCALATED
+  CLOSED
+}
+
+enum DisputeCategory {
+  PAYMENT
+  DEPOSIT
+  DAMAGE
+  ELECTRICITY
+  MAINTENANCE
+  LISTING
+  BOOKING
+  AGREEMENT
+  RULES
+  SAFETY
+  SERVICE
+}
+
+enum ServiceOrderStatus {
+  REQUESTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EmergencyCategory {
+  LIFE_SAFETY
+  MEDICAL
+  FIRE
+  PROPERTY
+  URGENT_MAINTENANCE
+}
+
+enum AgreementStatus {
+  DRAFT
+  SENT
+  REVIEWED
+  SIGNED
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum RentStatus {
+  UPCOMING
+  DUE
+  PAID
+  OVERDUE
+  PARTIAL
+  WAIVED
+}
+
+enum NotificationType {
+  BOOKING
+  KYC
+  AGREEMENT
+  VERIFICATION
+  RENT
+  ELECTRICITY
+  MAINTENANCE
+  EMERGENCY
+  SERVICE
+  DISPUTE
+  MOVE_OUT
+  VACANCY
+  SYSTEM
+}
+
+// ─── USER & ROLE MODELS ─────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         UserRole
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  student         Student?
+  landlord        Landlord?
+  college         College?
+  serviceProvider ServiceProvider?
+
+  bookings       Booking[]
+  payments       Payment[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  reviews        Review[]
+  disputes       Dispute[]       @relation("DisputeReporter")
+  disputeResponses Dispute[]     @relation("DisputeRespondent")
+  documents      Document[]
+  referralsMade  Referral[]      @relation("Referrer")
+  referralsReceived Referral[]   @relation("Referred")
+
+  @@index([role])
+  @@index([email])
+}
+
+model Student {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeName    String?
+  collegeId      String?
+  college        College? @relation(fields: [collegeId], references: [id])
+  enrollmentNo   String?
+  course         String?
+  year           Int?
+  dob            DateTime?
+  permanentAddr  String?
+  currentAddr    String?
+  emergencyName  String?
+  emergencyPhone String?
+  emergencyRel   String?
+  isInternational Boolean @default(false)
+  passportNo     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Roommate preferences
+  sleepSchedule   String?
+  studyHabits     String?
+  cleanliness     Int?     @default(3) // 1-5
+  noisePref       String?
+  smokingPref     String?
+  foodPref        String?
+  socialPref      String?
+  budgetMin       Int?     // paise
+  budgetMax       Int?     // paise
+  acPref          Boolean?
+
+  tenancies       Tenancy[]
+  kycRecords      KYCRecord[]
+  waitlistEntries WaitlistEntry[]
+  savedListings   SavedListing[]
+  conditionReports MoveInConditionReport[]
+
+  @@index([collegeId])
+}
+
+model Landlord {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String?
+  panNo       String?
+  gstNo       String?
+  bankAccount String?
+  ifscCode    String?
+  plan        String   @default("FREE") // FREE, PRO, BUSINESS, PORTFOLIO
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  properties  Property[]
+  rewards     LandlordReward[]
+}
+
+model College {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeName     String
+  address         String?
+  city            String?
+  state           String?
+  hostelCapacity  Int      @default(0)
+  totalStudents   Int      @default(0)
+  latitude        Float?
+  longitude       Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  students        Student[]
+  verifiedPGs     PropertyCollegeLink[]
+}
+
+// ─── PROPERTY HIERARCHY ─────────────────────────────────────────────────────
+
+model Property {
+  id            String   @id @default(cuid())
+  landlordId    String
+  landlord      Landlord @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+
+  name          String
+  type          String   @default("PG") // PG, HOSTEL, FLAT, APARTMENT
+  address       String
+  city          String
+  state         String
+  pincode       String
+  latitude      Float?
+  longitude     Float?
+  gender        Gender   @default(ANY)
+  description   String?
+
+  // Media
+  images        String[] // JSON array of image URLs
+  videoUrl      String?
+
+  // Amenities (stored as JSON array of strings)
+  amenities     String[]
+  // Rules (stored as JSON array of strings)
+  rules         String[]
+
+  // Charges (paise)
+  electricityRate Int    @default(800) // per unit in paise
+  wifiAvailable   Boolean @default(false)
+  wifiCharge      Int     @default(0) // monthly paise
+  foodAvailable   Boolean @default(false)
+  foodCharge      Int     @default(0) // monthly paise
+  laundryAvailable Boolean @default(false)
+  laundryCharge    Int     @default(0) // monthly paise
+  maintenanceCharge Int    @default(0) // monthly paise
+  parkingAvailable  Boolean @default(false)
+  parkingCharge     Int     @default(0)
+
+  // Verification
+  verificationStatus VerificationStatus @default(DRAFT)
+  verifiedAt         DateTime?
+  verificationNotes  String?
+  lastAvailabilityConfirm DateTime?
+
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  rooms         Room[]
+  listings      Listing[]
+  bookings      Booking[]
+  maintenanceTickets MaintenanceTicket[]
+  emergencyIncidents EmergencyIncident[]
+  reviews       Review[]
+  collegeLinks  PropertyCollegeLink[]
+  electricityMeters ElectricityMeter[]
+
+  @@index([landlordId])
+  @@index([city])
+  @@index([verificationStatus])
+}
+
+model PropertyCollegeLink {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  collegeId  String
+  college    College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  distance   Float?   // km
+  createdAt  DateTime @default(now())
+
+  @@unique([propertyId, collegeId])
+}
+
+model Room {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  roomNumber  String
+  floor       Int      @default(0)
+  sharing     Int      @default(2) // number of beds
+  hasAC       Boolean  @default(false)
+  hasCooler   Boolean  @default(false)
+  hasAttBath  Boolean  @default(false)
+  rent        Int      // per bed per month in paise
+  deposit     Int      // per bed in paise
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  beds        Bed[]
+
+  @@index([propertyId])
+}
+
+model Bed {
+  id         String    @id @default(cuid())
+  roomId     String
+  room       Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  label      String    // "A", "B", "C"
+  status     BedStatus @default(AVAILABLE)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenancies       Tenancy[]
+  bookings        Booking[]
+  waitlistEntries WaitlistEntry[]
+
+  @@index([roomId])
+  @@index([status])
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  lastRefreshed DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([isActive])
+}
+
+model SavedListing {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  @@unique([studentId, propertyId])
+}
+
+// ─── BOOKING & TENANCY ──────────────────────────────────────────────────────
+
+model Booking {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  propertyId    String
+  property      Property      @relation(fields: [propertyId], references: [id])
+  bedId         String
+  bed           Bed           @relation(fields: [bedId], references: [id])
+  status        BookingStatus @default(PENDING)
+  reservationFee Int          @default(39900) // ₹399 in paise
+  moveInDate    DateTime?
+  expiresAt     DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenancy       Tenancy?
+  agreement     Agreement?
+
+  @@index([userId])
+  @@index([bedId])
+  @@index([status])
+}
+
+model Tenancy {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  bedId       String
+  bed         Bed      @relation(fields: [bedId], references: [id])
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean  @default(true)
+  noticePeriodStart DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rentRecords  RentRecord[]
+  deposits     Deposit[]
+
+  @@index([studentId])
+  @@index([bedId])
+  @@index([isActive])
+}
+
+model Agreement {
+  id          String          @id @default(cuid())
+  bookingId   String          @unique
+  booking     Booking         @relation(fields: [bookingId], references: [id])
+  templateType String         @default("11_MONTH")
+  startDate   DateTime
+  endDate     DateTime
+  rent        Int             // paise
+  deposit     Int             // paise
+  noticePeriod Int            @default(30) // days
+  terms       String?
+  status      AgreementStatus @default(DRAFT)
+  landlordSigned Boolean      @default(false)
+  tenantSigned   Boolean      @default(false)
+  signedAt    DateTime?
+  documentUrl String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+// ─── KYC & VERIFICATION ─────────────────────────────────────────────────────
+
+model KYCRecord {
+  id           String    @id @default(cuid())
+  studentId    String
+  student      Student   @relation(fields: [studentId], references: [id])
+  status       KYCStatus @default(NOT_STARTED)
+  documentType String?
+  documentNo   String?
+  documentUrl  String?
+  photoUrl     String?
+  verifiedAt   DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([studentId])
+}
+
+model TenantVerification {
+  id            String                   @id @default(cuid())
+  referenceNo   String                   @unique
+  studentName   String
+  studentPhone  String?
+  permanentAddr String?
+  currentAddr   String?
+  landlordName  String?
+  propertyAddr  String?
+  status        TenantVerificationStatus @default(READY)
+  submittedAt   DateTime?
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+}
+
+// ─── PAYMENTS & RENT ─────────────────────────────────────────────────────────
+
+model Payment {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id])
+  amount        Int           // paise
+  type          PaymentType
+  status        PaymentStatus @default(PENDING)
+  method        String?       // UPI, CARD, NETBANKING
+  transactionId String?       @unique
+  description   String?
+  metadata      String?       // JSON for extra info
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+model RentRecord {
+  id          String     @id @default(cuid())
+  tenancyId   String
+  tenancy     Tenancy    @relation(fields: [tenancyId], references: [id])
+  month       Int        // 1-12
+  year        Int
+  amountDue   Int        // paise
+  amountPaid  Int        @default(0)
+  dueDate     DateTime
+  paidDate    DateTime?
+  status      RentStatus @default(UPCOMING)
+  autoPayEnabled Boolean @default(false)
+  paymentId   String?
+  gracePeriodEnd DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([tenancyId, year, month])
+  @@index([status])
+}
+
+model Deposit {
+  id           String   @id @default(cuid())
+  tenancyId    String
+  tenancy      Tenancy  @relation(fields: [tenancyId], references: [id])
+  amount       Int      // paise
+  paidDate     DateTime?
+  refundAmount Int?
+  deductions   String?  // JSON array of deductions
+  refundDate   DateTime?
+  status       String   @default("HELD") // HELD, PARTIALLY_REFUNDED, REFUNDED, FORFEITED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenancyId])
+}
+
+// ─── ELECTRICITY ─────────────────────────────────────────────────────────────
+
+model ElectricityMeter {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  meterNo    String
+  location   String?  // "Room 201", "Common"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  readings   ElectricityReading[]
+
+  @@index([propertyId])
+}
+
+model ElectricityReading {
+  id         String           @id @default(cuid())
+  meterId    String
+  meter      ElectricityMeter @relation(fields: [meterId], references: [id], onDelete: Cascade)
+  reading    Int              // units
+  readingDate DateTime
+  photoUrl   String?
+  createdAt  DateTime         @default(now())
+
+  charges    UtilityCharge[]
+
+  @@index([meterId])
+}
+
+model UtilityCharge {
+  id          String             @id @default(cuid())
+  readingId   String
+  reading     ElectricityReading @relation(fields: [readingId], references: [id])
+  units       Int
+  rate        Int                // paise per unit
+  amount      Int                // paise
+  tenantName  String?
+  isPaid      Boolean            @default(false)
+  paidDate    DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+// ─── MAINTENANCE & EMERGENCY ─────────────────────────────────────────────────
+
+model MaintenanceTicket {
+  id           String              @id @default(cuid())
+  propertyId   String
+  property     Property            @relation(fields: [propertyId], references: [id])
+  reportedBy   String              // user name
+  reporterId   String?             // user id
+  category     String              // PLUMBING, ELECTRICAL, FURNITURE, etc.
+  description  String
+  priority     MaintenancePriority @default(MEDIUM)
+  status       MaintenanceStatus   @default(OPEN)
+  photoUrls    String[]
+  videoUrl     String?
+  assignedTo   String?             // provider name
+  providerId   String?
+  estimatedCost Int?
+  actualCost    Int?
+  resolvedAt    DateTime?
+  resolutionNote String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model EmergencyIncident {
+  id           String            @id @default(cuid())
+  propertyId   String
+  property     Property          @relation(fields: [propertyId], references: [id])
+  reportedBy   String
+  reporterId   String?
+  category     EmergencyCategory
+  description  String
+  isDanger     Boolean           @default(false)
+  providerName String?
+  providerETA  String?
+  status       String            @default("REPORTED") // REPORTED, RESPONDING, RESOLVED
+  resolvedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([propertyId])
+}
+
+// ─── DISPUTES ────────────────────────────────────────────────────────────────
+
+model Dispute {
+  id            String          @id @default(cuid())
+  caseId        String          @unique // e.g. UN-DMG-00452
+  reporterId    String
+  reporter      User            @relation("DisputeReporter", fields: [reporterId], references: [id])
+  respondentId  String?
+  respondent    User?           @relation("DisputeRespondent", fields: [respondentId], references: [id])
+  category      DisputeCategory
+  title         String
+  description   String
+  status        DisputeStatus   @default(OPEN)
+  resolution    String?
+  resolvedAt    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  evidence      DisputeEvidence[]
+
+  @@index([reporterId])
+  @@index([status])
+}
+
+model DisputeEvidence {
+  id         String   @id @default(cuid())
+  disputeId  String
+  dispute    Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  type       String   // PHOTO, DOCUMENT, AGREEMENT, PAYMENT_RECORD, METER_READING
+  label      String
+  url        String?
+  content    String?
+  uploadedBy String
+  createdAt  DateTime @default(now())
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────────────────────────
+
+model Review {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  cleanliness Int      @default(3) // 1-5
+  landlord    Int      @default(3)
+  maintenance Int      @default(3)
+  food        Int      @default(3)
+  wifi        Int      @default(3)
+  safety      Int      @default(3)
+  accuracy    Int      @default(3)
+  overall     Int      @default(3)
+  comment     String?
+  isVerifiedStay Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([propertyId])
+}
+
+// ─── SERVICES & PROVIDERS ────────────────────────────────────────────────────
+
+model ServiceProvider {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  categories   String[] // service categories
+  coverageArea String?
+  isVerified   Boolean  @default(false)
+  isAvailable  Boolean  @default(true)
+  rating       Float    @default(0)
+  totalJobs    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  serviceOrders ServiceOrder[]
+}
+
+model ServiceCategory {
+  id          String @id @default(cuid())
+  name        String @unique
+  icon        String?
+  description String?
+  parentId    String?
+  isActive    Boolean @default(true)
+}
+
+model ServiceOrder {
+  id            String             @id @default(cuid())
+  providerId    String
+  provider      ServiceProvider    @relation(fields: [providerId], references: [id])
+  customerName  String
+  customerId    String?
+  propertyId    String?
+  serviceName   String
+  categoryName  String
+  description   String?
+  status        ServiceOrderStatus @default(REQUESTED)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  amount        Int                // paise
+  commission    Int                @default(0) // paise (UniNest's cut)
+  landlordShare Int                @default(0) // paise
+  rating        Int?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  commissionRecord Commission?
+
+  @@index([providerId])
+  @@index([status])
+}
+
+model Commission {
+  id             String       @id @default(cuid())
+  serviceOrderId String       @unique
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id])
+  totalAmount    Int          // customer paid (paise)
+  vendorAmount   Int          // vendor gets (paise)
+  uninestAmount  Int          // uninest gets (paise)
+  landlordAmount Int          // landlord reward (paise)
+  createdAt      DateTime     @default(now())
+}
+
+model LandlordReward {
+  id          String   @id @default(cuid())
+  landlordId  String
+  landlord    Landlord @relation(fields: [landlordId], references: [id])
+  source      String   // "wifi", "laundry", "food", "referral", etc.
+  amount      Int      // paise
+  description String?
+  month       Int
+  year        Int
+  createdAt   DateTime @default(now())
+
+  @@index([landlordId])
+}
+
+// ─── MOVE-IN/OUT ─────────────────────────────────────────────────────────────
+
+model MoveInConditionReport {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+  propertyId   String
+  roomNumber   String
+  bedLabel     String
+  items        String   // JSON: [{item, condition, photo}]
+  photoUrls    String[]
+  videoUrl     String?
+  studentAccepted Boolean @default(false)
+  landlordAccepted Boolean @default(false)
+  acceptedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── WAITLIST ────────────────────────────────────────────────────────────────
+
+model WaitlistEntry {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  bedId      String?
+  bed        Bed?     @relation(fields: [bedId], references: [id])
+  propertyId String?
+  preferences String? // JSON
+  isActive   Boolean  @default(true)
+  notifiedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ─── GUEST STAY ──────────────────────────────────────────────────────────────
+
+model GuestStay {
+  id          String   @id @default(cuid())
+  propertyId  String
+  studentName String
+  guestName   String
+  nights      Int
+  pricePerNight Int    // paise
+  totalAmount Int      // paise
+  checkIn     DateTime
+  checkOut    DateTime
+  status      String   @default("BOOKED") // BOOKED, CHECKED_IN, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── REFERRALS ───────────────────────────────────────────────────────────────
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referrer       User     @relation("Referrer", fields: [referrerId], references: [id])
+  referredId     String?
+  referred       User?    @relation("Referred", fields: [referredId], references: [id])
+  referralCode   String   @unique
+  qualifyingEvent String? // "BOOKING_COMPLETED", "FIRST_RENT_PAID"
+  rewardAmount   Int?     // paise
+  status         String   @default("PENDING") // PENDING, QUALIFIED, REWARDED, EXPIRED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String
+  isRead     Boolean          @default(false)
+  actionUrl  String?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// ─── DOCUMENTS ───────────────────────────────────────────────────────────────
+
+model Document {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  type       String   // AGREEMENT, KYC, IDENTITY, RECEIPT, OTHER
+  url        String
+  isPrivate  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── AUDIT LOG ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String   // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entity     String   // Property, Booking, Payment, etc.
+  entityId   String?
+  oldValue   String?  // JSON
+  newValue   String?  // JSON
+  reason     String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
