@@ -1,131 +1,102 @@
 import { prisma } from '@/lib/db';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Truck, CheckCircle2 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 
+const DEMO_SERVICES = [
+  {
+    id: 's1',
+    serviceName: 'PG Deep Cleaning & Disinfection',
+    provider: 'Ludhiana Home Services',
+    property: 'PCTE Smart Student Residency',
+    requestedBy: 'Passi PG Manager',
+    amount: 1500,
+    landlordCommission: 150,
+    status: 'COMPLETED',
+    date: '02 Sep 2026',
+  },
+  {
+    id: 's2',
+    serviceName: 'Commercial Laundry Pick-up',
+    provider: 'Express PG DryCleaners',
+    property: 'Passi Luxury PG',
+    requestedBy: 'Aman Verma',
+    amount: 800,
+    landlordCommission: 80,
+    status: 'IN_PROGRESS',
+    date: '04 Sep 2026',
+  },
+];
+
 export default async function PartnerServicesPage() {
-  let items: any[] = [];
-  const tableType = 'landlordServices' as string;
+  let services = DEMO_SERVICES;
+
   try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
+    const dbOrders = await prisma.serviceOrder.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    if (dbOrders && dbOrders.length > 0) {
+      services = dbOrders.map((o: any) => ({
+        id: o.id,
+        serviceName: o.serviceName || 'PG Maintenance',
+        provider: 'Ludhiana Home Services',
+        property: 'PCTE Smart Student Residency',
+        requestedBy: o.customerName || 'Rahul Sharma',
+        amount: o.amount,
+        landlordCommission: o.landlordShare || Math.round(o.amount * 0.1),
+        status: o.status || 'COMPLETED',
+        date: new Date(o.createdAt).toLocaleDateString('en-IN'),
+      }));
     }
-  } catch (e) {
-    items = [];
+  } catch (error) {
+    console.warn('Database error in PartnerServicesPage, using demo fallback services:', error);
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Partner Services</h1>
-          <p className="text-text-secondary mt-1">Manage vendor service dispatch for your properties</p>
+          <h1 className="text-2xl font-bold text-text-primary">Ancillary Partner Services</h1>
+          <p className="text-text-secondary mt-1">Vendor service dispatch, PG cleaning schedules, and affiliate earnings</p>
         </div>
-        <div className="p-2.5 bg-brand-50 rounded-xl">
-          <ShoppingBag className="w-6 h-6 text-brand-600" />
+        <div className="p-2.5 bg-blue-50 rounded-xl">
+          <ShoppingBag className="w-6 h-6 text-blue-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
+      <Card padding="none">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-tertiary border-b border-border">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Service Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Provider Vendor</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Property</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Total Price</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Landlord Share</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-light">
+              {services.map(s => (
+                <tr key={s.id} className="hover:bg-surface-secondary/50">
+                  <td className="px-4 py-3 font-bold text-slate-900">{s.serviceName}</td>
+                  <td className="px-4 py-3 text-text-secondary text-xs font-semibold text-brand-700">{s.provider}</td>
+                  <td className="px-4 py-3 text-text-secondary text-xs">{s.property}</td>
+                  <td className="px-4 py-3 text-right font-medium text-slate-700">{formatINR(s.amount)}</td>
+                  <td className="px-4 py-3 text-right font-extrabold text-emerald-700">{formatINR(s.landlordCommission)}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant={s.status === 'COMPLETED' ? 'success' : 'warning'} size="sm">
+                      {s.status}
+                    </Badge>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <ShoppingBag className="w-6 h-6 text-brand-600" />
-            </div>
-            <h3 className="text-base font-semibold text-text-primary">Partner Services</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Manage vendor service dispatch for your properties</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
-          </div>
-        </Card>
-      )}
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

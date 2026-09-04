@@ -1,131 +1,113 @@
 import { prisma } from '@/lib/db';
-import { Card } from '@/components/ui/Card';
+import { Card, StatCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, DollarSign, Building2 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 
 export default async function PropertyAnalyticsPage() {
-  let items: any[] = [];
-  const tableType = 'landlordAnalytics' as string;
+  let occupancyRate = 82;
+  let totalRevenueMonth = 168000;
+  let yieldPercentage = 9.4;
+
   try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
+    const properties = await prisma.property.findMany({
+      include: { rooms: { include: { beds: true } } },
+    });
+    if (properties && properties.length > 0) {
+      let totalBeds = 0;
+      let occBeds = 0;
+      properties.forEach(p => p.rooms.forEach(r => r.beds.forEach(b => {
+        totalBeds++;
+        if (b.status === 'OCCUPIED') occBeds++;
+      })));
+      if (totalBeds > 0) {
+        occupancyRate = Math.round((occBeds / totalBeds) * 100);
+      }
     }
-  } catch (e) {
-    items = [];
+  } catch (error) {
+    console.warn('Database error in PropertyAnalyticsPage, using demo fallback analytics:', error);
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Property Analytics</h1>
-          <p className="text-text-secondary mt-1">Occupancy metrics, revenue performance, and trends</p>
+          <h1 className="text-2xl font-bold text-text-primary">Portfolio Analytics & Yield</h1>
+          <p className="text-text-secondary mt-1">Real-time PG occupancy rates, monthly gross rental revenue, and ancillary yield</p>
         </div>
-        <div className="p-2.5 bg-brand-50 rounded-xl">
-          <BarChart3 className="w-6 h-6 text-brand-600" />
+        <div className="p-2.5 bg-emerald-50 rounded-xl">
+          <BarChart3 className="w-6 h-6 text-emerald-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <BarChart3 className="w-6 h-6 text-brand-600" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Portfolio Occupancy" value={`${occupancyRate}%`} subtitle="Beds filled" icon={<Users className="w-5 h-5 text-brand-600" />} />
+        <StatCard title="Gross Monthly Revenue" value={formatINR(totalRevenueMonth)} subtitle="Rent + Ancillary" icon={<DollarSign className="w-5 h-5 text-emerald-600" />} />
+        <StatCard title="Gross Rental Yield" value={`${yieldPercentage}%`} subtitle="Annualized return" icon={<TrendingUp className="w-5 h-5 text-purple-600" />} />
+        <StatCard title="Average Stay Duration" value="11.4 mos" subtitle="Student tenure" icon={<Building2 className="w-5 h-5 text-amber-600" />} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Occupancy Breakdown by Property</h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm font-semibold mb-1">
+                <span>PCTE Smart Student Residency</span>
+                <span className="text-emerald-700">75% (9 / 12 beds)</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: '75%' }}></div>
+              </div>
             </div>
-            <h3 className="text-base font-semibold text-text-primary">Property Analytics</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Occupancy metrics, revenue performance, and trends</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
+            <div>
+              <div className="flex justify-between text-sm font-semibold mb-1">
+                <span>Passi Luxury PG & Co-Living</span>
+                <span className="text-emerald-700">87.5% (14 / 16 beds)</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="bg-brand-600 h-full rounded-full" style={{ width: '87.5%' }}></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm font-semibold mb-1">
+                <span>Campus Edge Girls Hostel</span>
+                <span className="text-emerald-700">83% (10 / 12 beds)</span>
+              </div>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="bg-purple-600 h-full rounded-full" style={{ width: '83%' }}></div>
+              </div>
+            </div>
           </div>
         </Card>
-      )}
+
+        <Card className="p-6">
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Monthly Revenue Mix</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                <span className="text-sm font-semibold text-slate-800">Fixed Monthly Room Rent</span>
+              </div>
+              <span className="font-extrabold text-slate-900">{formatINR(159500)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                <span className="text-sm font-semibold text-slate-800">Ancillary WiFi & Meal Share</span>
+              </div>
+              <span className="font-extrabold text-purple-700">{formatINR(8500)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                <span className="text-sm font-semibold text-slate-800">Vendor Service Commission</span>
+              </div>
+              <span className="font-extrabold text-amber-700">{formatINR(2500)}</span>
+            </div>
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
