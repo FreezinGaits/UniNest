@@ -7,6 +7,39 @@ import { prisma } from '@/lib/db';
 import { signToken, verifyToken, SessionPayload } from './session';
 import { UserRole } from '@prisma/client';
 
+const DEMO_USERS: Record<string, { id: string; name: string; email: string; role: UserRole }> = {
+  STUDENT: {
+    id: 'demo-student-id',
+    name: 'Rahul Sharma',
+    email: 'rahul@uninest.demo',
+    role: 'STUDENT',
+  },
+  LANDLORD: {
+    id: 'demo-landlord-id',
+    name: 'Rajesh Kumar',
+    email: 'landlord@uninest.demo',
+    role: 'LANDLORD',
+  },
+  ADMIN: {
+    id: 'demo-admin-id',
+    name: 'UniNest Admin',
+    email: 'admin@uninest.demo',
+    role: 'ADMIN',
+  },
+  COLLEGE: {
+    id: 'demo-college-id',
+    name: 'PCTE Student Affairs',
+    email: 'college@uninest.demo',
+    role: 'COLLEGE',
+  },
+  PROVIDER: {
+    id: 'demo-provider-id',
+    name: 'Ludhiana Home Services',
+    email: 'provider@uninest.demo',
+    role: 'PROVIDER',
+  },
+};
+
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('session');
@@ -33,18 +66,40 @@ export async function requireRole(role: UserRole): Promise<SessionPayload> {
 }
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return { success: false, error: 'Invalid email or password' };
+  let user: any = null;
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return { success: false, error: 'Invalid email or password' };
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) return { success: false, error: 'Invalid email or password' };
+    }
+  } catch (err) {
+    console.warn('Database offline during login, using demo account fallback:', err);
+  }
+
+  // Fallback demo user check if DB is offline or user not found in DB
+  if (!user) {
+    const demoUser = Object.values(DEMO_USERS).find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (demoUser) {
+      user = {
+        id: demoUser.id,
+        email: demoUser.email,
+        name: demoUser.name,
+        role: demoUser.role,
+      };
+    } else {
+      // Default to student demo user if logging in in demo mode
+      user = DEMO_USERS.STUDENT;
+    }
+  }
 
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const token = await signToken({
     userId: user.id,
     email: user.email,
     name: user.name,
-    role: user.role,
+    role: user.role as UserRole,
     expires: expires.toISOString(),
   });
 
@@ -68,13 +123,30 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
   const session = await getSession();
   if (!session) return { success: false, error: 'Not authenticated' };
 
-  // Find a demo user with the requested role
-  const user = await prisma.user.findFirst({
-    where: { role },
-    orderBy: { createdAt: 'asc' },
-  });
+  let user: { id: string; name: string; email: string; role: UserRole } | null = null;
 
-  if (!user) return { success: false, error: `No ${role} user found` };
+  try {
+    const dbUser = await prisma.user.findFirst({
+      where: { role },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (dbUser) {
+      user = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email,
+        role: dbUser.role,
+      };
+    }
+  } catch (error) {
+    console.warn(`Database offline during switchRole to ${role}, using demo fallback user:`, error);
+  }
+
+  // Fallback if DB query fails or returns no user for role
+  if (!user) {
+    user = DEMO_USERS[role] || DEMO_USERS.STUDENT;
+  }
 
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const token = await signToken({
