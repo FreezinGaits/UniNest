@@ -68,8 +68,8 @@ export default async function TenantVerificationPoliceClearancePage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Tenant Verification & Police Clearance</h1>
-          <p className="text-text-secondary mt-1">Submit and track police verification forms for tenants</p>
+          <h1 className="text-2xl font-bold text-text-primary">Tenant Verification</h1>
+          <p className="text-text-secondary mt-1">UniNest facilitates and tracks the applicable tenant-verification workflow</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Shield className="w-6 h-6 text-brand-600" />
@@ -120,8 +120,8 @@ export default async function TenantVerificationPoliceClearancePage() {
             <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
               <Shield className="w-6 h-6 text-brand-600" />
             </div>
-            <h3 className="text-base font-semibold text-text-primary">Tenant Verification & Police Clearance</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Submit and track police verification forms for tenants</p>
+            <h3 className="text-base font-semibold text-text-primary">Tenant Verification</h3>
+            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">UniNest facilitates and tracks the applicable tenant-verification workflow</p>
             <Badge variant="outline">UniNest Demo Module</Badge>
           </div>
         </Card>

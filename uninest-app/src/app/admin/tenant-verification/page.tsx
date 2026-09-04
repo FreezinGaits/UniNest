@@ -69,7 +69,7 @@ export default async function TenantVerificationPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Tenant Verification</h1>
-          <p className="text-text-secondary mt-1">Police verification and background clearance tracking</p>
+          <p className="text-text-secondary mt-1">Demo tenant verification workflow and tracking</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Eye className="w-6 h-6 text-brand-600" />
@@ -121,7 +121,7 @@ export default async function TenantVerificationPage() {
               <Eye className="w-6 h-6 text-brand-600" />
             </div>
             <h3 className="text-base font-semibold text-text-primary">Tenant Verification</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Police verification and background clearance tracking</p>
+            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Demo tenant verification workflow and tracking</p>
             <Badge variant="outline">UniNest Demo Module</Badge>
           </div>
         </Card>

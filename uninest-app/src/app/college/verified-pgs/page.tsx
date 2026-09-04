@@ -68,8 +68,8 @@ export default async function VerifiedPartnerPGsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Verified Partner PGs</h1>
-          <p className="text-text-secondary mt-1">PGs verified for student safety and college standards</p>
+          <h1 className="text-2xl font-bold text-text-primary">Verified PGs Near Campus</h1>
+          <p className="text-text-secondary mt-1">PGs verified by UniNest within campus vicinity</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Shield className="w-6 h-6 text-brand-600" />
@@ -120,8 +120,8 @@ export default async function VerifiedPartnerPGsPage() {
             <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
               <Shield className="w-6 h-6 text-brand-600" />
             </div>
-            <h3 className="text-base font-semibold text-text-primary">Verified Partner PGs</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">PGs verified for student safety and college standards</p>
+            <h3 className="text-base font-semibold text-text-primary">Verified PGs Near Campus</h3>
+            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">PGs verified by UniNest within campus vicinity</p>
             <Badge variant="outline">UniNest Demo Module</Badge>
           </div>
         </Card>

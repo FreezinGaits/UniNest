@@ -47,15 +47,15 @@ const journeys: Journey[] = [
     title: 'Trust Architecture',
     desc: 'KYC → Verification → Agreement → Payment Records → Disputes',
     email: 'rahul@uninest.demo',
-    targetPath: '/student/agreements',
+    targetPath: '/student/documents',
     icon: ShieldCheck,
     color: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100',
   },
   {
     title: 'Ancillary Earnings',
-    desc: 'Service purchases → Vendor commission → Landlord rewards',
+    desc: 'Service purchases → Vendor commission → Landlord earnings',
     email: 'landlord@uninest.demo',
-    targetPath: '/landlord/rewards',
+    targetPath: '/landlord/earnings',
     icon: ShoppingBag,
     color: 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100',
   },
@@ -84,16 +84,16 @@ const journeys: Journey[] = [
 ];
 
 const demoSteps = [
-  { step: 1, title: 'Student Finds PG', desc: 'Search with filters, view property detail with room/bed matrix', path: '/student/properties', role: 'rahul@uninest.demo', time: '30s' },
+  { step: 1, title: 'Student Finds PG', desc: 'Search with filters, view property detail with room/bed matrix', path: '/student/search', role: 'rahul@uninest.demo', time: '30s' },
   { step: 2, title: 'Student Books', desc: 'Select bed, pay ₹399 reservation fee', path: '/student/bookings', role: 'rahul@uninest.demo', time: '20s' },
-  { step: 3, title: 'KYC + Agreement', desc: 'Aadhaar verification, digital 11-month lease signing', path: '/student/agreements', role: 'rahul@uninest.demo', time: '20s' },
-  { step: 4, title: 'Tenant Verification', desc: 'Police verification submission workflow', path: '/landlord/verification', role: 'landlord@uninest.demo', time: '15s' },
-  { step: 5, title: 'Move-In Condition', desc: 'Condition report, bed status changes to occupied', path: '/student/move-in', role: 'rahul@uninest.demo', time: '15s' },
+  { step: 3, title: 'KYC + Agreement', desc: 'KYC verification, digital 11-month lease signing', path: '/student/documents', role: 'rahul@uninest.demo', time: '20s' },
+  { step: 4, title: 'Tenant Verification', desc: 'Demo tenant verification submission workflow', path: '/landlord/compliance', role: 'landlord@uninest.demo', time: '15s' },
+  { step: 5, title: 'Move-In & Stay', desc: 'Current stay details, bed status, roommate info', path: '/student/stay', role: 'rahul@uninest.demo', time: '15s' },
   { step: 6, title: 'Rent + AutoPay', desc: 'Monthly rent due, UPI payment, AutoPay toggle', path: '/student/payments', role: 'rahul@uninest.demo', time: '20s' },
   { step: 7, title: 'Electricity + Maintenance', desc: 'Sub-meter reading, utility charge split, ticket submission', path: '/student/maintenance', role: 'rahul@uninest.demo', time: '20s' },
   { step: 8, title: 'Service Purchase', desc: 'Book cleaning/laundry, vendor dispatched', path: '/student/services', role: 'rahul@uninest.demo', time: '15s' },
-  { step: 9, title: 'Landlord Earnings', desc: 'Commission from services → landlord reward dashboard', path: '/landlord/rewards', role: 'landlord@uninest.demo', time: '15s' },
-  { step: 10, title: 'Admin Audit Trail', desc: 'Platform metrics, audit trail, financial overview', path: '/admin/audit', role: 'admin@uninest.demo', time: '10s' },
+  { step: 9, title: 'Landlord Earnings', desc: 'Commission from services → landlord earnings dashboard', path: '/landlord/earnings', role: 'landlord@uninest.demo', time: '15s' },
+  { step: 10, title: 'Admin Audit Trail', desc: 'Platform metrics, audit trail, financial overview', path: '/admin/audit-log', role: 'admin@uninest.demo', time: '10s' },
 ];
 
 export default function DemoPage() {

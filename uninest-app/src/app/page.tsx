@@ -137,7 +137,7 @@ export default async function LandingPage() {
                 <Building2 className="w-5 h-5" /> Landlord Struggles
               </h3>
               <div className="space-y-3">
-                {['High vacancy, manual tenant acquisition', 'Rent chasing & payment delays', 'Electricity dispute calculations', 'Maintenance coordination overhead', 'Police verification paperwork', 'No reason to stay on listing platforms after PG is full'].map(p => (
+                {['High vacancy, manual tenant acquisition', 'Rent chasing & payment delays', 'Electricity dispute calculations', 'Maintenance coordination overhead', 'Tenant verification paperwork', 'No reason to stay on listing platforms after PG is full'].map(p => (
                   <div key={p} className="flex items-start gap-2.5">
                     <XCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                     <span className="text-sm text-amber-900">{p}</span>

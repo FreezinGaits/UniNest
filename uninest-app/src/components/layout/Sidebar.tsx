@@ -9,7 +9,7 @@ import {
   ShoppingBag, FileText, AlertTriangle, Phone, User, BedDouble, Users,
   BarChart3, Shield, DollarSign, TrendingUp, Eye, Settings, ClipboardList,
   Star, Truck, GraduationCap, Briefcase, Clock, MapPin, Menu, X,
-  ChevronRight, Bell, LogOut, ArrowLeftRight,
+  ChevronRight, Bell, LogOut, ArrowLeftRight, Play,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Shared';
 
@@ -68,12 +68,13 @@ const roleNavItems: Record<string, NavItem[]> = {
     { label: 'Services', href: '/admin/services', icon: <ShoppingBag className="w-4.5 h-4.5" /> },
     { label: 'Analytics', href: '/admin/analytics', icon: <BarChart3 className="w-4.5 h-4.5" /> },
     { label: 'Audit Log', href: '/admin/audit-log', icon: <Clock className="w-4.5 h-4.5" /> },
+    { label: 'Demo Control', href: '/admin/demo-control', icon: <Play className="w-4.5 h-4.5" /> },
   ],
   COLLEGE: [
     { label: 'Overview', href: '/college/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
     { label: 'Students', href: '/college/students', icon: <GraduationCap className="w-4.5 h-4.5" /> },
     { label: 'Off-Campus Housing', href: '/college/housing', icon: <Building2 className="w-4.5 h-4.5" /> },
-    { label: 'Verified PGs', href: '/college/verified-pgs', icon: <Shield className="w-4.5 h-4.5" /> },
+    { label: 'Near Campus PGs', href: '/college/verified-pgs', icon: <Shield className="w-4.5 h-4.5" /> },
     { label: 'Hostel Overflow', href: '/college/overflow', icon: <MapPin className="w-4.5 h-4.5" /> },
     { label: 'Issues', href: '/college/issues', icon: <AlertTriangle className="w-4.5 h-4.5" /> },
     { label: 'Analytics', href: '/college/analytics', icon: <BarChart3 className="w-4.5 h-4.5" /> },

@@ -242,62 +242,49 @@ The application features **57 active routes**, ensuring zero broken links or 404
 - `/login` — Multi-Role Demo Login Page
 - `/register` — Account Registration
 
-### 👨‍🎓 Student Module (`/student/*`)
-- `/student/dashboard` — Student Dashboard Overview
-- `/student/search` — PG Search & Filter Engine
-- `/student/search/[id]` — Detailed Property Page & Bed Booking
-- `/student/saved` — Shortlisted PGs
-- `/student/bookings` — Booking History & Reservations
-- `/student/stay` — Current Stay & Roommate Details
-- `/student/payments` — Rent Payments & Invoices
-- `/student/electricity` — Utility Metering & Bills
-- `/student/maintenance` — Raise & Track Maintenance Tickets
-- `/student/services` — Order Cleaning, Laundry, Meals
-- `/student/documents` — Lease Agreements & Receipts
-- `/student/disputes` — Dispute Resolution Portal
-- `/student/emergency` — SOS & Helpline Contacts
-- `/student/profile` — Student Account Profile
+### 🎓 Student Module (`/student/*`)
+- `/student/dashboard` — Student Portal Overview & Quick Actions
+- `/student/search` — PG Search & Filter (Location, Budget, Gender, Amenities)
+- `/student/search/[id]` — Property Details, Room/Bed Matrix, True-Cost Breakdown
+- `/student/bookings` — Active & Past Bed Bookings (₹399 Reservation Fee)
+- `/student/documents` — KYC & Digital 11-Month Rental Agreements
+- `/student/stay` — Current Stay Details, Bed Status & Roommate Info
+- `/student/payments` — Rent Due, Payment History & UPI AutoPay Toggle
+- `/student/electricity` — Sub-Meter Reading Log & Utility Split
+- `/student/maintenance` — Maintenance Ticket Creation & Status Tracking
+- `/student/services` — Ancillary Service Booking (Cleaning, Laundry, Food)
+- `/student/disputes` — Dispute Filing & Evidence Upload
+- `/student/emergency` — Official Emergency Helplines (112, 108, 100, 101, 1091) & Urgent Property Service Dispatch
 
 ### 🏠 Landlord Module (`/landlord/*`)
-- `/landlord/dashboard` — Landlord Control Center
-- `/landlord/properties` — Property List & Add Wizard
-- `/landlord/properties/[id]` — Individual Property Room Management
-- `/landlord/beds` — Bed Availability Inventory Matrix
-- `/landlord/bookings` — Tenant Booking Approvals
-- `/landlord/tenants` — Tenant Directory & Leases
-- `/landlord/rent` — Rent Collection & Reminders
-- `/landlord/electricity` — Sub-Meter Readings Log
-- `/landlord/maintenance` — Tenant Maintenance Requests
-- `/landlord/compliance` — Police Clearance Forms
-- `/landlord/disputes` — Tenant Dispute Management
-- `/landlord/services` — Property Service Dispatch
-- `/landlord/rewards` — Ancillary Service Commissions & Rewards
-- `/landlord/earnings` — Financial Earnings & Payouts
-- `/landlord/analytics` — Occupancy & Revenue Analytics
-- `/landlord/documents` — Lease Agreements Archive
-- `/landlord/profile` — Landlord Business Profile
+- `/landlord/dashboard` — Landlord Control Center (Occupancy %, Revenue, Actions)
+- `/landlord/properties` — Property Portfolio Inventory
+- `/landlord/properties/[id]` — Property Editor & Room/Bed Configuration
+- `/landlord/occupancy` — Real-Time Bed Matrix & Availability Tracker
+- `/landlord/rent` — Monthly Rent Collection Tracker & Overdue Invoices
+- `/landlord/electricity` — Sub-Meter Reading Entry & Bill Calculator
+- `/landlord/maintenance` — Maintenance Requests Queue & Service Dispatch
+- `/landlord/services` — Ancillary Service Offerings Catalog
+- `/landlord/earnings` — Earnings & Ancillary Service Rewards Breakdown (Wi-Fi, Food, Laundry, Gym)
+- `/landlord/compliance` — Tenant Verification Workflow & Compliance Status
 
 ### 🛡️ Admin Module (`/admin/*`)
-- `/admin/dashboard` — Platform Overview & Health
-- `/admin/users` — User Directory Management
-- `/admin/properties` — Platform Property Listings
-- `/admin/verification` — Landlord Verification Queue
-- `/admin/bookings` — Global Bookings Audit
-- `/admin/payments` — Global Financial Transactions
-- `/admin/kyc` — Student Identity Verification Queue
-- `/admin/tenant-verification` — Police Verification Tracking
-- `/admin/maintenance` — Global Maintenance Operations
-- `/admin/disputes` — Escalated Dispute Hearings
-- `/admin/vendors` — Registered Service Vendor Roster
-- `/admin/services` — Service Orders & Commission Logs
-- `/admin/analytics` — Platform Business Intelligence
-- `/admin/audit-log` — Immutable Audit Log Trail
+- `/admin/dashboard` — System-wide Command Center & Revenue Overview
+- `/admin/listings` — Property Verification Queue & Approval Actions
+- `/admin/users` — User Directory & Role Management
+- `/admin/kyc` — Student KYC Audit & Document Verification
+- `/admin/tenant-verification` — Tenant Verification Tracking
+- `/admin/disputes` — Dispute Resolution Center & Evidence Viewer
+- `/admin/services` — Service Provider Catalog & Commission Rates
+- `/admin/analytics` — Platform Revenue & Operational Metrics
+- `/admin/audit-log` — Immutable System Audit Log
+- `/admin/demo-control` — Demo Control Panel (15 Live Simulation Buttons & Instant Re-seed)
 
-### 🎓 College Module (`/college/*`)
-- `/college/dashboard` — Student Housing Overview
-- `/college/students` — Enrolled Off-Campus Student Roster
-- `/college/housing` — Campus Vicinity Accommodations
-- `/college/verified-pgs` — College-Approved Partner PGs
+### 🏛️ College Module (`/college/*`)
+- `/college/dashboard` — College Housing Oversight Overview
+- `/college/students` — Student Directory & Off-Campus Housing Status
+- `/college/housing` — Campus Vicinity Off-Campus Housing Matrix
+- `/college/verified-pgs` — Verified PGs Near Campus (UniNest Verified)
 - `/college/overflow` — Hostel Overflow Allocation
 - `/college/issues` — Student Safety & Housing Issues
 - `/college/analytics` — Student Welfare Analytics
