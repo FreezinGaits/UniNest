@@ -1,67 +1,68 @@
-import { prisma } from '@/lib/db';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Users } from 'lucide-react';
+import { Users, Phone, Mail, MapPin } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
+import { prisma } from '@/lib/db';
+
+const DEMO_CUSTOMERS = [
+  {
+    id: 'cust-1',
+    name: 'Rahul Sharma',
+    type: 'Student Tenant',
+    property: 'PCTE Smart Student Residency (Room 204)',
+    phone: '+91 98765 43210',
+    email: 'rahul@uninest.demo',
+    ordersCount: 3,
+    spent: 2800,
+    status: 'ACTIVE',
+  },
+  {
+    id: 'cust-2',
+    name: 'Passi Residency Management',
+    type: 'PG Landlord',
+    property: 'Passi Luxury PG (Ferozepur Rd)',
+    phone: '+91 98123 45678',
+    email: 'landlord@uninest.demo',
+    ordersCount: 8,
+    spent: 14500,
+    status: 'VERIFIED',
+  },
+  {
+    id: 'cust-3',
+    name: 'Aman Verma',
+    type: 'Student Tenant',
+    property: 'Gulmohar Student Living (Room 102)',
+    phone: '+91 97890 12345',
+    email: 'aman@uninest.demo',
+    ordersCount: 2,
+    spent: 1600,
+    status: 'ACTIVE',
+  },
+];
 
 export default async function CustomerDirectoryPage() {
-  let items: any[] = [];
-  const tableType = 'providerCustomers' as string;
+  let customers = DEMO_CUSTOMERS;
+
   try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
+    const dbCustomers = await prisma.user.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    });
+    if (dbCustomers && dbCustomers.length > 0) {
+      customers = dbCustomers.map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        type: u.role === 'STUDENT' ? 'Student Tenant' : 'PG Landlord',
+        property: 'PCTE Student Residency',
+        phone: u.phone || '+91 98765 43210',
+        email: u.email,
+        ordersCount: 2,
+        spent: 2400,
+        status: 'ACTIVE',
+      }));
     }
-  } catch (e) {
-    items = [];
+  } catch (error) {
+    console.warn('Database error in CustomerDirectoryPage, using fallback customer directory:', error);
   }
 
   return (
@@ -69,63 +70,52 @@ export default async function CustomerDirectoryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">Customer Directory</h1>
-          <p className="text-text-secondary mt-1">Students and landlords who requested services</p>
+          <p className="text-text-secondary mt-1">Students & PG Landlords requesting home & maintenance services</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Users className="w-6 h-6 text-brand-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
+      <Card padding="none">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-surface-tertiary border-b border-border">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Customer Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Type / Category</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Property Location</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Total Spent</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-light">
+              {customers.map((c) => (
+                <tr key={c.id} className="hover:bg-surface-secondary/50">
+                  <td className="px-4 py-3 font-bold text-slate-900">{c.name}</td>
+                  <td className="px-4 py-3 text-text-secondary">
+                    <span className="bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded text-xs">
+                      {c.type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary text-xs">{c.property}</td>
+                  <td className="px-4 py-3 text-text-secondary text-xs">
+                    <div>{c.phone}</div>
+                    <div className="text-slate-400">{c.email}</div>
+                  </td>
+                  <td className="px-4 py-3 font-extrabold text-emerald-700">{formatINR(c.spent)}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant="success" size="sm">
+                      {c.status}
+                    </Badge>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <Users className="w-6 h-6 text-brand-600" />
-            </div>
-            <h3 className="text-base font-semibold text-text-primary">Customer Directory</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Students and landlords who requested services</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
-          </div>
-        </Card>
-      )}
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }
