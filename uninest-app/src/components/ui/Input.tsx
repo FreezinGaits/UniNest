@@ -46,10 +46,11 @@ export function Input({ label, error, hint, icon, className, id, ...props }: Inp
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
+  children?: React.ReactNode;
 }
 
-export function Select({ label, error, options, className, id, ...props }: SelectProps) {
+export function Select({ label, error, options, children, className, id, ...props }: SelectProps) {
   const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
   return (
     <div className="space-y-1.5">
@@ -70,7 +71,7 @@ export function Select({ label, error, options, className, id, ...props }: Selec
         )}
         {...props}
       >
-        {options.map(opt => (
+        {children ? children : options?.map(opt => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>

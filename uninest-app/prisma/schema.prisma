@@ -38,6 +38,10 @@ enum BedStatus {
 
 enum BookingStatus {
   PENDING
+  RESERVED
+  VISIT_REQUESTED
+  VISIT_CONFIRMED
+  VISITED
   CONFIRMED
   KYC_PENDING
   AGREEMENT_PENDING
@@ -47,6 +51,16 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   EXPIRED
+}
+
+enum VisitStatus {
+  REQUESTED
+  COUNTER_PROPOSED
+  ACCEPTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
 }
 
 enum PaymentStatus {
@@ -167,6 +181,9 @@ enum RentStatus {
 
 enum NotificationType {
   BOOKING
+  RESERVATION
+  VISIT
+  MESSAGE
   KYC
   AGREEMENT
   VERIFICATION
@@ -210,6 +227,11 @@ model User {
   documents      Document[]
   referralsMade  Referral[]      @relation("Referrer")
   referralsReceived Referral[]   @relation("Referred")
+  studentVisits  VisitAppointment[] @relation("VisitStudent")
+  landlordVisits VisitAppointment[] @relation("VisitLandlord")
+  sentMessages   Message[]       @relation("SentMessages")
+  receivedMessages Message[]    @relation("ReceivedMessages")
+  savedProperties SavedProperty[]
 
   @@index([role])
   @@index([email])
@@ -219,6 +241,7 @@ model Student {
   id             String   @id @default(cuid())
   userId         String   @unique
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gender         String?
   collegeName    String?
   collegeId      String?
   college        College? @relation(fields: [collegeId], references: [id])
@@ -231,8 +254,12 @@ model Student {
   emergencyName  String?
   emergencyPhone String?
   emergencyRel   String?
+  moveInDate     DateTime?
+  prefSharing    String?
+  prefLocation   String?
   isInternational Boolean @default(false)
   passportNo     String?
+  profileComplete Int     @default(85)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -253,6 +280,7 @@ model Student {
   waitlistEntries WaitlistEntry[]
   savedListings   SavedListing[]
   conditionReports MoveInConditionReport[]
+  roommateRequests RoommateRequest[]
 
   @@index([collegeId])
 }
@@ -262,10 +290,15 @@ model Landlord {
   userId      String   @unique
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName String?
+  address     String?
+  phone       String?
   panNo       String?
   gstNo       String?
   bankAccount String?
   ifscCode    String?
+  responseRate Int     @default(98)
+  avgResponseTime String @default("< 15 mins")
+  profileComplete Int   @default(91)
   plan        String   @default("FREE") // FREE, PRO, BUSINESS, PORTFOLIO
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -279,18 +312,28 @@ model College {
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   collegeName     String
+  logoUrl         String?
   address         String?
   city            String?
   state           String?
+  contactPerson   String?
+  contactEmail    String?
+  contactPhone    String?
+  housingCoordinator String?
+  internationalContact String?
+  partnershipStatus String @default("PARTNERED")
+  website         String?
   hostelCapacity  Int      @default(0)
   totalStudents   Int      @default(0)
   latitude        Float?
   longitude       Float?
+  profileComplete Int      @default(88)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   students        Student[]
   verifiedPGs     PropertyCollegeLink[]
+  roommateRequests RoommateRequest[]
 }
 
 // ─── PROPERTY HIERARCHY ─────────────────────────────────────────────────────
@@ -303,11 +346,13 @@ model Property {
   name          String
   type          String   @default("PG") // PG, HOSTEL, FLAT, APARTMENT
   address       String
+  locality      String?  @default("Model Town")
   city          String
   state         String
   pincode       String
   latitude      Float?
   longitude     Float?
+  commuteTime   String?  // e.g. "5 mins auto / 15 mins walk"
   gender        Gender   @default(ANY)
   description   String?
 
@@ -345,14 +390,18 @@ model Property {
   rooms         Room[]
   listings      Listing[]
   bookings      Booking[]
+  visitAppointments VisitAppointment[]
   maintenanceTickets MaintenanceTicket[]
   emergencyIncidents EmergencyIncident[]
   reviews       Review[]
   collegeLinks  PropertyCollegeLink[]
   electricityMeters ElectricityMeter[]
+  savedProperties SavedProperty[]
 
   @@index([landlordId])
   @@index([city])
+  @@index([locality])
+  @@index([state])
   @@index([verificationStatus])
 }
 
@@ -450,6 +499,8 @@ model Booking {
 
   tenancy       Tenancy?
   agreement     Agreement?
+  visits        VisitAppointment[]
+  messages      Message[]
 
   @@index([userId])
   @@index([bedId])
@@ -750,12 +801,24 @@ model ServiceProvider {
   userId       String   @unique
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   businessName String
+  ownerName    String?
+  phone        String?
+  email        String?
+  logoUrl      String?
   categories   String[] // service categories
   coverageArea String?
+  coverageRadius Float  @default(10.0)
+  workingHours String   @default("8:00 AM - 8:00 PM")
+  emergencyAvailable Boolean @default(true)
+  technicianCount Int   @default(5)
+  rateCard     String?  // rate card notes or JSON
+  payoutInfo   String?
+  verificationDocs String[]
   isVerified   Boolean  @default(false)
   isAvailable  Boolean  @default(true)
   rating       Float    @default(0)
   totalJobs    Int      @default(0)
+  profileComplete Int   @default(73)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -941,4 +1004,210 @@ model AuditLog {
   @@index([userId])
   @@index([entity])
   @@index([createdAt])
+}
+
+// ─── VISITS & MESSAGING ──────────────────────────────────────────────────────
+
+model VisitAppointment {
+  id              String      @id @default(cuid())
+  appointmentNo  String      @unique // e.g. VIS-DEMO-1024
+  bookingId       String?
+  booking         Booking?    @relation(fields: [bookingId], references: [id])
+  propertyId      String
+  property        Property    @relation(fields: [propertyId], references: [id])
+  studentId       String
+  student         User        @relation("VisitStudent", fields: [studentId], references: [id])
+  landlordId      String
+  landlord        User        @relation("VisitLandlord", fields: [landlordId], references: [id])
+  
+  scheduledDate   DateTime
+  timeSlot        String      // e.g. "4:00 PM – 5:00 PM"
+  alternativeSlot String?     // e.g. "6:00 PM – 7:00 PM"
+  visitorCount    Int         @default(1)
+  notes           String?
+  status          VisitStatus @default(REQUESTED)
+  
+  // Counter proposal fields
+  counterDate     DateTime?
+  counterSlot     String?
+  counterReason   String?
+  
+  noShowReportedBy String?    // "STUDENT" or "LANDLORD"
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  messages        Message[]
+
+  @@index([propertyId])
+  @@index([studentId])
+  @@index([landlordId])
+  @@index([status])
+}
+
+model Message {
+  id           String            @id @default(cuid())
+  bookingId    String?
+  booking      Booking?          @relation(fields: [bookingId], references: [id])
+  visitId      String?
+  visit        VisitAppointment? @relation(fields: [visitId], references: [id])
+  senderId     String
+  sender       User              @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId   String
+  receiver     User              @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  content      String
+  isMasked     Boolean           @default(false)
+  maskedReason String?
+  isRead       Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+
+  @@index([bookingId])
+  @@index([visitId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model SavedProperty {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@index([propertyId])
+}
+
+// ─── ROOMMATE MARKETPLACE MODELS ───────────────────────────────────────────
+
+enum RoommateRequestStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  MATCHED
+  CLOSED
+  EXPIRED
+}
+
+enum RoommateMatchStatus {
+  PENDING
+  MATCHED
+  DECLINED
+  BLOCKED
+  CLOSED
+}
+
+enum RoommateInterestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model RoommateRequest {
+  id                         String                @id @default(cuid())
+  studentId                  String
+  student                    Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status                     RoommateRequestStatus @default(ACTIVE)
+  name                       String?
+  gender                     String?
+  collegeName                String?
+  collegeId                  String?
+  college                    College?              @relation(fields: [collegeId], references: [id])
+  course                     String?
+  year                       Int?
+  city                       String                @default("Ludhiana")
+  locality                   String                @default("Ferozepur Road")
+  radiusKm                   Float                 @default(3.0)
+  budgetMin                  Int                   @default(5000)
+  budgetMax                  Int                   @default(7000)
+  roomType                   String                @default("Double Sharing")
+  moveInDate                 DateTime?
+  genderPreference           String?               @default("Same Gender")
+  sleepSchedule              String?               @default("Night Owl")
+  studySchedule              String?               @default("Late Night")
+  noisePreference            String?               @default("Quiet Room")
+  cleanlinessPreference      String?               @default("Very Neat")
+  smokingPreference          String?               @default("Non-Smoker")
+  foodPreference             String?               @default("Vegetarian")
+  socialPreference           String?               @default("Balanced")
+  visitorPreference          String?               @default("Weekend Only")
+  petPreference              String?               @default("No Pets")
+  acPreference               Boolean               @default(true)
+  coolerPreference           Boolean               @default(false)
+  heaterPreference           Boolean               @default(false)
+  wifiPreference             Boolean               @default(true)
+  foodProvidedPreference     Boolean               @default(true)
+  attachedBathroomPreference Boolean               @default(true)
+  furniturePreference        Boolean               @default(true)
+  description                String?               @default("Focused on studies, clean, non-smoker and prefer a quiet room.")
+  isVerified                 Boolean               @default(true)
+  showFirstName              Boolean               @default(true)
+  showCollege                Boolean               @default(true)
+  showCourse                 Boolean               @default(true)
+  showBudget                 Boolean               @default(true)
+  showLifestyle              Boolean               @default(true)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+
+  sentInterests              RoommateInterest[]    @relation("SentInterests")
+  receivedInterests          RoommateInterest[]    @relation("ReceivedInterests")
+  matchesAsA                 RoommateMatch[]       @relation("RequestAMatches")
+  matchesAsB                 RoommateMatch[]       @relation("RequestBMatches")
+
+  @@index([studentId])
+  @@index([city, locality])
+  @@index([status])
+}
+
+model RoommateInterest {
+  id                String                 @id @default(cuid())
+  senderRequestId   String
+  senderRequest     RoommateRequest        @relation("SentInterests", fields: [senderRequestId], references: [id], onDelete: Cascade)
+  receiverRequestId String
+  receiverRequest   RoommateRequest        @relation("ReceivedInterests", fields: [receiverRequestId], references: [id], onDelete: Cascade)
+  status            RoommateInterestStatus @default(PENDING)
+  createdAt         DateTime               @default(now())
+
+  @@unique([senderRequestId, receiverRequestId])
+}
+
+model RoommateMatch {
+  id                 String              @id @default(cuid())
+  requestAId         String
+  requestA           RoommateRequest     @relation("RequestAMatches", fields: [requestAId], references: [id], onDelete: Cascade)
+  requestBId         String
+  requestB           RoommateRequest     @relation("RequestBMatches", fields: [requestBId], references: [id], onDelete: Cascade)
+  studentAId         String
+  studentBId         String
+  compatibilityScore Float               @default(91.0)
+  status             RoommateMatchStatus @default(MATCHED)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  messages           RoommateMessage[]
+
+  @@index([requestAId, requestBId])
+}
+
+model RoommateMessage {
+  id        String        @id @default(cuid())
+  matchId   String
+  match     RoommateMatch @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  senderId  String
+  content   String
+  isBlocked Boolean       @default(false)
+  createdAt DateTime      @default(now())
+
+  @@index([matchId])
+}
+
+model RoommateReport {
+  id                String   @id @default(cuid())
+  reporterStudentId String
+  reportedStudentId String
+  reason            String
+  details           String?
+  status            String   @default("PENDING")
+  createdAt         DateTime @default(now())
 }

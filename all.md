@@ -98,8 +98,10 @@ The database schema (`prisma/schema.prisma`) comprises **40+ models** capturing 
    - `Property` (Address, Amenities, Verification Status, True-Cost Rules)
    - `Room` (Sharing Type, AC/Cooler, Rent, Deposit, Attached Bath)
    - `Bed` (Bed Label, Status: `AVAILABLE`, `OCCUPIED`, `RESERVED`, `NOTICE_PERIOD`, `MAINTENANCE_HOLD`)
-3. **Bookings & Tenancies:**
-   - `Booking` (Token Amount, Booking Status, Agreement Sign Date)
+3. **Bookings, Privacy & Visit Scheduling (Anti-Contact Leakage Layer):**
+   - `Booking` (Token Amount ₹399, Status: `PENDING`, `RESERVED`, `VISIT_REQUESTED`, `VISIT_CONFIRMED`, `VISITED`, `CONFIRMED`)
+   - `VisitAppointment` (Multi-Slot Selection, Landlord Actions: `REQUESTED`, `ACCEPTED`, `COUNTER_PROPOSED`, `DECLINED`, `VISITED`)
+   - `Message` (Controlled In-App Messaging with Real-Time Client/Server Moderation for Phone/Email/WhatsApp/Link masking)
    - `Tenancy` (Start Date, End Date, Monthly Rent, Lock-in Period)
    - `RentRecord` (DueDate, AmountDue, AmountPaid, Status: `DUE`, `PAID`, `OVERDUE`)
 4. **Metering & Utilities:**
@@ -370,9 +372,42 @@ npm run dev
 
 ---
 
-## 13. Future Engineering Roadmap
+---
 
-1. **Production Payment Gateway Integration:** Plug Razorpay / Cashfree SDKs into `src/lib/providers/razorpay.ts`.
-2. **Real-time Chat & WebSockets:** Integrate Socket.io for instant student-landlord messaging.
-3. **IoT Smart Meter Integration:** Connect smart electricity meters via MQTT APIs to auto-log sub-meter readings.
-4. **Native Mobile App (React Native / Expo):** Share TypeScript types and API routes with iOS/Android mobile clients.
+## 14. Judge Demonstration Enhancements, Location Engine & Role Onboarding
+
+UniNest has been updated with high-fidelity demo assets and search infrastructure tailored for judge and funder demonstrations:
+
+### 📍 A. Geographic Search Hierarchy & Haversine Distance Engine
+- **Cascading Location Filter:** `State (Punjab) → City (Ludhiana) → Locality (Ferozepur Rd, BRS Nagar, Sarabha Nagar) → College (PCTE Institute) → Radius (0.5km - 10km)`.
+- **Haversine Radial Formula:** Dynamic distance calculation (`calculateHaversineDistance`) computes real-time km and commute estimates (walk/auto/bus) relative to campus target coordinates.
+- **Interactive Visual SVG Map (`DemoMapView`):** Visualizes property pins, target campus location, and distance radius visually for judges.
+
+### 🏠 B. Ludhiana High-Fidelity Demo Dataset & True Cost Transparency
+- **15 Realistically Curated Properties & 120 Beds:** Includes premier options like *CampusNest Luxury PG*, *Scholar Heights Boys Hostel*, *Ludhiana Executive Girls PG*, and *PCTE Smart Residency*.
+- **Zero Placeholder Guarantee:** Automated quality assertions in `prisma/seed.ts` verify bed counts, descriptions, and non-zero pricing.
+- **True Monthly Cost Transparency:** Aggregates base room rent + mandatory food charges + Wi-Fi + sub-meter electricity to show the exact net monthly cost (e.g., ₹6,000 base + ₹1,800 food + ₹400 maintenance = ₹8,200/mo).
+
+### 📋 C. Multi-Role Segmented Onboarding Engine (`/onboarding/*`)
+- **Student Onboarding (`/onboarding/student`):** 5-step interactive workflow capturing personal info, academic details, room sharing, budget range (₹5,000–₹8,000), roommate lifestyle preferences, and college ID upload with live profile completion tracking (85%).
+- **Landlord Onboarding (`/onboarding/landlord`):** 5-step property onboarding capturing business entity, PAN/GST, bank account payout, room sharing tiers, utility cost rules, and ownership proof verification (91%).
+- **College Admin Onboarding (`/onboarding/college`):** 4-step campus portal configuration capturing institution details, student housing coordinator contacts, enrollment count, and hostel overflow capacity (88%).
+- **Service Provider Onboarding (`/onboarding/provider`):** 4-step vendor registration capturing service categories (Plumbing, AC Servicing, Deep Cleaning), coverage radius, and rate card (73%).
+
+### 💖 D. Saved Properties Shortlist, Rent Relief Engine & Interactive Booking Workspace
+- **Persistent Saved Properties (`/student/saved` & `HeartSaveButton`):** Real-time heart toggle persistence on property cards and details pages, synchronized via `SavedProperty` database relation. Dedicated shortlist page featuring True Monthly Cost breakdown and direct reservation CTAs.
+- **Interactive Booking Workspace (`/student/bookings/[bookingId]`):** Dynamic student workspace featuring a 7-step visual progress timeline, reserved accommodation summary, gated/unlocked exact street address with turn-by-turn Google Maps navigation, 1-click landlord counter-proposal approval, and moderated in-app messaging.
+- **Financial Relief Modal & Flexi-Rent (`/student/payments`):** Redesigned high-contrast, theme-matched modal for "I Can't Pay Rent" offering 7-day grace period (0% fee), 2-split payment plan (50%+50%), and student rent credit line options.
+
+### 👥 E. Complete UniNest Roommate Marketplace & Moderated Safety Chat
+- **Schema Architecture (`RoommateRequest`, `RoommateMatch`, `RoommateInterest`, `RoommateMessage`, `RoommateReport`):** Full relational Prisma model support linking roommate discovery directly to verified `Student` and `College` entities with privacy gating toggles.
+- **9-Factor Compatibility Engine (`src/lib/roommateCompatibility.ts`):** Weighted scoring algorithm evaluating Budget Alignment (20%), Location & Campus Proximity (15%), Sleep Schedule Sync (15%), Noise Preference (10%), Cleanliness Standard (10%), Study Habits (10%), Room Sharing Type (10%), Smoking (5%), and Food Habits (5%). Generates granular percentage breakdowns and natural language compatibility insights.
+- **In-App Moderated Safety Chat (`src/lib/chatSafety.ts` & `/student/roommates/matches/[matchId]/chat`):** Protection middleware that inspects student messages in real-time. Automatically detects and masks external phone numbers, email addresses, external links, and off-platform payment attempts to prevent contact leakage and keep transactions safe on UniNest.
+- **Student Discovery & Filtering Portal (`/student/roommates`):** High-contrast, glassmorphic marketplace interface with real-time keyword search, locality, gender, and budget slider filters. Ranks profiles dynamically by highest compatibility score first.
+- **6-Step Onboarding Wizard (`/student/roommates/create`):** Interactive questionnaire capturing basic info, location radius, budget tiers, detailed lifestyle habits, amenity preferences, bio description, and privacy visibility toggles.
+- **Mutual Interest & Instant Match Flow (`/student/roommates/interest`):** Gated communication workflow where chat unlocks only when both students express mutual interest ("I'm Interested"). Features an interactive celebration modal upon mutual match.
+- **Joint PG Room Finder (`/student/roommates/rooms`):** Collaborative room discovery tool for matched roommates. Displays shared double-sharing PG accommodations near target campuses (e.g. PCTE) with automated rent split calculations (e.g., ₹12,000 total $\rightarrow$ ₹6,000/each) and joint bed reservation CTAs.
+- **Roommate Management Dashboard (`/student/roommates/my-requests`):** Central workspace for students to view active published requests, accept/decline incoming roommate interest, and jump directly into active chats.
+- **Seeded Demo Data (`prisma/seed.ts`):** Populated 12 realistic student roommate profiles across PCTE and GNDEC, including active demo matches (Rahul Sharma & Aman Verma at 91% compatibility) with seeded chat history and quality verification assertions.
+
+

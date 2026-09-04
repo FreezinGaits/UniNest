@@ -129,6 +129,57 @@ export default async function StudentDashboard() {
         </div>
       </Card>
 
+      {/* Reservation & Stay Journey Tracker */}
+      <Card className="bg-gradient-to-r from-emerald-900 to-teal-950 text-white border-none shadow-md overflow-hidden relative">
+        <div className="flex items-center justify-between mb-4 border-b border-emerald-800/80 pb-3">
+          <div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">UniNest Guided Lifecycle</span>
+            <h2 className="text-lg font-extrabold text-white mt-0.5">Your PG Booking & Move-in Journey</h2>
+          </div>
+          <Link href="/student/search" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition-colors">
+            Manage Reservation
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs pt-1">
+          <div className="bg-emerald-800/60 border border-emerald-500/50 p-2.5 rounded-xl">
+            <span className="w-5 h-5 rounded-full bg-emerald-400 text-emerald-950 font-extrabold text-[10px] inline-flex items-center justify-center mx-auto mb-1">1</span>
+            <span className="font-extrabold text-emerald-200 block text-[11px]">Bed Reserved</span>
+            <span className="text-[10px] text-emerald-300">₹399 Fee Paid ✓</span>
+          </div>
+
+          <div className="bg-indigo-900/60 border border-indigo-500/50 p-2.5 rounded-xl">
+            <span className="w-5 h-5 rounded-full bg-indigo-400 text-indigo-950 font-extrabold text-[10px] inline-flex items-center justify-center mx-auto mb-1">2</span>
+            <span className="font-extrabold text-indigo-200 block text-[11px]">Schedule Visit</span>
+            <span className="text-[10px] text-indigo-300">Address Unlocked</span>
+          </div>
+
+          <div className="bg-emerald-950/40 border border-emerald-800/40 p-2.5 rounded-xl opacity-80">
+            <span className="w-5 h-5 rounded-full bg-slate-700 text-white font-bold text-[10px] inline-flex items-center justify-center mx-auto mb-1">3</span>
+            <span className="font-bold text-slate-300 block text-[11px]">Aadhaar KYC</span>
+            <span className="text-[10px] text-slate-400">Identity Check</span>
+          </div>
+
+          <div className="bg-emerald-950/40 border border-emerald-800/40 p-2.5 rounded-xl opacity-80">
+            <span className="w-5 h-5 rounded-full bg-slate-700 text-white font-bold text-[10px] inline-flex items-center justify-center mx-auto mb-1">4</span>
+            <span className="font-bold text-slate-300 block text-[11px]">Lease Agreement</span>
+            <span className="text-[10px] text-slate-400">11-Month Digital</span>
+          </div>
+
+          <div className="bg-emerald-950/40 border border-emerald-800/40 p-2.5 rounded-xl opacity-80">
+            <span className="w-5 h-5 rounded-full bg-slate-700 text-white font-bold text-[10px] inline-flex items-center justify-center mx-auto mb-1">5</span>
+            <span className="font-bold text-slate-300 block text-[11px]">Police Verification</span>
+            <span className="text-[10px] text-slate-400">Tenant Form</span>
+          </div>
+
+          <div className="bg-emerald-950/40 border border-emerald-800/40 p-2.5 rounded-xl opacity-80">
+            <span className="w-5 h-5 rounded-full bg-slate-700 text-white font-bold text-[10px] inline-flex items-center justify-center mx-auto mb-1">6</span>
+            <span className="font-bold text-slate-300 block text-[11px]">Move-In Keys</span>
+            <span className="text-[10px] text-slate-400">Checked In</span>
+          </div>
+        </div>
+      </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Current Stay */}
         {activeTenancy && currentProperty && (

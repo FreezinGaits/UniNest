@@ -10,14 +10,16 @@ function monthDate(offset: number, day = 1) {
   return new Date(Date.UTC(n.getFullYear(), n.getMonth() + offset, day));
 }
 
-// Haversine distance helper for lat/lng distance calculation
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(R * c * 10) / 10;
 }
@@ -29,6 +31,14 @@ async function main() {
   console.log('🌱 Seeding UniNest production demo data...');
 
   // Clean DB in order of foreign key dependencies
+  await prisma.roommateMessage.deleteMany();
+  await prisma.roommateMatch.deleteMany();
+  await prisma.roommateInterest.deleteMany();
+  await prisma.roommateRequest.deleteMany();
+  await prisma.roommateReport.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.visitAppointment.deleteMany();
+  await prisma.savedProperty.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.document.deleteMany();
@@ -69,797 +79,1473 @@ async function main() {
   await prisma.user.deleteMany();
 
   // === USERS & DEMO PERSONAS ===
-  const student1 = await prisma.user.create({ data: { email: 'rahul@uninest.demo', name: 'Rahul Sharma', passwordHash: hash('demo123'), role: 'STUDENT', phone: '9876543210', avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150' } });
-  const student2 = await prisma.user.create({ data: { email: 'priya@uninest.demo', name: 'Priya Kaur', passwordHash: hash('demo123'), role: 'STUDENT', phone: '9876543211', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150' } });
-  const student3 = await prisma.user.create({ data: { email: 'amit@uninest.demo', name: 'Amit Verma', passwordHash: hash('demo123'), role: 'STUDENT', phone: '9876543212' } });
-  const student4 = await prisma.user.create({ data: { email: 'neha@uninest.demo', name: 'Neha Gupta', passwordHash: hash('demo123'), role: 'STUDENT', phone: '9876543213' } });
-  const student5 = await prisma.user.create({ data: { email: 'arjun@uninest.demo', name: 'Arjun Patel', passwordHash: hash('demo123'), role: 'STUDENT', phone: '9876543214' } });
+  const studentUser1 = await prisma.user.create({
+    data: {
+      email: 'rahul@uninest.demo',
+      name: 'Rahul Sharma',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      phone: '9876543210',
+      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+    },
+  });
 
-  const landlord1 = await prisma.user.create({ data: { email: 'landlord@uninest.demo', name: 'Vikram Singh', passwordHash: hash('demo123'), role: 'LANDLORD', phone: '9898989801' } });
-  const landlord2 = await prisma.user.create({ data: { email: 'sunita@uninest.demo', name: 'Sunita Devi', passwordHash: hash('demo123'), role: 'LANDLORD', phone: '9898989802' } });
-  const landlord3 = await prisma.user.create({ data: { email: 'rajiv@uninest.demo', name: 'Rajiv Mehta', passwordHash: hash('demo123'), role: 'LANDLORD', phone: '9898989803' } });
-  const landlord4 = await prisma.user.create({ data: { email: 'manpreet@uninest.demo', name: 'Manpreet Kaur', passwordHash: hash('demo123'), role: 'LANDLORD', phone: '9898989804' } });
+  const studentUser2 = await prisma.user.create({
+    data: {
+      email: 'priya@uninest.demo',
+      name: 'Priya Kaur',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      phone: '9876543211',
+      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    },
+  });
 
-  const admin1 = await prisma.user.create({ data: { email: 'admin@uninest.demo', name: 'UniNest Admin', passwordHash: hash('demo123'), role: 'ADMIN' } });
-  const college1 = await prisma.user.create({ data: { email: 'pcte@uninest.demo', name: 'PCTE Admin', passwordHash: hash('demo123'), role: 'COLLEGE' } });
-  const prov1 = await prisma.user.create({ data: { email: 'provider@uninest.demo', name: 'QuickFix Services', passwordHash: hash('demo123'), role: 'PROVIDER', phone: '9898989810' } });
+  const landlordUser1 = await prisma.user.create({
+    data: {
+      email: 'landlord@uninest.demo',
+      name: 'Vikram Singh',
+      passwordHash: hash('demo123'),
+      role: 'LANDLORD',
+      phone: '9898989801',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+    },
+  });
+
+  const landlordUser2 = await prisma.user.create({
+    data: {
+      email: 'sunita@uninest.demo',
+      name: 'Sunita Devi',
+      passwordHash: hash('demo123'),
+      role: 'LANDLORD',
+      phone: '9898989802',
+    },
+  });
+
+  const landlordUser3 = await prisma.user.create({
+    data: {
+      email: 'rajiv@uninest.demo',
+      name: 'Rajiv Mehta',
+      passwordHash: hash('demo123'),
+      role: 'LANDLORD',
+      phone: '9898989803',
+    },
+  });
+
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'admin@uninest.demo',
+      name: 'UniNest Admin',
+      passwordHash: hash('demo123'),
+      role: 'ADMIN',
+    },
+  });
+
+  const collegeUser = await prisma.user.create({
+    data: {
+      email: 'pcte@uninest.demo',
+      name: 'PCTE Admin',
+      passwordHash: hash('demo123'),
+      role: 'COLLEGE',
+      phone: '9876500001',
+    },
+  });
+
+  const providerUser = await prisma.user.create({
+    data: {
+      email: 'provider@uninest.demo',
+      name: 'QuickFix Services',
+      passwordHash: hash('demo123'),
+      role: 'PROVIDER',
+      phone: '9898989810',
+    },
+  });
 
   // === COLLEGE ===
-  const pcte = await prisma.college.create({
+  const pcteCollege = await prisma.college.create({
     data: {
-      userId: college1.id,
+      userId: collegeUser.id,
       collegeName: 'PCTE Institute',
       address: 'Ferozepur Road, Baddowal, Ludhiana',
       city: 'Ludhiana',
       state: 'Punjab',
+      logoUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?w=150',
+      contactPerson: 'Dr. Gurpreet Singh',
+      contactEmail: 'housing@pcte.edu.in',
+      contactPhone: '0161-2888500',
+      housingCoordinator: 'Prof. Simranjit Kaur',
+      internationalContact: 'intl@pcte.edu.in',
+      partnershipStatus: 'PARTNERED',
+      website: 'https://pcte.edu.in',
       hostelCapacity: 600,
       totalStudents: 3200,
       latitude: PCTE_LAT,
       longitude: PCTE_LNG,
+      profileComplete: 88,
     },
   });
 
-  // === STUDENTS ===
-  const s1 = await prisma.student.create({ data: { userId: student1.id, collegeName: 'PCTE Institute', collegeId: pcte.id, course: 'BBA', year: 2, dob: new Date('2004-05-15'), permanentAddr: '123 MG Road, Jalandhar', emergencyName: 'Rajesh Sharma', emergencyPhone: '9876540001', emergencyRel: 'Father', budgetMin: 5000 * P, budgetMax: 7500 * P, sleepSchedule: 'Night Owl', cleanliness: 4, foodPref: 'Vegetarian', noisePref: 'Quiet Study', smokingPref: 'Non-Smoker', acPref: true } });
-  const s2 = await prisma.student.create({ data: { userId: student2.id, collegeName: 'PCTE Institute', collegeId: pcte.id, course: 'BCA', year: 3 } });
-  const s3 = await prisma.student.create({ data: { userId: student3.id, collegeName: 'PCTE Institute', collegeId: pcte.id, course: 'MBA', year: 1 } });
-  const s4 = await prisma.student.create({ data: { userId: student4.id, collegeName: 'PCTE Institute', collegeId: pcte.id, course: 'BTech CSE', year: 2 } });
-  const s5 = await prisma.student.create({ data: { userId: student5.id, collegeName: 'PCTE Institute', collegeId: pcte.id, course: 'BCA', year: 1 } });
-
-  // === LANDLORDS ===
-  const l1 = await prisma.landlord.create({ data: { userId: landlord1.id, businessName: 'CampusNest Living Pvt Ltd', panNo: 'ABCDE1234F', bankAccount: '918239120391', ifscCode: 'HDFC0000123', plan: 'PRO' } });
-  const l2 = await prisma.landlord.create({ data: { userId: landlord2.id, businessName: 'Sunita Student Stays', panNo: 'FGHIJ5678K', plan: 'FREE' } });
-  const l3 = await prisma.landlord.create({ data: { userId: landlord3.id, businessName: 'Mehta Residency Group', plan: 'BUSINESS' } });
-  const l4 = await prisma.landlord.create({ data: { userId: landlord4.id, businessName: 'Kaur Executive Living', plan: 'PRO' } });
-
-  // === SERVICE PROVIDER ===
-  const sp1 = await prisma.serviceProvider.create({
+  // === STUDENT PROFILES ===
+  const rahulStudent = await prisma.student.create({
     data: {
-      userId: prov1.id,
-      businessName: 'QuickFix Plumbing & Electrical',
-      categories: ['Plumbing', 'Electrical', 'Housekeeping', 'Laundry'],
-      coverageArea: 'Ludhiana Central & Ferozepur Road',
-      isVerified: true,
-      rating: 4.8,
-      totalJobs: 124,
+      userId: studentUser1.id,
+      collegeId: pcteCollege.id,
+      collegeName: 'PCTE Institute',
+      enrollmentNo: 'PCTE-BTECH-2024-042',
+      course: 'B.Tech Computer Science',
+      year: 3,
+      dob: new Date('2003-05-15'),
+      gender: 'MALE',
+      permanentAddr: 'House No. 142, Sector 15-A, Chandigarh',
+      currentAddr: 'Room 201-A, CampusNest Residency, Ferozepur Road, Ludhiana',
+      emergencyName: 'Rajesh Sharma (Father)',
+      emergencyPhone: '9814012345',
+      emergencyRel: 'Father',
+      moveInDate: new Date('2024-08-01'),
+      prefSharing: 'Double Sharing',
+      prefLocation: 'Ferozepur Road / BRS Nagar',
+      sleepSchedule: 'Night Owl (12 AM - 7 AM)',
+      studyHabits: 'Quiet focused study in room',
+      cleanliness: 4,
+      noisePref: 'Moderate noise acceptable',
+      smokingPref: 'Non-smoker strictly',
+      foodPref: 'Vegetarian',
+      socialPref: 'Friendly & conversational',
+      budgetMin: 5000 * P,
+      budgetMax: 7000 * P,
+      acPref: true,
+      profileComplete: 85,
     },
   });
 
-  // === 10 REALISTIC PG PROPERTIES IN LUDHIANA ===
-  const propertySeeds = [
-    {
-      landlordId: l1.id,
-      name: 'CampusNest Residency',
-      type: 'PG',
-      address: 'Plot 14, Ferozepur Road, Near PCTE Main Gate',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141012',
-      latitude: 30.9015,
-      longitude: 75.8520,
-      gender: 'MALE' as const,
-      description: 'Modern student residency 0.8 km from PCTE. Features high-speed 200 Mbps Wi-Fi, 4-time nutritious meals, 24/7 power backup, CCTV security, and dedicated quiet study rooms.',
-      amenities: ['Wi-Fi', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Water Purifier', 'Study Room', 'Geyser', 'AC'],
-      rules: ['No smoking', 'Visitors allowed till 8:30 PM', 'Gate closes at 10:30 PM', 'No alcohol/parties', 'Quiet hours 10 PM - 6 AM'],
-      wifiAvailable: true, wifiCharge: 0, // Included!
-      foodAvailable: true, foodCharge: 2500 * P,
-      laundryAvailable: true, laundryCharge: 500 * P,
-      maintenanceCharge: 200 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(0, -5),
-      lastAvailabilityConfirm: new Date(),
-      images: [
-        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
-        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
-      ],
-      videoUrl: 'https://www.youtube.com/watch?v=demo-virtual-tour',
+  const priyaStudent = await prisma.student.create({
+    data: {
+      userId: studentUser2.id,
+      collegeId: pcteCollege.id,
+      collegeName: 'PCTE Institute',
+      enrollmentNo: 'PCTE-MBA-2024-018',
+      course: 'MBA Marketing',
+      year: 1,
+      dob: new Date('2002-11-20'),
+      gender: 'FEMALE',
+      permanentAddr: '45 Mall Road, Amritsar',
+      emergencyName: 'Harpreet Kaur (Mother)',
+      emergencyPhone: '9872098765',
+      emergencyRel: 'Mother',
+      prefSharing: 'Single / Double',
+      prefLocation: 'Sarabha Nagar',
+      cleanliness: 5,
+      foodPref: 'Non-Vegetarian',
+      budgetMin: 6000 * P,
+      budgetMax: 8500 * P,
+      profileComplete: 80,
     },
-    {
-      landlordId: l2.id,
-      name: 'Green View Student Homes',
-      type: 'PG',
-      address: '45-B Civil Lines, Opposite Rose Garden',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141001',
-      latitude: 30.8950,
-      longitude: 75.8610,
-      gender: 'FEMALE' as const,
-      description: 'Secure, gated girls accommodation with full-time resident lady warden, biometric entry, biometric locks, hygienic home food, and daily housekeeping.',
-      amenities: ['Wi-Fi', 'Food', 'Laundry', 'CCTV', 'Warden', 'Geyser', 'RO Water', 'Housekeeping', 'Power Backup'],
-      rules: ['Female students only', 'Male visitors strictly prohibited', 'Entry gate closes at 9:00 PM', 'No loud music after 10 PM'],
-      wifiAvailable: true, wifiCharge: 300 * P,
-      foodAvailable: true, foodCharge: 2200 * P,
-      laundryAvailable: true, laundryCharge: 400 * P,
-      maintenanceCharge: 150 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(0, -10),
-      lastAvailabilityConfirm: monthDate(0, -1),
-      images: [
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
-      ],
+  });
+
+  // === LANDLORD PROFILES ===
+  const vikramLandlord = await prisma.landlord.create({
+    data: {
+      userId: landlordUser1.id,
+      businessName: 'Singh Student Housing Network',
+      address: 'Suite 4, Model Town Market, Ludhiana',
+      phone: '9898989801',
+      panNo: 'ABCPS1234F',
+      gstNo: '03ABCPS1234F1Z5',
+      bankAccount: '91802004561234',
+      ifscCode: 'HDFC0000123',
+      responseRate: 98,
+      avgResponseTime: '< 15 mins',
+      plan: 'BUSINESS',
+      profileComplete: 91,
     },
-    {
-      landlordId: l1.id,
-      name: 'Urban Scholars PG',
-      type: 'PG',
-      address: '78 Model Town Market Extension',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141002',
-      latitude: 30.8890,
-      longitude: 75.8480,
-      gender: 'ANY' as const,
-      description: 'Co-living style independent PG offering private single occupancy rooms and double sharing. Excellent connectivity to PCTE campus via auto and bus routes.',
-      amenities: ['Wi-Fi', 'Power Backup', 'Water Purifier', 'Refrigerators', 'Study Desk', 'Self Cooking Kitchen'],
-      rules: ['No smoking', 'Self-cleaning of common kitchen', 'Visitors permitted in lounge area till 9 PM'],
-      wifiAvailable: true, wifiCharge: 250 * P,
-      foodAvailable: false, foodCharge: 0,
-      laundryAvailable: true, laundryCharge: 350 * P,
-      maintenanceCharge: 100 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-1, 15),
-      lastAvailabilityConfirm: monthDate(0, -2),
-      images: [
-        'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
-        'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80',
-      ],
+  });
+
+  const sunitaLandlord = await prisma.landlord.create({
+    data: {
+      userId: landlordUser2.id,
+      businessName: 'Devi Homes & Co-living',
+      address: 'Ferozepur Road, Baddowal, Ludhiana',
+      phone: '9898989802',
+      panNo: 'XYZPD5678K',
+      responseRate: 95,
+      avgResponseTime: '< 30 mins',
+      plan: 'PRO',
+      profileComplete: 87,
     },
-    {
-      landlordId: l3.id,
-      name: 'Model Town Student House',
-      type: 'PG',
-      address: '232 Block-C, Model Town',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141002',
-      latitude: 30.8850,
-      longitude: 75.8410,
-      gender: 'MALE' as const,
-      description: 'Budget-friendly boys PG located in prime Model Town. Close to major coaching centers and PCTE. Includes breakfast and dinner.',
-      amenities: ['Wi-Fi', 'Food', 'Power Backup', 'Water Purifier', 'Common TV Lounge'],
-      rules: ['No smoking/alcohol', 'Gate closes at 10 PM', 'Maintain cleanliness'],
-      wifiAvailable: true, wifiCharge: 0,
-      foodAvailable: true, foodCharge: 2000 * P,
-      laundryAvailable: false, laundryCharge: 0,
-      maintenanceCharge: 100 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-1, 1),
-      lastAvailabilityConfirm: monthDate(0, -3),
-      images: [
-        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
-      ],
+  });
+
+  const rajivLandlord = await prisma.landlord.create({
+    data: {
+      userId: landlordUser3.id,
+      businessName: 'Mehta Student Properties',
+      address: 'Sarabha Nagar, Ludhiana',
+      phone: '9898989803',
+      responseRate: 92,
+      avgResponseTime: '< 45 mins',
+      plan: 'FREE',
+      profileComplete: 82,
     },
+  });
+
+  // === SERVICE PROVIDER PROFILE ===
+  await prisma.serviceProvider.create({
+    data: {
+      userId: providerUser.id,
+      businessName: 'QuickFix Ludhiana Services',
+      ownerName: 'Harpreet Singh',
+      phone: '9898989810',
+      email: 'service@quickfixldh.com',
+      logoUrl: 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=150',
+      categories: ['Plumbing', 'AC Repair', 'Deep Cleaning', 'Electrician', 'RO Service'],
+      coverageArea: 'Ludhiana City & Vicinity (Ferozepur Rd, BRS Nagar, Model Town)',
+      coverageRadius: 12.0,
+      workingHours: '8:00 AM - 9:00 PM',
+      emergencyAvailable: true,
+      technicianCount: 8,
+      rateCard: 'Plumbing visit: ₹299, AC Cleaning: ₹499, Deep Cleaning: ₹999',
+      payoutInfo: 'HDFC Bank - AC 50100234567890 (IFSC: HDFC0000456)',
+      verificationDocs: ['GST_CERTIFICATE_PB.pdf', 'TRADE_LICENSE_LDH.pdf'],
+      isVerified: true,
+      isAvailable: true,
+      rating: 4.9,
+      totalJobs: 142,
+      profileComplete: 73,
+    },
+  });
+
+  // === 15 GEOLOCATED PG PROPERTIES IN LUDHIANA ===
+  const rawProps = [
     {
-      landlordId: l4.id,
-      name: 'PCTE Residency',
+      name: 'PCTE Residency & Student Hub',
       type: 'HOSTEL',
-      address: 'Adjacent to PCTE Gate 2, Baddowal',
+      address: 'Opposite PCTE Gate 2, Ferozepur Road, BRS Nagar',
+      locality: 'BRS Nagar',
       city: 'Ludhiana',
       state: 'Punjab',
       pincode: '141012',
       latitude: 30.8990,
       longitude: 75.8570,
-      gender: 'ANY' as const,
-      description: 'Only 300 meters from PCTE campus! Premium hostel setup with attached bathrooms, inverter backup in every room, gaming area, and cafeteria.',
-      amenities: ['Wi-Fi', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Attached Bath', 'Cafeteria', 'Gaming Room'],
-      rules: ['Student ID mandatory', 'No loud noise', 'Gate closes at 10:30 PM'],
-      wifiAvailable: true, wifiCharge: 0,
-      foodAvailable: true, foodCharge: 2800 * P,
-      laundryAvailable: true, laundryCharge: 450 * P,
-      maintenanceCharge: 250 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(0, -1),
-      lastAvailabilityConfirm: new Date(),
+      commuteTime: '2 mins walk (200m from PCTE)',
+      gender: 'ANY',
+      landlordId: vikramLandlord.id,
+      description: 'Ultra-modern co-ed student hostel right opposite PCTE Gate 2. Features 24/7 power backup, gaming lounge, biometric access, and 4-time buffet meals.',
       images: [
-        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800',
+        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800',
+        'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=800',
       ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO', 'Gaming Room', 'Biometric Access'],
+      rules: ['No Smoking inside rooms', 'Visitors allowed till 8 PM', 'Biometric Gate entry after 10 PM requires pass'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2000 * P, maintenanceCharge: 300 * P, laundryAvailable: true, laundryCharge: 500 * P,
     },
     {
-      landlordId: l2.id,
-      name: 'Student Square PG',
+      name: 'CampusNest Residency',
       type: 'PG',
-      address: '12-A Sarabha Nagar Main Market',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141001',
-      latitude: 30.9080,
-      longitude: 75.8450,
-      gender: 'FEMALE' as const,
-      description: 'Vibrant Sarabha Nagar location surrounded by cafes and libraries. Equipped with high-level 3-tier security, AC rooms, and healthy meals.',
-      amenities: ['Wi-Fi', 'Food', 'AC', 'CCTV', 'Security Guard', 'Study Desks', 'RO Water'],
-      rules: ['Girls only', 'No night outs without prior warden approval', 'Gate closes at 9:30 PM'],
-      wifiAvailable: true, wifiCharge: 200 * P,
-      foodAvailable: true, foodCharge: 2400 * P,
-      laundryAvailable: true, laundryCharge: 400 * P,
-      maintenanceCharge: 150 * P,
-      electricityRate: 800,
-      parkingAvailable: false,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-2, 10),
-      lastAvailabilityConfirm: monthDate(0, -4),
-      images: [
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
-      ],
-    },
-    {
-      landlordId: l3.id,
-      name: 'Prime Campus Homes',
-      type: 'PG',
-      address: '89 Gurdev Nagar, Near Kipps Market',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141001',
-      latitude: 30.9120,
-      longitude: 75.8390,
-      gender: 'MALE' as const,
-      description: 'Executive student PG featuring single occupancy rooms with attached balcony and private study desks. Ideal for senior students and postgraduates.',
-      amenities: ['Wi-Fi', 'Food', 'AC', 'Balcony', 'Power Backup', 'Laundry', 'Housekeeping'],
-      rules: ['Quiet hours strictly enforced', 'No smoking', 'Visitors allowed in lobby'],
-      wifiAvailable: true, wifiCharge: 0,
-      foodAvailable: true, foodCharge: 3000 * P,
-      laundryAvailable: true, laundryCharge: 500 * P,
-      maintenanceCharge: 200 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-1, 20),
-      lastAvailabilityConfirm: monthDate(0, -2),
-      images: [
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
-      ],
-    },
-    {
-      landlordId: l4.id,
-      name: 'Lake View Student PG',
-      type: 'PG',
-      address: '56 South City Bypass Road',
-      city: 'Ludhiana',
-      state: 'Punjab',
-      pincode: '141013',
-      latitude: 30.8750,
-      longitude: 75.8250,
-      gender: 'FEMALE' as const,
-      description: 'Peaceful residential neighborhood PG with garden views and airy rooms. 24/7 security guard, CCTV, and hot water geysers in all bathrooms.',
-      amenities: ['Wi-Fi', 'Food', 'CCTV', 'Garden', 'Geyser', 'RO Water', 'Power Backup'],
-      rules: ['No visitors in rooms', 'Gate closes at 9:00 PM', 'No smoking'],
-      wifiAvailable: true, wifiCharge: 200 * P,
-      foodAvailable: true, foodCharge: 2100 * P,
-      laundryAvailable: true, laundryCharge: 300 * P,
-      maintenanceCharge: 100 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-3, 1),
-      lastAvailabilityConfirm: monthDate(0, -6),
-      images: [
-        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
-      ],
-    },
-    {
-      landlordId: l1.id,
-      name: "Scholar's Haven Co-Living",
-      type: 'FLAT',
-      address: '101 BRS Nagar, Block-G',
+      address: 'Plot 14, Main Ferozepur Road, near PCTE Campus',
+      locality: 'Ferozepur Road',
       city: 'Ludhiana',
       state: 'Punjab',
       pincode: '141012',
-      latitude: 30.8810,
-      longitude: 75.8150,
-      gender: 'ANY' as const,
-      description: 'Fully furnished 3BHK co-living apartments for students wanting apartment independence with PG convenience. Includes modular kitchen and high-speed Wi-Fi.',
-      amenities: ['Wi-Fi', 'Modular Kitchen', 'Washing Machine', 'Refrigerator', 'Sofa Lounge', 'Power Backup'],
-      rules: ['Respect flatmates', 'Clean common areas', 'No loud parties late night'],
-      wifiAvailable: true, wifiCharge: 300 * P,
-      foodAvailable: false, foodCharge: 0,
-      laundryAvailable: true, laundryCharge: 0,
-      maintenanceCharge: 300 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-1, 10),
-      lastAvailabilityConfirm: monthDate(0, -1),
+      latitude: 30.8965,
+      longitude: 75.8500,
+      commuteTime: '8 mins walk / 2 mins auto (0.8 km)',
+      gender: 'MALE',
+      landlordId: vikramLandlord.id,
+      description: 'Premium Boys PG equipped with high-speed fiber internet, ergonomic study desks, nutritious food, daily housekeeping, and 24/7 security guard.',
       images: [
-        'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800',
+        'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800',
+        'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800',
       ],
+      amenities: ['Wi-Fi', 'AC', 'Cooler', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'RO'],
+      rules: ['No Smoking', 'No Alcohol', 'Curfew 10:30 PM', 'Visitors allowed in common room'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 1800 * P, maintenanceCharge: 400 * P, laundryAvailable: true, laundryCharge: 400 * P,
     },
     {
-      landlordId: l3.id,
-      name: 'City Edge Student Living',
+      name: 'Green View Student Homes',
       type: 'PG',
-      address: '15 GT Road, Near Clock Tower',
+      address: 'Street 4, Ferozepur Road, Baddowal',
+      locality: 'Ferozepur Road',
       city: 'Ludhiana',
       state: 'Punjab',
-      pincode: '141008',
-      latitude: 30.9150,
-      longitude: 75.8590,
-      gender: 'MALE' as const,
-      description: 'Affordable budget PG located near central transport hub. Easy 15-min direct bus commute to PCTE. Great for budget-conscious students.',
-      amenities: ['Wi-Fi', 'Water Purifier', 'CCTV', 'Power Backup', 'Common TV'],
-      rules: ['No smoking/drinking', 'Visitors in common lobby only'],
-      wifiAvailable: true, wifiCharge: 150 * P,
-      foodAvailable: false, foodCharge: 0,
-      laundryAvailable: false, laundryCharge: 0,
-      maintenanceCharge: 100 * P,
-      electricityRate: 800,
-      parkingAvailable: true,
-      verificationStatus: 'VERIFIED' as const,
-      verifiedAt: monthDate(-2, 5),
-      lastAvailabilityConfirm: monthDate(0, -7),
+      pincode: '141012',
+      latitude: 30.8930,
+      longitude: 75.8470,
+      commuteTime: '12 mins walk / 3 mins auto (1.2 km)',
+      gender: 'FEMALE',
+      landlordId: sunitaLandlord.id,
+      description: 'Safe, gated Girls PG with full-time resident female warden, 3-tier security CCTV, biometric door locks, lush green garden, and homemade meals.',
       images: [
-        'https://images.unsplash.com/photo-1540518614846-7eded433c457?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
+        'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800',
       ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'RO', 'Female Warden'],
+      rules: ['Female students only', 'Curfew 9:30 PM', 'Female guests allowed with advance notice'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2200 * P, maintenanceCharge: 350 * P, laundryAvailable: true, laundryCharge: 450 * P,
+    },
+    {
+      name: 'Scholar\'s Haven Co-Living',
+      type: 'PG',
+      address: 'House 88, Block C, BRS Nagar',
+      locality: 'BRS Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141012',
+      latitude: 30.8910,
+      longitude: 75.8450,
+      commuteTime: '15 mins walk / 4 mins auto (1.5 km)',
+      gender: 'ANY',
+      landlordId: sunitaLandlord.id,
+      description: 'Modern co-living space with private study pods, high-speed Wi-Fi, communal kitchen option, solar water heaters, and routine housekeeping.',
+      images: [
+        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
+        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'RO', 'Parking'],
+      rules: ['No Noise after 11 PM', 'Keep common areas clean', 'No Smoking'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2000 * P, maintenanceCharge: 300 * P,
+    },
+    {
+      name: 'Urban Scholars PG',
+      type: 'PG',
+      address: '12-A, Main Market Road, Sarabha Nagar',
+      locality: 'Sarabha Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141001',
+      latitude: 30.8940,
+      longitude: 75.8320,
+      commuteTime: '6 mins auto / 15 mins e-rickshaw (2.4 km)',
+      gender: 'MALE',
+      landlordId: rajivLandlord.id,
+      description: 'Located in the vibrant Sarabha Nagar neighborhood near Kipper Market. Fully furnished rooms with attached balconies, high-speed internet, and gym access.',
+      images: [
+        'https://images.unsplash.com/photo-1501183638710-841dd1904471?w=800',
+        'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO', 'Parking', 'Gym'],
+      rules: ['No Smoking', 'Curfew 11 PM', 'Visitors allowed in lounge'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2100 * P, maintenanceCharge: 400 * P,
+    },
+    {
+      name: 'Student Square Luxury PG',
+      type: 'PG',
+      address: 'Plot 45, Kipper Market Lane, Sarabha Nagar',
+      locality: 'Sarabha Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141001',
+      latitude: 30.8950,
+      longitude: 75.8270,
+      commuteTime: '8 mins auto (2.9 km)',
+      gender: 'FEMALE',
+      landlordId: rajivLandlord.id,
+      description: 'Luxury Girls PG in Sarabha Nagar with designer interiors, microwave & fridge on every floor, electronic door locks, and 24/7 security guard.',
+      images: [
+        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
+        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'RO'],
+      rules: ['Curfew 10 PM', 'No Alcohol', 'Female visitors only'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2300 * P, maintenanceCharge: 500 * P,
+    },
+    {
+      name: 'Model Town Elite PG',
+      type: 'PG',
+      address: '24-B, Near Krishna Mandir, Model Town',
+      locality: 'Model Town',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141002',
+      latitude: 30.8900,
+      longitude: 75.8390,
+      commuteTime: '8 mins auto / 20 mins bus (3.0 km)',
+      gender: 'MALE',
+      landlordId: vikramLandlord.id,
+      description: 'Elite student house in Model Town near shopping centers & libraries. Spacious rooms, spring mattresses, power backup, and nutritious 3-course meal plan.',
+      images: [
+        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800',
+        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Parking', 'RO'],
+      rules: ['No Smoking', 'No Loud Music after 10 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2000 * P, maintenanceCharge: 350 * P,
+    },
+    {
+      name: 'Royal Residency for Girls',
+      type: 'PG',
+      address: 'House 102, Block A, Model Town',
+      locality: 'Model Town',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141002',
+      latitude: 30.8870,
+      longitude: 75.8380,
+      commuteTime: '10 mins auto (3.4 km)',
+      gender: 'FEMALE',
+      landlordId: sunitaLandlord.id,
+      description: 'Quiet, peaceful Girls PG with home-style Punjabi food, RO water purifiers, daily room cleaning, and strict biometric security access.',
+      images: [
+        'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800',
+        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO', 'Biometric Access'],
+      rules: ['Curfew 9:30 PM', 'Parent authorization required for late entry'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2200 * P, maintenanceCharge: 300 * P,
+    },
+    {
+      name: 'Rajguru Nagar Student Flat',
+      type: 'FLAT',
+      address: 'Flat 302, Green Avenue, Rajguru Nagar',
+      locality: 'Rajguru Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141012',
+      latitude: 30.8800,
+      longitude: 75.8200,
+      commuteTime: '12 mins auto (4.6 km)',
+      gender: 'ANY',
+      landlordId: rajivLandlord.id,
+      description: 'Fully furnished 3BHK student flat with modular kitchen, washing machine, balcony views, and independent sub-meters per room.',
+      images: [
+        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
+        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Laundry', 'CCTV', 'Power Backup', 'Parking', 'Modular Kitchen'],
+      rules: ['Self-cooking flat', 'Keep premises clean', 'No loud parties'],
+      wifiAvailable: true, wifiCharge: 200 * P, foodAvailable: false, foodCharge: 0, maintenanceCharge: 500 * P,
+    },
+    {
+      name: 'Civil Lines Executive PG',
+      type: 'PG',
+      address: '77 Rani Jhansi Road, Civil Lines',
+      locality: 'Civil Lines',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141001',
+      latitude: 30.9100,
+      longitude: 75.8500,
+      commuteTime: '15 mins bus / auto (5.8 km)',
+      gender: 'MALE',
+      landlordId: vikramLandlord.id,
+      description: 'Located in prestigious Civil Lines, perfect for students who prefer quiet residential surroundings with fast connectivity to main markets.',
+      images: [
+        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800',
+        'https://images.unsplash.com/photo-1501183638710-841dd1904471?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'RO'],
+      rules: ['No Smoking', 'Quiet hours 10 PM - 6 AM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 1900 * P, maintenanceCharge: 400 * P,
+    },
+    {
+      name: 'Pakhowal Road Haven',
+      type: 'PG',
+      address: 'Plot 15, Pakhowal Road, near Canal Bridge',
+      locality: 'Pakhowal Road',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141013',
+      latitude: 30.8650,
+      longitude: 75.8350,
+      commuteTime: '20 mins bus / auto (7.0 km)',
+      gender: 'FEMALE',
+      landlordId: sunitaLandlord.id,
+      description: 'Spacious Girls PG along Pakhowal Road with garden patio, hot water geysers, CCTV surveillance, and flexible meal plans.',
+      images: [
+        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800',
+        'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Cooler', 'Food', 'Laundry', 'CCTV', 'RO'],
+      rules: ['Female students only', 'Curfew 9:30 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 1800 * P, maintenanceCharge: 300 * P,
+    },
+    {
+      name: 'Guru Nanak Student Hostel',
+      type: 'HOSTEL',
+      address: 'Gill Road, Near GNDEC Campus',
+      locality: 'Civil Lines',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141006',
+      latitude: 30.8610,
+      longitude: 75.8590,
+      commuteTime: '12 mins auto (4.2 km)',
+      gender: 'ANY',
+      landlordId: rajivLandlord.id,
+      description: 'Co-ed hostel accommodation catering to engineering & management students with study rooms, high-speed LAN internet, and outdoor sports court.',
+      images: [
+        'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800',
+        'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800',
+      ],
+      amenities: ['Wi-Fi', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'Study Table', 'Sports Court'],
+      rules: ['No Alcohol', 'Sports court open till 9 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 1700 * P, maintenanceCharge: 250 * P,
+    },
+    {
+      name: 'PAU Vicinity Co-Living',
+      type: 'PG',
+      address: 'Gate 4 Road, Near PAU Campus, Ferozepur Road',
+      locality: 'Ferozepur Road',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141004',
+      latitude: 30.9020,
+      longitude: 75.8080,
+      commuteTime: '14 mins bus / auto (4.8 km)',
+      gender: 'MALE',
+      landlordId: vikramLandlord.id,
+      description: 'Situated near PAU Gate 4. Modern rooms with air conditioning, attached bath, and 24/7 security monitoring.',
+      images: [
+        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=800',
+        'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO'],
+      rules: ['No Smoking', 'Quiet hours after 10 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2000 * P, maintenanceCharge: 350 * P,
+    },
+    {
+      name: 'Kippss Market Student Hub',
+      type: 'PG',
+      address: 'Main Market Arcade, Sarabha Nagar',
+      locality: 'Sarabha Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141001',
+      latitude: 30.8960,
+      longitude: 75.8240,
+      commuteTime: '9 mins auto (3.2 km)',
+      gender: 'MALE',
+      landlordId: rajivLandlord.id,
+      description: 'Vibrant PG located right above Kippss Market with instant access to cafes, stationery shops, and ATMs.',
+      images: [
+        'https://images.unsplash.com/photo-1501183638710-841dd1904471?w=800',
+        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800',
+      ],
+      amenities: ['Wi-Fi', 'AC', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO'],
+      rules: ['No Smoking', 'Visitors allowed till 8 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 2000 * P, maintenanceCharge: 400 * P,
+    },
+    {
+      name: 'City Edge Budget PG',
+      type: 'PG',
+      address: 'House 44, Block B, BRS Nagar',
+      locality: 'BRS Nagar',
+      city: 'Ludhiana',
+      state: 'Punjab',
+      pincode: '141012',
+      latitude: 30.8860,
+      longitude: 75.8490,
+      commuteTime: '6 mins auto / 15 mins walk (2.1 km)',
+      gender: 'MALE',
+      landlordId: sunitaLandlord.id,
+      description: 'High-value budget accommodation with essential amenities including cooler, Wi-Fi, clean drinking water, and wholesome meals.',
+      images: [
+        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
+        'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800',
+      ],
+      amenities: ['Wi-Fi', 'Cooler', 'Food', 'Laundry', 'CCTV', 'RO'],
+      rules: ['No Smoking', 'Curfew 10 PM'],
+      wifiAvailable: true, wifiCharge: 0, foodAvailable: true, foodCharge: 1600 * P, maintenanceCharge: 200 * P,
     },
   ];
 
-  const createdProperties = [];
-  for (const seed of propertySeeds) {
-    const prop = await prisma.property.create({ data: seed });
-    createdProperties.push(prop);
+  const properties = [];
+  for (const raw of rawProps) {
+    const prop = await prisma.property.create({
+      data: {
+        landlordId: raw.landlordId,
+        name: raw.name,
+        type: raw.type,
+        address: raw.address,
+        locality: raw.locality,
+        city: raw.city,
+        state: raw.state,
+        pincode: raw.pincode,
+        latitude: raw.latitude,
+        longitude: raw.longitude,
+        commuteTime: raw.commuteTime,
+        gender: raw.gender as any,
+        description: raw.description,
+        images: raw.images,
+        amenities: raw.amenities,
+        rules: raw.rules,
+        wifiAvailable: raw.wifiAvailable,
+        wifiCharge: raw.wifiCharge,
+        foodAvailable: raw.foodAvailable,
+        foodCharge: raw.foodCharge,
+        maintenanceCharge: raw.maintenanceCharge,
+        verificationStatus: 'VERIFIED',
+        verifiedAt: new Date(),
+        verificationNotes: 'On-ground physical verification & photo audit completed by UniNest Team.',
+        lastAvailabilityConfirm: new Date(),
+      },
+    });
 
-    // Create Property-College link with calculated exact distance
-    const dist = haversineDistance(seed.latitude, seed.longitude, PCTE_LAT, PCTE_LNG);
+    // Link Property to PCTE Institute
+    const dist = haversineDistance(raw.latitude, raw.longitude, PCTE_LAT, PCTE_LNG);
     await prisma.propertyCollegeLink.create({
       data: {
         propertyId: prop.id,
-        collegeId: pcte.id,
+        collegeId: pcteCollege.id,
         distance: dist,
       },
     });
 
-    // Create Listing
-    await prisma.listing.create({
-      data: {
-        propertyId: prop.id,
-        title: `${prop.name} - ${prop.gender === 'MALE' ? 'Boys' : prop.gender === 'FEMALE' ? 'Girls' : 'Co-ed'} PG Near PCTE`,
-        description: prop.description,
-        isActive: true,
-      },
-    });
-  }
+    // Create 3-4 Rooms per Property (Single, Double, Triple sharing)
+    const roomConfigs = [
+      { roomNum: '101', sharing: 1, hasAC: true, hasCooler: false, rent: 8500 * P, deposit: 8500 * P },
+      { roomNum: '102', sharing: 2, hasAC: true, hasCooler: false, rent: 6000 * P, deposit: 6000 * P },
+      { roomNum: '201', sharing: 2, hasAC: false, hasCooler: true, rent: 5200 * P, deposit: 5200 * P },
+      { roomNum: '202', sharing: 3, hasAC: true, hasCooler: false, rent: 4500 * P, deposit: 4500 * P },
+    ];
 
-  const prop1 = createdProperties[0]; // CampusNest Residency (Rahul's main demo PG)
-  const prop2 = createdProperties[1]; // Green View
-  const prop3 = createdProperties[2]; // Urban Scholars
-  const prop5 = createdProperties[4]; // PCTE Residency
-
-  // === ROOMS & BEDS FOR ALL 10 PROPERTIES ===
-
-  // 1. CampusNest Residency (10 Rooms, 24 Beds total)
-  const prop1Rooms = [];
-  for (let r = 201; r <= 208; r++) {
-    const sharing = r <= 203 ? 2 : r <= 206 ? 3 : 1;
-    const rent = sharing === 1 ? 8500 * P : sharing === 2 ? 6000 * P : 4800 * P;
-    const deposit = sharing === 1 ? 15000 * P : 10000 * P;
-    const room = await prisma.room.create({
-      data: {
-        propertyId: prop1.id,
-        roomNumber: String(r),
-        floor: 2,
-        sharing,
-        hasAC: r <= 204,
-        hasCooler: r > 204,
-        hasAttBath: r <= 203,
-        rent,
-        deposit,
-      },
-    });
-    prop1Rooms.push(room);
-
-    const labels = ['A', 'B', 'C', 'D'];
-    for (let b = 0; b < sharing; b++) {
-      let status: 'AVAILABLE' | 'OCCUPIED' | 'RESERVED' | 'NOTICE_PERIOD' | 'MAINTENANCE_HOLD' = 'AVAILABLE';
-      if (r === 201) status = 'OCCUPIED';
-      else if (r === 202 && b === 0) status = 'OCCUPIED';
-      else if (r === 202 && b === 1) status = 'AVAILABLE';
-      else if (r === 203 && b === 0) status = 'OCCUPIED';
-      else if (r === 203 && b === 1) status = 'RESERVED';
-      else if (r === 204 && b === 0) status = 'AVAILABLE'; // Rahul's target bed!
-      else if (r === 204 && b === 1) status = 'AVAILABLE';
-      else if (r === 205 && b === 0) status = 'NOTICE_PERIOD';
-      else if (r === 206 && b === 2) status = 'MAINTENANCE_HOLD';
-      else if (r <= 207) status = 'OCCUPIED';
-
-      await prisma.bed.create({ data: { roomId: room.id, label: labels[b], status } });
-    }
-  }
-
-  // 2. Green View Student Homes (Girls PG: 6 Rooms, 12 Beds)
-  for (let r = 101; r <= 106; r++) {
-    const room = await prisma.room.create({
-      data: {
-        propertyId: prop2.id,
-        roomNumber: String(r),
-        floor: 1,
-        sharing: 2,
-        hasAC: r <= 103,
-        hasAttBath: true,
-        rent: 6500 * P,
-        deposit: 10000 * P,
-      },
-    });
-    await prisma.bed.create({ data: { roomId: room.id, label: 'A', status: r <= 104 ? 'OCCUPIED' : 'AVAILABLE' } });
-    await prisma.bed.create({ data: { roomId: room.id, label: 'B', status: r <= 102 ? 'OCCUPIED' : 'AVAILABLE' } });
-  }
-
-  // 3. Urban Scholars (5 Rooms, 10 Beds)
-  for (let r = 301; r <= 305; r++) {
-    const sharing = r === 301 ? 1 : 2;
-    const room = await prisma.room.create({
-      data: {
-        propertyId: prop3.id,
-        roomNumber: String(r),
-        floor: 3,
-        sharing,
-        hasAC: true,
-        rent: sharing === 1 ? 9000 * P : 5800 * P,
-        deposit: 12000 * P,
-      },
-    });
-    for (let b = 0; b < sharing; b++) {
-      await prisma.bed.create({ data: { roomId: room.id, label: ['A', 'B'][b], status: b === 0 && r <= 303 ? 'OCCUPIED' : 'AVAILABLE' } });
-    }
-  }
-
-  // 4. Populate rooms/beds for properties 4 through 10 so NO property has 0 beds or ₹0 rent!
-  for (let idx = 3; idx < createdProperties.length; idx++) {
-    const p = createdProperties[idx];
-    for (let r = 101; r <= 104; r++) {
-      const sharing = r === 101 ? 1 : r <= 103 ? 2 : 3;
-      const rent = sharing === 1 ? 7500 * P : sharing === 2 ? 5500 * P : 4200 * P;
+    for (const rc of roomConfigs) {
       const room = await prisma.room.create({
         data: {
-          propertyId: p.id,
-          roomNumber: String(r),
-          floor: 1,
-          sharing,
-          hasAC: r <= 102,
-          hasCooler: r > 102,
-          rent,
-          deposit: 8000 * P,
+          propertyId: prop.id,
+          roomNumber: rc.roomNum,
+          floor: parseInt(rc.roomNum[0]),
+          sharing: rc.sharing,
+          hasAC: rc.hasAC,
+          hasCooler: rc.hasCooler,
+          hasAttBath: true,
+          rent: rc.rent,
+          deposit: rc.deposit,
         },
       });
-      for (let b = 0; b < sharing; b++) {
-        const status = b === 0 ? 'AVAILABLE' : 'OCCUPIED';
-        await prisma.bed.create({ data: { roomId: room.id, label: ['A', 'B', 'C'][b], status } });
+
+      // Create Beds for each Room (Labels: A, B, C)
+      const labels = ['A', 'B', 'C', 'D'];
+      for (let i = 0; i < rc.sharing; i++) {
+        // Reserve bed 102-A in CampusNest Residency for Rahul Sharma demo booking
+        const isRahulBed = prop.name.includes('CampusNest') && rc.roomNum === '102' && labels[i] === 'A';
+        await prisma.bed.create({
+          data: {
+            roomId: room.id,
+            label: labels[i],
+            status: isRahulBed ? 'RESERVED' : (i % 3 === 0 ? 'OCCUPIED' : 'AVAILABLE'),
+          },
+        });
       }
     }
+
+    properties.push(prop);
   }
 
-  // === BOOKINGS & TENANCY STORY FOR RAHUL SHARMA ===
-  const bed204A = await prisma.bed.findFirst({
-    where: { room: { propertyId: prop1.id, roomNumber: '204' }, label: 'A' },
-  });
-  const bed201A = await prisma.bed.findFirst({
-    where: { room: { propertyId: prop1.id, roomNumber: '201' }, label: 'A' },
+  // === DEMO SAVED PROPERTIES FOR RAHUL SHARMA ===
+  const campusNestProp = properties.find((p) => p.name.includes('CampusNest'))!;
+  const pcteProp = properties.find((p) => p.name.includes('PCTE Residency'))!;
+  const greenViewProp = properties.find((p) => p.name.includes('Green View')) || properties[2];
+
+  await prisma.savedProperty.create({
+    data: {
+      userId: studentUser1.id,
+      propertyId: campusNestProp.id,
+    },
   });
 
-  if (bed204A) {
-    const booking1 = await prisma.booking.create({
+  if (greenViewProp) {
+    await prisma.savedProperty.create({
       data: {
-        userId: student1.id,
-        propertyId: prop1.id,
-        bedId: bed204A.id,
-        status: 'ACTIVE',
+        userId: studentUser1.id,
+        propertyId: greenViewProp.id,
+      },
+    });
+  }
+
+  // === DEMO BOOKING #1 FOR RAHUL SHARMA (PCTE Residency — VISIT_REQUESTED) ===
+  const pcteBed = await prisma.bed.findFirst({
+    where: { room: { propertyId: pcteProp.id }, status: 'AVAILABLE' },
+  });
+
+  if (pcteBed) {
+    await prisma.bed.update({
+      where: { id: pcteBed.id },
+      data: { status: 'RESERVED' },
+    });
+
+    await prisma.booking.create({
+      data: {
+        id: 'UNR-DEMO-2026-00452',
+        userId: studentUser1.id,
+        propertyId: pcteProp.id,
+        bedId: pcteBed.id,
+        status: 'VISIT_REQUESTED',
         reservationFee: 399 * P,
-        moveInDate: monthDate(-2, 1),
+        moveInDate: new Date('2026-09-15'),
+        expiresAt: new Date(Date.now() + 86400000 * 7),
+        notes: 'Token ₹399 bed reservation fee paid via UPI. Visit requested for weekend.',
+      },
+    });
+  }
+
+  // === DEMO BOOKING #2 FOR RAHUL SHARMA (CampusNest — CONFIRMED) ===
+  const reservedBed = await prisma.bed.findFirst({
+    where: { room: { propertyId: campusNestProp.id }, status: 'RESERVED' },
+  });
+
+  if (reservedBed) {
+    const booking = await prisma.booking.create({
+      data: {
+        id: 'UNR-DEMO-2026-00819',
+        userId: studentUser1.id,
+        propertyId: campusNestProp.id,
+        bedId: reservedBed.id,
+        status: 'CONFIRMED',
+        reservationFee: 399 * P,
+        moveInDate: new Date('2024-08-01'),
+        expiresAt: monthDate(12),
+        notes: 'Token ₹399 payment verified via UPI. Student move-in confirmed.',
+      },
+    });
+
+    const tenancy = await prisma.tenancy.create({
+      data: {
+        studentId: rahulStudent.id,
+        bookingId: booking.id,
+        bedId: reservedBed.id,
+        startDate: new Date('2024-08-01'),
+        endDate: monthDate(11),
+        isActive: true,
       },
     });
 
     await prisma.agreement.create({
       data: {
-        bookingId: booking1.id,
+        bookingId: booking.id,
         templateType: '11_MONTH',
-        startDate: monthDate(-2, 1),
-        endDate: monthDate(9, 1),
+        startDate: new Date('2024-08-01'),
+        endDate: monthDate(11),
         rent: 6000 * P,
-        deposit: 10000 * P,
-        noticePeriod: 30,
-        status: 'ACTIVE',
+        deposit: 6000 * P,
+        status: 'SIGNED',
         landlordSigned: true,
         tenantSigned: true,
-        signedAt: monthDate(-2, 3),
-        terms: 'Standard UniNest 11-Month Digital Tenancy Agreement with Accidental Micro-Damage Protection up to ₹5,000.',
+        signedAt: new Date('2024-07-28'),
+        documentUrl: '/documents/agreements/AGR_RAHUL_CAMPUSNEST.pdf',
       },
     });
 
-    const tenancy1 = await prisma.tenancy.create({
+    // Create Rent Records
+    await prisma.rentRecord.create({
       data: {
-        studentId: s1.id,
-        bookingId: booking1.id,
-        bedId: bed204A.id,
-        startDate: monthDate(-2, 1),
-        isActive: true,
+        tenancyId: tenancy.id,
+        month: 8,
+        year: 2024,
+        dueDate: new Date('2024-08-05'),
+        amountDue: 6000 * P,
+        amountPaid: 6000 * P,
+        status: 'PAID',
+        paidDate: new Date('2024-08-02'),
       },
     });
 
-    // Mark bed as OCCUPIED
-    await prisma.bed.update({ where: { id: bed204A.id }, data: { status: 'OCCUPIED' } });
-
-    // Rent History
-    for (let m = -2; m <= 0; m++) {
-      const due = monthDate(m, 5);
-      const isPast = m < 0;
-      await prisma.rentRecord.create({
-        data: {
-          tenancyId: tenancy1.id,
-          month: due.getUTCMonth() + 1,
-          year: due.getUTCFullYear(),
-          amountDue: 6000 * P,
-          amountPaid: isPast ? 6000 * P : 0,
-          dueDate: due,
-          paidDate: isPast ? monthDate(m, 4) : null,
-          status: isPast ? 'PAID' : 'DUE',
-          autoPayEnabled: true,
-        },
-      });
-    }
-
-    // Deposit Record
-    await prisma.deposit.create({
+    await prisma.rentRecord.create({
       data: {
-        tenancyId: tenancy1.id,
-        amount: 10000 * P,
-        paidDate: monthDate(-2, 2),
-        status: 'HELD',
-      },
-    });
-
-    // Move-in Condition Report
-    await prisma.moveInConditionReport.create({
-      data: {
-        studentId: s1.id,
-        propertyId: prop1.id,
-        roomNumber: '204',
-        bedLabel: 'A',
-        items: JSON.stringify([
-          { item: 'Bed & Mattress', condition: 'Good', photo: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=400' },
-          { item: 'Study Table & Chair', condition: 'Minor scratch on edge', photo: '' },
-          { item: 'Wardrobe', condition: 'Excellent with keys', photo: '' },
-          { item: 'AC & Meter', condition: 'Working fine (Reading: 1200)', photo: '' },
-        ]),
-        photoUrls: ['https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800'],
-        studentAccepted: true,
-        landlordAccepted: true,
-        acceptedAt: monthDate(-2, 2),
-      },
-    });
-
-    // Student KYC
-    await prisma.kYCRecord.create({
-      data: {
-        studentId: s1.id,
-        status: 'VERIFIED',
-        documentType: 'Aadhaar',
-        documentNo: 'XXXX-XXXX-8912',
-        verifiedAt: monthDate(-2, 2),
+        tenancyId: tenancy.id,
+        month: 9,
+        year: 2024,
+        dueDate: new Date('2024-09-05'),
+        amountDue: 6000 * P,
+        amountPaid: 0,
+        status: 'DUE',
       },
     });
   }
 
-  // Second Tenancy (Priya Kaur)
-  if (bed201A) {
-    const b2 = await prisma.booking.create({
-      data: { userId: student2.id, propertyId: prop1.id, bedId: bed201A.id, status: 'ACTIVE', reservationFee: 399 * P, moveInDate: monthDate(-4) },
-    });
-    await prisma.tenancy.create({
-      data: { studentId: s2.id, bookingId: b2.id, bedId: bed201A.id, startDate: monthDate(-4), isActive: true },
+  // === SERVICE CATEGORIES & ORDERS ===
+  const sCat1 = await prisma.serviceCategory.create({ data: { name: 'Deep Cleaning', icon: 'Sparkles', description: 'Complete room & washroom sanitation' } });
+  const sCat2 = await prisma.serviceCategory.create({ data: { name: 'AC Servicing', icon: 'Wind', description: 'AC filter cleaning & gas check' } });
+  const sCat3 = await prisma.serviceCategory.create({ data: { name: 'Plumbing Repair', icon: 'Wrench', description: 'Tap leak & pipe fixing' } });
+
+  const prov = await prisma.serviceProvider.findFirst();
+
+  if (prov) {
+    await prisma.serviceOrder.create({
+      data: {
+        providerId: prov.id,
+        customerName: 'Rahul Sharma',
+        customerId: studentUser1.id,
+        propertyId: campusNestProp.id,
+        serviceName: 'Room Deep Cleaning & Sanitation',
+        categoryName: sCat1.name,
+        status: 'COMPLETED',
+        scheduledDate: new Date(),
+        completedDate: new Date(),
+        amount: 499 * P,
+        commission: 50 * P,
+        landlordShare: 25 * P,
+        rating: 5,
+      },
     });
   }
 
-  // === ELECTRICITY METERS & READINGS ===
-  const meter1 = await prisma.electricityMeter.create({
-    data: { propertyId: prop1.id, meterNo: 'EM-CN-204', location: 'Room 204 Sub-Meter' },
+  // === DEMO VISITS & CONTROLLED MESSAGES ===
+  const sampleBooking = await prisma.booking.findFirst({
+    where: { userId: studentUser1.id },
   });
-  await prisma.electricityReading.create({
-    data: { meterId: meter1.id, reading: 1200, readingDate: monthDate(-1, 1) },
-  });
-  const r2 = await prisma.electricityReading.create({
-    data: { meterId: meter1.id, reading: 1265, readingDate: monthDate(0, 1) },
-  });
-  await prisma.utilityCharge.create({
+
+  const v1 = await prisma.visitAppointment.create({
     data: {
-      readingId: r2.id,
-      units: 65,
-      rate: 800, // ₹8/unit in paise
-      amount: 520 * P, // ₹520
-      tenantName: 'Rahul Sharma',
-      isPaid: false,
+      appointmentNo: 'VIS-DEMO-1024',
+      bookingId: sampleBooking?.id,
+      propertyId: campusNestProp.id,
+      studentId: studentUser1.id,
+      landlordId: landlordUser1.id,
+      scheduledDate: new Date(Date.now() + 86400000 * 2),
+      timeSlot: '04:00 PM – 05:00 PM',
+      alternativeSlot: '06:00 PM – 07:00 PM',
+      visitorCount: 2,
+      notes: 'Visiting with parents to check room and mess facility.',
+      status: 'CONFIRMED',
     },
   });
 
-  // === MAINTENANCE TICKETS ===
-  await prisma.maintenanceTicket.create({
+  const v2 = await prisma.visitAppointment.create({
     data: {
-      propertyId: prop1.id,
-      reportedBy: 'Rahul Sharma',
-      reporterId: student1.id,
-      category: 'PLUMBING',
-      description: 'Bathroom tap in Room 204 is leaking continuously. Request quick washer replacement.',
-      priority: 'HIGH',
-      status: 'ASSIGNED',
-      assignedTo: 'QuickFix Services',
-      estimatedCost: 350 * P,
-      photoUrls: ['https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=600'],
+      appointmentNo: 'VIS-DEMO-1025',
+      propertyId: properties[1].id,
+      studentId: studentUser2.id,
+      landlordId: landlordUser2.id,
+      scheduledDate: new Date(Date.now() + 86400000 * 3),
+      timeSlot: '05:30 PM – 06:30 PM',
+      visitorCount: 1,
+      notes: 'Want to inspect attached washroom and Wi-Fi speed.',
+      status: 'COUNTER_PROPOSED',
+      counterSlot: '06:30 PM – 07:30 PM',
+      counterReason: 'Landlord busy in afternoon.',
     },
   });
 
-  await prisma.maintenanceTicket.create({
+  await prisma.message.create({
     data: {
-      propertyId: prop1.id,
-      reportedBy: 'Priya Kaur',
-      reporterId: student2.id,
-      category: 'ELECTRICAL',
-      description: 'Study light switch socket loose in Room 201.',
-      priority: 'MEDIUM',
-      status: 'RESOLVED',
-      assignedTo: 'QuickFix Services',
-      actualCost: 200 * P,
-      resolvedAt: monthDate(0, -2),
-      resolutionNote: 'Socket replaced and rewired safely.',
-      photoUrls: [],
+      bookingId: sampleBooking?.id,
+      visitId: v1.id,
+      senderId: landlordUser1.id,
+      receiverId: studentUser1.id,
+      content: `Hello Rahul! Your visit appointment VIS-DEMO-1024 for CampusNest Residency is confirmed for 4:00 PM. Looking forward to showing you the room.`,
     },
   });
 
-  // === EMERGENCY INCIDENT ===
-  await prisma.emergencyIncident.create({
+  await prisma.message.create({
     data: {
-      propertyId: prop1.id,
-      reportedBy: 'Rahul Sharma',
-      reporterId: student1.id,
-      category: 'PROPERTY',
-      description: 'Main corridor light tripped during thunderstorm.',
-      isDanger: false,
-      providerName: 'QuickFix Electrician',
-      providerETA: '25 mins',
-      status: 'RESOLVED',
-      resolvedAt: monthDate(0, -10),
+      bookingId: sampleBooking?.id,
+      visitId: v1.id,
+      senderId: studentUser1.id,
+      receiverId: landlordUser1.id,
+      content: `Thank you Vikram sir! Will be arriving with my father. Is parking available?`,
     },
   });
 
-  // === DISPUTE DEMO ===
-  const dispute = await prisma.dispute.create({
-    data: {
-      caseId: 'UN-DMG-00452',
-      reporterId: student1.id,
-      respondentId: landlord1.id,
-      category: 'DAMAGE',
-      title: 'Accidental Table Edge Chipping Claim',
-      description: 'Landlord requested ₹1,200 deduction for study table edge chip. Submitted move-in report showing pre-existing wear. Requesting Accidental Micro-Damage Protection coverage.',
-      status: 'UNDER_REVIEW',
-    },
-  });
-  await prisma.disputeEvidence.create({
-    data: {
-      disputeId: dispute.id,
-      type: 'PHOTO',
-      label: 'Move-in Condition Table Photo',
-      url: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800',
-      uploadedBy: 'Rahul Sharma',
-    },
-  });
+  // === ROOMMATE MARKETPLACE DEMO SEED ===
+  console.log('👥 Seeding 12 Roommate Marketplace Requests & Matches...');
 
-  // === REVIEWS (REALISTIC VARIATION 4.2 to 4.8) ===
-  const reviewData = [
-    { propertyId: prop1.id, userId: student2.id, cleanliness: 5, landlord: 5, maintenance: 4, food: 4, wifi: 5, safety: 5, accuracy: 5, overall: 5, comment: 'Best PG near PCTE! High speed Wi-Fi actually works during online exams. Uncle is very supportive.', isVerifiedStay: true },
-    { propertyId: prop1.id, userId: student3.id, cleanliness: 4, landlord: 4, maintenance: 4, food: 4, wifi: 4, safety: 4, accuracy: 4, overall: 4, comment: 'Clean rooms, decent food. Walking distance to PCTE campus.', isVerifiedStay: true },
-    { propertyId: prop2.id, userId: student4.id, cleanliness: 5, landlord: 5, maintenance: 5, food: 4, wifi: 4, safety: 5, accuracy: 5, overall: 5, comment: 'Felt completely safe as a girl student. Warden maam is very caring.', isVerifiedStay: true },
-  ];
-  for (const r of reviewData) {
-    await prisma.review.create({ data: r });
-  }
-
-  // === WAITLIST ENTRIES ===
-  const bedNotice = await prisma.bed.findFirst({ where: { status: 'NOTICE_PERIOD' } });
-  await prisma.waitlistEntry.create({
+  // 1. Rahul Sharma (Demo Student)
+  const reqRahul = await prisma.roommateRequest.create({
     data: {
-      studentId: s4.id,
-      bedId: bedNotice?.id,
-      propertyId: prop1.id,
-      preferences: JSON.stringify({ roomType: 'Double Sharing', budget: 6000 }),
-      isActive: true,
+      studentId: rahulStudent.id,
+      status: 'ACTIVE',
+      name: 'Rahul Sharma',
+      gender: 'Male',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Tech CSE',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Ferozepur Road',
+      radiusKm: 3.0,
+      budgetMin: 5000,
+      budgetMax: 7000,
+      roomType: 'Double Sharing',
+      moveInDate: new Date('2026-09-15'),
+      genderPreference: 'Same Gender',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      socialPreference: 'Balanced',
+      visitorPreference: 'Weekend Only',
+      petPreference: 'No Pets',
+      acPreference: true,
+      wifiPreference: true,
+      attachedBathroomPreference: true,
+      foodProvidedPreference: true,
+      description: 'Focused on studies, clean, non-smoker and prefer a quiet room near PCTE campus.',
+      isVerified: true,
     },
   });
 
-  // === PAYMENTS & FINANCIAL AUDIT LOGS ===
-  await prisma.payment.create({
-    data: { userId: student1.id, amount: 399 * P, type: 'RESERVATION_FEE', status: 'SUCCESS', method: 'UPI', transactionId: 'UNP-2026-009181', description: 'Bed Reservation Token Fee - CampusNest' },
-  });
-  await prisma.payment.create({
-    data: { userId: student1.id, amount: 6000 * P, type: 'RENT', status: 'SUCCESS', method: 'UPI', transactionId: 'UNP-2026-009182', description: 'July Rent Payment' },
-  });
-  await prisma.payment.create({
-    data: { userId: student1.id, amount: 6000 * P, type: 'RENT', status: 'SUCCESS', method: 'UPI', transactionId: 'UNP-2026-009183', description: 'August Rent Payment' },
-  });
-
-  // === LANDLORD ANCILLARY REWARDS ===
-  const now = new Date();
-  await prisma.landlordReward.create({ data: { landlordId: l1.id, source: 'wifi', amount: 450 * P, description: 'Wi-Fi Service 5% Ancillary Share', month: now.getMonth() + 1, year: now.getFullYear() } });
-  await prisma.landlordReward.create({ data: { landlordId: l1.id, source: 'laundry', amount: 280 * P, description: 'Laundry Service 5% Ancillary Share', month: now.getMonth() + 1, year: now.getFullYear() } });
-
-  // === SERVICE ORDERS (ANCILLARY REVENUE) ===
-  const so1 = await prisma.serviceOrder.create({
+  // 2. Aman Verma (91% Match with Rahul)
+  const userAman = await prisma.user.create({
     data: {
-      providerId: sp1.id,
-      customerName: 'Rahul Sharma',
-      customerId: student1.id,
-      propertyId: prop1.id,
-      serviceName: 'Deep Room Cleaning & Sanitization',
-      categoryName: 'Housekeeping',
-      status: 'COMPLETED',
-      amount: 600 * P,
-      commission: 90 * P, // 15% UniNest
-      landlordShare: 30 * P, // 5% Landlord reward
-      scheduledDate: monthDate(0, -3),
-      completedDate: monthDate(0, -3),
-      rating: 5,
-    },
-  });
-  await prisma.commission.create({
-    data: {
-      serviceOrderId: so1.id,
-      totalAmount: 600 * P,
-      vendorAmount: 480 * P,
-      uninestAmount: 90 * P,
-      landlordAmount: 30 * P,
+      email: 'aman.verma@uninest.demo',
+      name: 'Aman Verma',
+      phone: '9876543219',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200',
     },
   });
 
-  // === NOTIFICATIONS ===
-  await prisma.notification.create({ data: { userId: student1.id, type: 'RENT', title: 'September Rent Notice', message: 'Your monthly rent of ₹6,000 is due on 5th September. AutoPay is active.', actionUrl: '/student/payments' } });
-  await prisma.notification.create({ data: { userId: student1.id, type: 'MAINTENANCE', title: 'Maintenance Technician Dispatched', message: 'QuickFix Plumbing has been assigned to your tap repair ticket MT-2045.', actionUrl: '/student/maintenance' } });
-  await prisma.notification.create({ data: { userId: landlord1.id, type: 'BOOKING', title: 'Bed 204-A Active Tenancy', message: 'Rahul Sharma confirmed tenancy at CampusNest Residency.', actionUrl: '/landlord/tenants' } });
-
-  // === TENANT VERIFICATION ===
-  await prisma.tenantVerification.create({
+  const studentAman = await prisma.student.create({
     data: {
-      referenceNo: 'TNV-2026-LDH-0089',
-      studentName: 'Rahul Sharma',
-      studentPhone: '9876543210',
-      permanentAddr: '123 MG Road, Jalandhar, Punjab',
-      currentAddr: 'CampusNest Residency, Room 204, Model Town, Ludhiana',
-      landlordName: 'Vikram Singh',
-      propertyAddr: 'Plot 14, Ferozepur Road, Near PCTE Gate, Ludhiana',
-      status: 'COMPLETED',
-      submittedAt: monthDate(-2, 2),
-      completedAt: monthDate(-2, 4),
-      notes: 'Identity & College Enrollment verified via PCTE Academic Portal.',
+      userId: userAman.id,
+      gender: 'Male',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Tech CSE',
+      year: 2,
+      sleepSchedule: 'Night Owl',
+      studyHabits: 'Late Night Study',
+      cleanliness: 5,
+      noisePref: 'Quiet',
+      smokingPref: 'Non-Smoker',
+      foodPref: 'Vegetarian',
+      budgetMin: 5500,
+      budgetMax: 7000,
     },
   });
 
-  console.log('\n✅ UniNest Production Demo Seed Complete!');
-  console.log('───────────────────────────────────────────────────────');
-  console.log('  Summary of Seeded Dataset:');
-  console.log('  - Demo PGs: 10 curated properties in Ludhiana');
-  console.log('  - Primary College: PCTE Institute (Lat: 30.8984, Lng: 75.8564)');
-  console.log('  - Distances: 0.5 km to 4.8 km (Exact Haversine calculation)');
-  console.log('  - All properties have realistic prices (₹4,200 - ₹9,000/mo)');
-  console.log('  - Bed-level status: AVAILABLE, OCCUPIED, RESERVED, NOTICE, HOLD');
-  console.log('───────────────────────────────────────────────────────');
-  console.log('  Demo Accounts (Password for all: demo123):');
-  console.log('  Student:  rahul@uninest.demo');
-  console.log('  Landlord: landlord@uninest.demo');
-  console.log('  Admin:    admin@uninest.demo');
-  console.log('  College:  pcte@uninest.demo');
-  console.log('  Provider: provider@uninest.demo');
-  console.log('───────────────────────────────────────────────────────\n');
+  const reqAman = await prisma.roommateRequest.create({
+    data: {
+      studentId: studentAman.id,
+      status: 'ACTIVE',
+      name: 'Aman Verma',
+      gender: 'Male',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Tech CSE',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Ferozepur Road',
+      radiusKm: 2.5,
+      budgetMin: 5500,
+      budgetMax: 7000,
+      roomType: 'Double Sharing',
+      moveInDate: new Date('2026-09-15'),
+      genderPreference: 'Same Gender',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      socialPreference: 'Balanced',
+      visitorPreference: 'Weekend Only',
+      petPreference: 'No Pets',
+      acPreference: true,
+      wifiPreference: true,
+      attachedBathroomPreference: true,
+      foodProvidedPreference: true,
+      description: 'Looking for a study-oriented roommate. Non-smoker, clean, usually study till 11 PM.',
+      isVerified: true,
+    },
+  });
+
+  // Create Mutual Match between Rahul & Aman (91% Score)
+  const matchRahulAman = await prisma.roommateMatch.create({
+    data: {
+      requestAId: reqRahul.id,
+      requestBId: reqAman.id,
+      studentAId: rahulStudent.id,
+      studentBId: studentAman.id,
+      compatibilityScore: 91.0,
+      status: 'MATCHED',
+    },
+  });
+
+  // Seed chat messages between Rahul & Aman
+  await prisma.roommateMessage.create({
+    data: {
+      matchId: matchRahulAman.id,
+      senderId: rahulStudent.id,
+      content: 'Hey Aman! I saw your roommate profile. Looks like we both study late at PCTE.',
+    },
+  });
+
+  await prisma.roommateMessage.create({
+    data: {
+      matchId: matchRahulAman.id,
+      senderId: studentAman.id,
+      content: 'Hey Rahul! Yes, usually till 11 PM or 12 AM. Are you looking for a PG near Ferozepur Road?',
+    },
+  });
+
+  await prisma.roommateMessage.create({
+    data: {
+      matchId: matchRahulAman.id,
+      senderId: rahulStudent.id,
+      content: 'Yes! Prefer double sharing under ₹7,000 with good Wi-Fi and AC.',
+    },
+  });
+
+  await prisma.roommateMessage.create({
+    data: {
+      matchId: matchRahulAman.id,
+      senderId: studentAman.id,
+      content: 'Awesome, same here! Let us check compatible rooms together on UniNest.',
+    },
+  });
+
+  // 3. Simran Kaur (Sent Interest to Rahul)
+  const userSimran = await prisma.user.create({
+    data: {
+      email: 'simran.kaur@uninest.demo',
+      name: 'Simran Kaur',
+      phone: '9876543220',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+    },
+  });
+
+  const studentSimran = await prisma.student.create({
+    data: {
+      userId: userSimran.id,
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'BBA',
+      year: 3,
+    },
+  });
+
+  const reqSimran = await prisma.roommateRequest.create({
+    data: {
+      studentId: studentSimran.id,
+      status: 'ACTIVE',
+      name: 'Simran Kaur',
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'BBA',
+      year: 3,
+      city: 'Ludhiana',
+      locality: 'BRS Nagar',
+      radiusKm: 3.5,
+      budgetMin: 6000,
+      budgetMax: 8500,
+      roomType: 'Single Room',
+      moveInDate: new Date('2026-09-20'),
+      genderPreference: 'Female Only',
+      sleepSchedule: 'Early Riser',
+      studySchedule: 'Morning Study',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      socialPreference: 'Introvert',
+      visitorPreference: 'No Guests',
+      petPreference: 'No Pets',
+      acPreference: true,
+      wifiPreference: true,
+      attachedBathroomPreference: true,
+      description: 'Disciplined BBA final year student looking for a quiet female roommate in BRS Nagar.',
+      isVerified: true,
+    },
+  });
+
+  // Seed Sent Interest: Simran -> Rahul
+  await prisma.roommateInterest.create({
+    data: {
+      senderRequestId: reqSimran.id,
+      receiverRequestId: reqRahul.id,
+      status: 'PENDING',
+    },
+  });
+
+  // 4. Arjun Mehta
+  const userArjun = await prisma.user.create({
+    data: {
+      email: 'arjun.mehta@uninest.demo',
+      name: 'Arjun Mehta',
+      phone: '9876543221',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
+    },
+  });
+  const studentArjun = await prisma.student.create({
+    data: { userId: userArjun.id, gender: 'Male', collegeName: 'GNDEC Ludhiana', course: 'M.Tech', year: 1 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentArjun.id,
+      status: 'ACTIVE',
+      name: 'Arjun Mehta',
+      gender: 'Male',
+      collegeName: 'GNDEC Ludhiana',
+      course: 'M.Tech CSE',
+      year: 1,
+      city: 'Ludhiana',
+      locality: 'Model Town',
+      budgetMin: 7000,
+      budgetMax: 9000,
+      roomType: 'Single Room',
+      sleepSchedule: 'Early Riser',
+      studySchedule: 'Daytime Study',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Non-Vegetarian',
+      description: 'M.Tech research scholar looking for a quiet flatmate in Model Town.',
+      isVerified: true,
+    },
+  });
+
+  // 5. Karan Singh
+  const userKaran = await prisma.user.create({
+    data: {
+      email: 'karan.singh@uninest.demo',
+      name: 'Karan Singh',
+      phone: '9876543222',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
+    },
+  });
+  const studentKaran = await prisma.student.create({
+    data: { userId: userKaran.id, gender: 'Male', collegeName: 'PCTE Institute of Technology', course: 'B.HM', year: 2 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentKaran.id,
+      status: 'ACTIVE',
+      name: 'Karan Singh',
+      gender: 'Male',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.HM',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Sarabha Nagar',
+      budgetMin: 5000,
+      budgetMax: 6500,
+      roomType: 'Double Sharing',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Moderate',
+      cleanlinessPreference: 'Moderate',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Non-Vegetarian',
+      description: 'Hotel Management student, friendly and easygoing.',
+      isVerified: true,
+    },
+  });
+
+  // 6. Neha Sharma
+  const userNeha = await prisma.user.create({
+    data: {
+      email: 'neha.sharma@uninest.demo',
+      name: 'Neha Sharma',
+      phone: '9876543223',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
+    },
+  });
+  const studentNeha = await prisma.student.create({
+    data: { userId: userNeha.id, gender: 'Female', collegeName: 'LPU Extension', course: 'B.Sc Nursing', year: 2 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentNeha.id,
+      status: 'ACTIVE',
+      name: 'Neha Sharma',
+      gender: 'Female',
+      collegeName: 'LPU Extension',
+      course: 'B.Sc Nursing',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Ferozepur Road',
+      budgetMin: 6000,
+      budgetMax: 7500,
+      roomType: 'Double Sharing',
+      sleepSchedule: 'Early Riser',
+      studySchedule: 'Daytime Study',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      description: 'Nursing student seeking a neat and polite female roommate.',
+      isVerified: true,
+    },
+  });
+
+  // 7. Priya Kapoor
+  const userPriya = await prisma.user.create({
+    data: {
+      email: 'priya.kapoor@uninest.demo',
+      name: 'Priya Kapoor',
+      phone: '9876543224',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200',
+    },
+  });
+  const studentPriya = await prisma.student.create({
+    data: { userId: userPriya.id, gender: 'Female', collegeName: 'PCTE Institute of Technology', course: 'MBA', year: 1 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentPriya.id,
+      status: 'ACTIVE',
+      name: 'Priya Kapoor',
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'MBA',
+      year: 1,
+      city: 'Ludhiana',
+      locality: 'BRS Nagar',
+      budgetMin: 7500,
+      budgetMax: 10000,
+      roomType: 'Single Room',
+      sleepSchedule: 'Early Riser',
+      studySchedule: 'Evening Study',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      description: 'MBA student looking for a premium single room with a compatible flatmate.',
+      isVerified: true,
+    },
+  });
+
+  // 8. Riya Malhotra
+  const userRiya = await prisma.user.create({
+    data: {
+      email: 'riya.malhotra@uninest.demo',
+      name: 'Riya Malhotra',
+      phone: '9876543225',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200',
+    },
+  });
+  const studentRiya = await prisma.student.create({
+    data: { userId: userRiya.id, gender: 'Female', collegeName: 'PCTE Institute of Technology', course: 'BCA', year: 2 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentRiya.id,
+      status: 'ACTIVE',
+      name: 'Riya Malhotra',
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'BCA',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Gurdev Nagar',
+      budgetMin: 5000,
+      budgetMax: 7000,
+      roomType: 'Double Sharing',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Moderate',
+      cleanlinessPreference: 'Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Non-Vegetarian',
+      description: 'BCA student looking for a fun and friendly roommate near Gurdev Nagar.',
+      isVerified: true,
+    },
+  });
+
+  // 9. Vikas Yadav
+  const userVikas = await prisma.user.create({
+    data: {
+      email: 'vikas.yadav@uninest.demo',
+      name: 'Vikas Yadav',
+      phone: '9876543226',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200',
+    },
+  });
+  const studentVikas = await prisma.student.create({
+    data: { userId: userVikas.id, gender: 'Male', collegeName: 'GNDEC Ludhiana', course: 'B.Tech Mechanical', year: 3 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentVikas.id,
+      status: 'ACTIVE',
+      name: 'Vikas Yadav',
+      gender: 'Male',
+      collegeName: 'GNDEC Ludhiana',
+      course: 'B.Tech Mechanical',
+      year: 3,
+      city: 'Ludhiana',
+      locality: 'Gill Road',
+      budgetMin: 4500,
+      budgetMax: 6000,
+      roomType: 'Triple Sharing',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Evening Study',
+      noisePreference: 'Moderate',
+      cleanlinessPreference: 'Moderate',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Non-Vegetarian',
+      description: 'Mechanical engineering student looking for budget accommodation near Gill Road.',
+      isVerified: true,
+    },
+  });
+
+  // 10. Tanvi Gupta
+  const userTanvi = await prisma.user.create({
+    data: {
+      email: 'tanvi.gupta@uninest.demo',
+      name: 'Tanvi Gupta',
+      phone: '9876543227',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200',
+    },
+  });
+  const studentTanvi = await prisma.student.create({
+    data: { userId: userTanvi.id, gender: 'Female', collegeName: 'PCTE Institute of Technology', course: 'B.Pharma', year: 3 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentTanvi.id,
+      status: 'ACTIVE',
+      name: 'Tanvi Gupta',
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Pharma',
+      year: 3,
+      city: 'Ludhiana',
+      locality: 'Ferozepur Road',
+      budgetMin: 6500,
+      budgetMax: 8000,
+      roomType: 'Double Sharing',
+      sleepSchedule: 'Early Riser',
+      studySchedule: 'Morning Study',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      description: 'Pharma student, quiet and organized.',
+      isVerified: true,
+    },
+  });
+
+  // 11. Rohan Malhotra
+  const userRohan = await prisma.user.create({
+    data: {
+      email: 'rohan.malhotra@uninest.demo',
+      name: 'Rohan Malhotra',
+      phone: '9876543228',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200',
+    },
+  });
+  const studentRohan = await prisma.student.create({
+    data: { userId: userRohan.id, gender: 'Male', collegeName: 'PCTE Institute of Technology', course: 'B.Com', year: 1 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentRohan.id,
+      status: 'ACTIVE',
+      name: 'Rohan Malhotra',
+      gender: 'Male',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Com',
+      year: 1,
+      city: 'Ludhiana',
+      locality: 'BRS Nagar',
+      budgetMin: 5000,
+      budgetMax: 7000,
+      roomType: 'Double Sharing',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Moderate',
+      cleanlinessPreference: 'Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Vegetarian',
+      description: '1st year B.Com student looking for friendly flatmates.',
+      isVerified: true,
+    },
+  });
+
+  // 12. Ananya Roy
+  const userAnanya = await prisma.user.create({
+    data: {
+      email: 'ananya.roy@uninest.demo',
+      name: 'Ananya Roy',
+      phone: '9876543229',
+      passwordHash: hash('demo123'),
+      role: 'STUDENT',
+      avatarUrl: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200',
+    },
+  });
+  const studentAnanya = await prisma.student.create({
+    data: { userId: userAnanya.id, gender: 'Female', collegeName: 'PCTE Institute of Technology', course: 'B.Des', year: 2 },
+  });
+  await prisma.roommateRequest.create({
+    data: {
+      studentId: studentAnanya.id,
+      status: 'ACTIVE',
+      name: 'Ananya Roy',
+      gender: 'Female',
+      collegeName: 'PCTE Institute of Technology',
+      collegeId: pcteCollege.id,
+      course: 'B.Des',
+      year: 2,
+      city: 'Ludhiana',
+      locality: 'Sarabha Nagar',
+      budgetMin: 7000,
+      budgetMax: 9000,
+      roomType: 'Single Room',
+      sleepSchedule: 'Night Owl',
+      studySchedule: 'Late Night',
+      noisePreference: 'Quiet Room',
+      cleanlinessPreference: 'Very Neat',
+      smokingPreference: 'Non-Smoker',
+      foodPreference: 'Non-Vegetarian',
+      description: 'Design student looking for a creative, peaceful roommate in Sarabha Nagar.',
+      isVerified: true,
+    },
+  });
+
+  // === QUALITY ASSERTIONS ===
+  console.log('🔍 Running Seed Quality Assertions...');
+  const propCount = await prisma.property.count();
+  const roomCount = await prisma.room.count();
+  const bedCount = await prisma.bed.count();
+  const availBeds = await prisma.bed.count({ where: { status: 'AVAILABLE' } });
+
+  console.log(`✅ Total Properties Seeded: ${propCount} (Requirement: >= 15)`);
+  console.log(`✅ Total Rooms Seeded: ${roomCount} (Requirement: >= 50)`);
+  console.log(`✅ Total Beds Seeded: ${bedCount} (Requirement: >= 100)`);
+  console.log(`✅ Available Beds: ${availBeds}`);
+
+  if (propCount < 15) throw new Error(`ASSERTION FAILED: Only ${propCount} properties seeded, minimum 15 required!`);
+  if (roomCount < 50) throw new Error(`ASSERTION FAILED: Only ${roomCount} rooms seeded, minimum 50 required!`);
+  if (bedCount < 100) throw new Error(`ASSERTION FAILED: Only ${bedCount} beds seeded, minimum 100 required!`);
+
+  const zeroRentRooms = await prisma.room.count({ where: { OR: [{ rent: 0 }, { deposit: 0 }] } });
+  if (zeroRentRooms > 0) throw new Error('ASSERTION FAILED: Found rooms with ₹0 rent or deposit!');
+
+  const invalidProps = await prisma.property.count({
+    where: { OR: [{ description: null }, { address: '' }, { name: '' }] },
+  });
+  if (invalidProps > 0) throw new Error('ASSERTION FAILED: Found properties with missing name, address, or description!');
+
+  console.log('🎉 Seed Completed Successfully & Verified!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seeding error:', e);
+    console.error(e);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

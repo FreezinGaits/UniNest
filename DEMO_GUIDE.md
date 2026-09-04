@@ -87,6 +87,9 @@
 > - **Trust & Operations (₹15,000):** Field verification photo audits & legal agreement templates.
 > - **Operational Reserve (₹10,000):** Emergency contingency buffer.
 
+### Q18: How does UniNest prevent off-platform contact leakage before booking?
+> **Answer:** Before a bed reservation is made, UniNest enforces a strict **Privacy Gate**: exact street addresses, house numbers, landlord phone numbers, and direct emails are hidden. The map displays only an approximate locality radius. Paying a ₹399 bed reservation fee unlocks the exact property location, map directions, and landlord visit scheduling. Furthermore, UniNest's **In-App Messaging Guard** actively screens and masks phone numbers, email addresses, WhatsApp links, and external contact URLs in real-time, keeping the transaction fully on-platform.
+
 ---
 
 ## 🛠️ Pre-Demo 1-Click Verification Commands

@@ -9,17 +9,52 @@ import { Input, Select } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/Shared';
 import { formatINR } from '@/lib/utils';
 import {
-  Search, MapPin, Filter, SlidersHorizontal, Wifi, UtensilsCrossed,
-  ShieldCheck, Star, ChevronDown, Building2, Heart, Eye, CalendarCheck,
-  Zap, Car, Shirt, Camera, X, ArrowUpDown, Grid3X3, List
+  STATES_DATA,
+  COLLEGES_DATA,
+  estimateCommuteTime,
+} from '@/lib/locationData';
+import DemoMapView from '@/components/search/DemoMapView';
+import { HeartSaveButton } from '@/components/property/HeartSaveButton';
+import {
+  Search,
+  MapPin,
+  Filter,
+  SlidersHorizontal,
+  Wifi,
+  UtensilsCrossed,
+  ShieldCheck,
+  Star,
+  ChevronDown,
+  Building2,
+  Heart,
+  Eye,
+  CalendarCheck,
+  Zap,
+  Car,
+  Shirt,
+  Camera,
+  X,
+  ArrowUpDown,
+  Grid3X3,
+  List,
+  Map as MapIcon,
+  Navigation,
+  CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 
 interface PropertyResult {
   id: string;
   name: string;
+  type: string;
   address: string;
+  locality?: string;
   city: string;
+  state: string;
   gender: string;
+  latitude?: number;
+  longitude?: number;
+  commuteTime?: string;
   images: string[];
   verificationStatus: string;
   verifiedAt: string | null;
@@ -29,10 +64,25 @@ interface PropertyResult {
   laundryAvailable: boolean;
   parkingAvailable: boolean;
   amenities: string[];
+  rules: string[];
   wifiCharge: number;
   foodCharge: number;
   maintenanceCharge: number;
   electricityRate: number;
+  computedDistance: number;
+  minBaseRent: number;
+  minDeposit: number;
+  totalBeds: number;
+  availBeds: number;
+  trueMonthlyCost: number;
+  rating: number;
+  reviewCount: number;
+  landlord?: {
+    businessName: string;
+    responseRate: number;
+    avgResponseTime: string;
+    user: { name: string; phone: string };
+  };
   rooms: {
     id: string;
     roomNumber: string;
@@ -42,26 +92,60 @@ interface PropertyResult {
     hasAC: boolean;
     beds: { id: string; status: string }[];
   }[];
-  reviews: { overall: number }[];
+  reviews: { overall: number; comment?: string }[];
   collegeLinks: { distance: number | null; college: { collegeName: string } }[];
 }
 
 export default function StudentSearchPage() {
   const [properties, setProperties] = useState<PropertyResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
   const [sortBy, setSortBy] = useState('recommended');
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+
+  useEffect(() => {
+    fetch('/api/student/saved/ids')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.savedIds) setSavedIds(data.savedIds);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Location Hierarchy States
+  const [selectedState, setSelectedState] = useState('Punjab');
+  const [selectedCity, setSelectedCity] = useState('Ludhiana');
+  const [selectedLocality, setSelectedLocality] = useState('');
+  const [selectedCollegeId, setSelectedCollegeId] = useState('pcte-ludhiana');
+  const [selectedRadius, setSelectedRadius] = useState('3');
+
+  // Filter Drawer States
   const [filters, setFilters] = useState({
     minRent: '',
     maxRent: '',
+    maxDeposit: '',
+    maxTotalCost: '',
     sharing: '',
+    type: '',
     gender: '',
-    amenity: '',
+    amenities: [] as string[],
+    rules: [] as string[],
     verifiedOnly: false,
-    maxDistance: '',
   });
+
+  // Get available cities for selected state
+  const stateObj = STATES_DATA.find((s) => s.name === selectedState) || STATES_DATA[0];
+  const citiesList = stateObj.cities;
+
+  // Get available localities for selected city
+  const cityObj = citiesList.find((c) => c.name === selectedCity) || citiesList[0];
+  const localitiesList = cityObj?.localities || [];
+
+  // Get current selected college
+  const selectedCollege =
+    COLLEGES_DATA.find((c) => c.id === selectedCollegeId) || COLLEGES_DATA[0];
 
   useEffect(() => {
     async function fetchProperties() {
@@ -69,12 +153,25 @@ export default function StudentSearchPage() {
       try {
         const params = new URLSearchParams();
         if (searchQuery) params.set('q', searchQuery);
+        if (selectedState) params.set('state', selectedState);
+        if (selectedCity) params.set('city', selectedCity);
+        if (selectedLocality) params.set('locality', selectedLocality);
+        if (selectedCollegeId) {
+          params.set('collegeId', selectedCollegeId);
+          params.set('lat', selectedCollege.latitude.toString());
+          params.set('lng', selectedCollege.longitude.toString());
+        }
+        if (selectedRadius) params.set('maxDistance', selectedRadius);
+
         if (filters.minRent) params.set('minRent', filters.minRent);
         if (filters.maxRent) params.set('maxRent', filters.maxRent);
+        if (filters.maxDeposit) params.set('maxDeposit', filters.maxDeposit);
+        if (filters.maxTotalCost) params.set('maxTotalCost', filters.maxTotalCost);
         if (filters.sharing) params.set('sharing', filters.sharing);
+        if (filters.type) params.set('type', filters.type);
         if (filters.gender) params.set('gender', filters.gender);
         if (filters.verifiedOnly) params.set('verified', 'true');
-        if (filters.maxDistance) params.set('maxDistance', filters.maxDistance);
+
         if (sortBy) params.set('sort', sortBy);
 
         const res = await fetch(`/api/properties/search?${params.toString()}`);
@@ -86,366 +183,583 @@ export default function StudentSearchPage() {
         setLoading(false);
       }
     }
+
     fetchProperties();
-  }, [searchQuery, filters, sortBy]);
+  }, [
+    searchQuery,
+    selectedState,
+    selectedCity,
+    selectedLocality,
+    selectedCollegeId,
+    selectedRadius,
+    filters,
+    sortBy,
+  ]);
 
-  function getMinRent(property: PropertyResult): number {
-    if (property.rooms.length === 0) return 0;
-    return Math.min(...property.rooms.map(r => r.rent));
-  }
-
-  function getMinDeposit(property: PropertyResult): number {
-    if (property.rooms.length === 0) return 0;
-    return Math.min(...property.rooms.map(r => r.deposit));
-  }
-
-  function getAvailableBeds(property: PropertyResult): number {
-    return property.rooms.reduce((acc, r) => acc + r.beds.filter(b => b.status === 'AVAILABLE').length, 0);
-  }
-
-  function getTotalBeds(property: PropertyResult): number {
-    return property.rooms.reduce((acc, r) => acc + r.beds.length, 0);
-  }
-
-  function getAvgRating(property: PropertyResult): number {
-    if (property.reviews.length === 0) return 0;
-    return property.reviews.reduce((acc, r) => acc + r.overall, 0) / property.reviews.length;
-  }
-
-  function getEstimatedMonthlyCost(property: PropertyResult): number {
-    const minRent = getMinRent(property);
-    const elecEstimate = 40000; // ₹400 estimate in paise
-    return minRent + property.wifiCharge + property.foodCharge + property.maintenanceCharge + elecEstimate;
-  }
-
-  function getDistance(property: PropertyResult): string {
-    if (property.collegeLinks.length > 0 && property.collegeLinks[0].distance) {
-      return `${property.collegeLinks[0].distance.toFixed(1)} km`;
+  const handleStateChange = (newState: string) => {
+    setSelectedState(newState);
+    const newStObj = STATES_DATA.find((s) => s.name === newState);
+    if (newStObj && newStObj.cities.length > 0) {
+      setSelectedCity(newStObj.cities[0].name);
+      setSelectedLocality('');
     }
-    return '—';
-  }
+  };
 
-  function getVerifiedLabel(property: PropertyResult): string {
-    if (property.verificationStatus !== 'VERIFIED') return '';
-    if (!property.verifiedAt) return 'Verified';
-    const days = Math.floor((Date.now() - new Date(property.verifiedAt).getTime()) / 86400000);
+  const handleCityChange = (newCity: string) => {
+    setSelectedCity(newCity);
+    setSelectedLocality('');
+  };
+
+  const toggleAmenity = (amenity: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter((a) => a !== amenity)
+        : [...prev.amenities, amenity],
+    }));
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedLocality('');
+    setSelectedRadius('5');
+    setFilters({
+      minRent: '',
+      maxRent: '',
+      maxDeposit: '',
+      maxTotalCost: '',
+      sharing: '',
+      type: '',
+      gender: '',
+      amenities: [],
+      rules: [],
+      verifiedOnly: false,
+    });
+    setSortBy('recommended');
+  };
+
+  function getVerifiedLabel(verifiedAt: string | null): string {
+    if (!verifiedAt) return 'Verified Recently';
+    const days = Math.floor(
+      (Date.now() - new Date(verifiedAt).getTime()) / 86400000
+    );
     if (days === 0) return 'Verified today';
     if (days === 1) return 'Verified yesterday';
     return `Verified ${days} days ago`;
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text-primary">Find Your PG</h1>
-        <p className="text-text-secondary mt-1">Discover verified accommodations near your college.</p>
-      </div>
-
-      {/* Search Bar */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <Input
-            placeholder="Search by PG name, area, or college..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            icon={<Search className="w-4 h-4" />}
-          />
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => setShowFilters(!showFilters)}
-          icon={<SlidersHorizontal className="w-4 h-4" />}
-        >
-          Filters
-          {Object.values(filters).some(v => v !== '' && v !== false) && (
-            <span className="w-2 h-2 bg-brand-500 rounded-full" />
-          )}
-        </Button>
-        <div className="hidden sm:flex items-center gap-1 border border-border rounded-lg p-1">
-          <button
-            onClick={() => setView('grid')}
-            className={`p-1.5 rounded-md transition-colors ${view === 'grid' ? 'bg-surface-tertiary text-text-primary' : 'text-text-tertiary'}`}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setView('list')}
-            className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-surface-tertiary text-text-primary' : 'text-text-tertiary'}`}
-          >
-            <List className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      {showFilters && (
-        <Card className="animate-fade-in">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-text-primary">Filters</h3>
-            <button onClick={() => setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false, maxDistance: '' })} className="text-xs text-brand-600 font-medium">
-              Clear All
-            </button>
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Search Title & Counter Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              Verified Marketplace
+            </span>
+            <span className="text-xs text-slate-500">• Demo City: Ludhiana, Punjab</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <Input
-              label="Min Rent (₹)"
-              type="number"
-              placeholder="3000"
-              value={filters.minRent}
-              onChange={(e) => setFilters({ ...filters, minRent: e.target.value })}
-            />
-            <Input
-              label="Max Rent (₹)"
-              type="number"
-              placeholder="10000"
-              value={filters.maxRent}
-              onChange={(e) => setFilters({ ...filters, maxRent: e.target.value })}
-            />
-            <Select
-              label="Sharing"
-              value={filters.sharing}
-              onChange={(e) => setFilters({ ...filters, sharing: e.target.value })}
-              options={[
-                { value: '', label: 'Any' },
-                { value: '1', label: 'Single' },
-                { value: '2', label: '2-Sharing' },
-                { value: '3', label: '3-Sharing' },
-                { value: '4', label: '4-Sharing' },
-              ]}
-            />
-            <Select
-              label="Gender"
-              value={filters.gender}
-              onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-              options={[
-                { value: '', label: 'Any' },
-                { value: 'MALE', label: 'Boys' },
-                { value: 'FEMALE', label: 'Girls' },
-              ]}
-            />
-            <Select
-              label="Max Distance"
-              value={filters.maxDistance}
-              onChange={(e) => setFilters({ ...filters, maxDistance: e.target.value })}
-              options={[
-                { value: '', label: 'Any Distance' },
-                { value: '1', label: '< 1 km from PCTE' },
-                { value: '2', label: '< 2 km from PCTE' },
-                { value: '3', label: '< 3 km from PCTE' },
-                { value: '5', label: '< 5 km from PCTE' },
-              ]}
-            />
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 px-3 py-2.5 border border-border rounded-lg cursor-pointer hover:bg-surface-tertiary transition-colors">
-                <input
-                  type="checkbox"
-                  checked={filters.verifiedOnly}
-                  onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked })}
-                  className="rounded text-brand-600"
-                />
-                <span className="text-sm font-medium text-text-primary">Verified Only</span>
-              </label>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
+            Find Student PGs & Accommodation
+          </h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Search verified housing near <strong className="text-slate-900">{selectedCollege.name}</strong> with True Cost transparency.
+          </p>
+        </div>
+
+        {/* Primary Demo Persona Matching Banner (Requirement V) */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 text-emerald-700" />
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-emerald-800">
+              Rahul Sharma Persona Search Active
+            </div>
+            <div className="text-sm font-extrabold text-slate-900">
+              {properties.length} PGs match your preferences
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </div>
 
-      {/* Sort Bar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">
-          {loading ? 'Searching...' : `${properties.length} PGs found`}
-        </p>
+      {/* A-E: LOCATION HIERARCHY SEARCH BAR */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm space-y-4">
+        {/* Top Search Input */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by PG name, locality, street, or college landmark..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+            />
+          </div>
+          <Button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-4 py-3 rounded-xl border flex items-center gap-2 font-medium text-sm transition-all ${
+              showFilters
+                ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-sm'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filters</span>
+          </Button>
+        </div>
+
+        {/* Location Selector Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100 text-xs">
+          {/* State */}
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">State</label>
+            <select
+              value={selectedState}
+              onChange={(e) => handleStateChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500"
+            >
+              {STATES_DATA.map((s) => (
+                <option key={s.code} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* City */}
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">City</label>
+            <select
+              value={selectedCity}
+              onChange={(e) => handleCityChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500"
+            >
+              {citiesList.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Locality */}
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">Locality / Area</label>
+            <select
+              value={selectedLocality}
+              onChange={(e) => setSelectedLocality(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500"
+            >
+              <option value="">All Localities ({localitiesList.length})</option>
+              {localitiesList.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* College / Landmark */}
+          <div>
+            <label className="block text-slate-600 font-semibold mb-1">College / Landmark</label>
+            <select
+              value={selectedCollegeId}
+              onChange={(e) => setSelectedCollegeId(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-emerald-700 font-bold focus:bg-white focus:border-emerald-500"
+            >
+              {COLLEGES_DATA.map((col) => (
+                <option key={col.id} value={col.id}>
+                  🎓 {col.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* F: Radius Search */}
+          <div className="col-span-2 md:col-span-1">
+            <label className="block text-slate-600 font-semibold mb-1">Campus Radius</label>
+            <select
+              value={selectedRadius}
+              onChange={(e) => setSelectedRadius(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 font-medium focus:bg-white focus:border-emerald-500"
+            >
+              <option value="0.5">500 meters (0.5 km)</option>
+              <option value="1">1 km</option>
+              <option value="2">2 km</option>
+              <option value="3">3 km (Rahul Pref)</option>
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* View Switcher & Sorting Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
         <div className="flex items-center gap-2">
-          <ArrowUpDown className="w-3.5 h-3.5 text-text-tertiary" />
+          {/* View Mode Switcher */}
+          <div className="bg-slate-100 p-1 rounded-lg border border-slate-200 flex gap-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-white text-emerald-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Grid3X3 className="w-3.5 h-3.5" />
+              Grid
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === 'list'
+                  ? 'bg-white text-emerald-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === 'map'
+                  ? 'bg-white text-emerald-700 shadow-sm font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              Interactive Map
+            </button>
+          </div>
+
+          <span className="text-xs text-slate-500 ml-2 hidden sm:inline">
+            Showing <strong className="text-slate-900">{properties.length}</strong> verified listings
+          </span>
+        </div>
+
+        {/* I: Sort Dropdown */}
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="w-4 h-4 text-slate-400" />
+          <span className="text-xs text-slate-600 font-medium">Sort by:</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="text-sm border-none bg-transparent text-text-secondary font-medium focus:outline-none cursor-pointer"
+            className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold rounded-lg px-3 py-1.5 focus:bg-white focus:border-emerald-500"
           >
             <option value="recommended">Recommended</option>
-            <option value="price_low">Price: Low to High</option>
-            <option value="price_high">Price: High to Low</option>
-            <option value="rating">Rating</option>
-            <option value="distance">Distance</option>
-            <option value="verified">Recently Verified</option>
+            <option value="closest">Closest to {selectedCollege.name}</option>
+            <option value="lowest_rent">Lowest Rent</option>
+            <option value="lowest_total_cost">Lowest Total Monthly Cost</option>
+            <option value="highest_rated">Highest Rated</option>
+            <option value="most_available">Most Available Beds</option>
+            <option value="recently_verified">Recently Verified</option>
+            <option value="recently_updated">Recently Updated</option>
           </select>
         </div>
       </div>
 
-      {/* Results */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="bg-surface rounded-xl border border-border p-0 overflow-hidden">
-              <div className="skeleton h-44 rounded-none" />
-              <div className="p-4 space-y-3">
-                <div className="skeleton h-5 w-3/4" />
-                <div className="skeleton h-4 w-1/2" />
-                <div className="skeleton h-8 w-1/3" />
+      {/* H: COMPLETE FILTER DRAWER */}
+      {showFilters && (
+        <div className="bg-white border border-emerald-200 p-5 rounded-2xl shadow-md space-y-5 animate-slide-down">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Filter className="w-4 h-4 text-emerald-600" />
+              Advanced Property Filters
+            </h3>
+            <button
+              onClick={clearFilters}
+              className="text-xs text-emerald-600 hover:underline font-semibold"
+            >
+              Reset All Filters
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            {/* Price Filters */}
+            <div className="space-y-2">
+              <label className="block text-slate-700 font-bold">Monthly Rent (₹)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Min (e.g. 4000)"
+                  value={filters.minRent}
+                  onChange={(e) => setFilters({ ...filters, minRent: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900"
+                />
+                <input
+                  type="number"
+                  placeholder="Max (e.g. 8000)"
+                  value={filters.maxRent}
+                  onChange={(e) => setFilters({ ...filters, maxRent: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900"
+                />
               </div>
             </div>
-          ))}
+
+            {/* Room Sharing */}
+            <div className="space-y-2">
+              <label className="block text-slate-700 font-bold">Room Sharing</label>
+              <select
+                value={filters.sharing}
+                onChange={(e) => setFilters({ ...filters, sharing: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900"
+              >
+                <option value="">Any Sharing</option>
+                <option value="1">Single Room</option>
+                <option value="2">Double Sharing (2-Sharing)</option>
+                <option value="3">Triple Sharing (3-Sharing)</option>
+                <option value="4">4-Sharing</option>
+              </select>
+            </div>
+
+            {/* Property Type & Gender */}
+            <div className="space-y-2">
+              <label className="block text-slate-700 font-bold">Gender & Type</label>
+              <div className="flex gap-2">
+                <select
+                  value={filters.gender}
+                  onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900"
+                >
+                  <option value="">All Gender</option>
+                  <option value="MALE">Boys Only</option>
+                  <option value="FEMALE">Girls Only</option>
+                  <option value="ANY">Co-ed / Any</option>
+                </select>
+                <select
+                  value={filters.type}
+                  onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900"
+                >
+                  <option value="">All Types</option>
+                  <option value="PG">PG Accommodation</option>
+                  <option value="HOSTEL">Student Hostel</option>
+                  <option value="FLAT">Student Flat</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Trust & Verification */}
+            <div className="space-y-2">
+              <label className="block text-slate-700 font-bold">Verification Trust</label>
+              <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2.5 cursor-pointer text-slate-700 hover:bg-slate-100">
+                <input
+                  type="checkbox"
+                  checked={filters.verifiedOnly}
+                  onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked })}
+                  className="rounded accent-emerald-600 w-4 h-4"
+                />
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>UniNest Verified Listings Only</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Key Amenities Selection */}
+          <div>
+            <label className="block text-slate-700 font-bold mb-2 text-xs">Filter by Amenities</label>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {['Wi-Fi', 'AC', 'Cooler', 'Food', 'Laundry', 'CCTV', 'Power Backup', 'RO', 'Parking', 'Study Table', 'Biometric Access'].map((amenity) => {
+                const active = filters.amenities.includes(amenity);
+                return (
+                  <button
+                    key={amenity}
+                    onClick={() => toggleAmenity(amenity)}
+                    className={`px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                      active
+                        ? 'bg-emerald-600 text-white border-emerald-600 font-bold'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {amenity}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      ) : properties.length === 0 ? (
-        <EmptyState
-          icon={<Search className="w-12 h-12" />}
-          title="No PGs Found"
-          description="Try adjusting your search or filters to find more options."
-          action={
-            <Button variant="outline" onClick={() => { setSearchQuery(''); setFilters({ minRent: '', maxRent: '', sharing: '', gender: '', amenity: '', verifiedOnly: false, maxDistance: '' }); }}>
-              Clear Filters
-            </Button>
-          }
+      )}
+
+      {/* G: MAP VIEW MODE */}
+      {viewMode === 'map' && (
+        <DemoMapView
+          properties={properties}
+          selectedCollegeName={selectedCollege.name}
+          collegeLat={selectedCollege.latitude}
+          collegeLng={selectedCollege.longitude}
+          radiusKm={parseFloat(selectedRadius)}
         />
-      ) : (
-        <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
-          {properties.map(property => (
-            <Link key={property.id} href={`/student/search/${property.id}`}>
-              <Card padding="none" hover className="overflow-hidden">
-                {/* Image */}
-                <div className="relative h-44 bg-gradient-to-br from-brand-100 to-blue-100">
-                  {property.images && property.images.length > 0 ? (
-                    <img
-                      src={property.images[0]}
-                      alt={property.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-50 to-blue-100">
-                      <Building2 className="w-12 h-12 text-brand-300" />
-                    </div>
-                  )}
-                  {/* Badges */}
-                  <div className="absolute top-3 left-3 flex gap-1.5">
-                    {property.verificationStatus === 'VERIFIED' && (
-                      <span className="verified-badge">
-                        <ShieldCheck className="w-3 h-3" />
-                        UniNest Verified
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute top-3 right-3">
-                    <button className="p-1.5 bg-white/80 backdrop-blur-sm rounded-full hover:bg-white transition-colors"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-                      <Heart className="w-4 h-4 text-text-secondary" />
-                    </button>
-                  </div>
-                  {/* Availability */}
-                  <div className="absolute bottom-3 left-3">
-                    <Badge variant={getAvailableBeds(property) > 0 ? 'success' : 'danger'} size="sm">
-                      {getAvailableBeds(property)} of {getTotalBeds(property)} beds available
-                    </Badge>
-                  </div>
-                </div>
+      )}
 
-                {/* Info */}
-                <div className="p-4 space-y-3">
+      {/* GRID / LIST PROPERTY CARDS */}
+      {viewMode !== 'map' && (
+        loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-96 bg-slate-100 rounded-2xl animate-pulse border border-slate-200" />
+            ))}
+          </div>
+        ) : properties.length === 0 ? (
+          <EmptyState
+            icon={<Building2 className="w-10 h-10 text-slate-400 mx-auto" />}
+            title="No PG properties match your filters"
+            description="Try adjusting your campus radius, price range, or clearing filters."
+            action={<Button onClick={clearFilters}>Clear All Filters</Button>}
+          />
+        ) : (
+          <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+            {properties.map((property) => {
+              const distanceKm = typeof property.computedDistance === 'number' ? property.computedDistance : 1.2;
+              const commuteStr = estimateCommuteTime(distanceKm, selectedCollege.name);
+              const verifiedLabel = getVerifiedLabel(property.verifiedAt);
+
+              return (
+                <Card
+                  key={property.id}
+                  className="bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-lg transition-all duration-300 group overflow-hidden flex flex-col justify-between"
+                >
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-text-primary text-base truncate">{property.name}</h3>
-                      {getAvgRating(property) > 0 && (
-                        <span className="flex items-center gap-0.5 text-xs font-semibold text-amber-600">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          {getAvgRating(property).toFixed(1)}
+                    {/* Image Header with Badges */}
+                    <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+                      <img
+                        src={property.images[0] || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'}
+                        alt={property.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-black/30" />
+
+                      {/* Top Badges */}
+                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+                        <div className="flex gap-1.5">
+                          {property.verificationStatus === 'VERIFIED' && (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white flex items-center gap-1 shadow-md">
+                              <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                              VERIFIED
+                            </span>
+                          )}
+                          <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/90 text-slate-800 backdrop-blur-md border border-slate-200/80 shadow-sm">
+                            {property.gender === 'MALE' ? 'Boys PG' : property.gender === 'FEMALE' ? 'Girls PG' : 'Co-ed'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 pointer-events-auto">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-900/80 text-white backdrop-blur-md">
+                            {verifiedLabel}
+                          </span>
+                          <HeartSaveButton
+                            propertyId={property.id}
+                            initialSaved={savedIds.includes(property.id)}
+                            size="sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Distance Badge on Image Bottom */}
+                      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
+                        <span className="bg-slate-900/85 text-indigo-200 font-bold px-2.5 py-1 rounded-lg border border-indigo-400/30 flex items-center gap-1 backdrop-blur-md">
+                          <Navigation className="w-3.5 h-3.5 text-indigo-300" />
+                          {distanceKm} km from {selectedCollege.name.split(' ')[0]}
                         </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-text-secondary flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {property.address}
-                      {property.collegeLinks.length > 0 && (
-                        <span className="text-brand-600 font-medium ml-1">
-                          • {getDistance(property)} from {property.collegeLinks[0].college.collegeName}
+                        <span className="bg-amber-400 text-slate-900 font-extrabold px-2 py-0.5 rounded text-xs flex items-center gap-1 shadow-sm">
+                          <Star className="w-3 h-3 fill-slate-900 text-slate-900" />
+                          {property.rating}
                         </span>
-                      )}
-                    </p>
-                  </div>
+                      </div>
+                    </div>
 
-                  {/* Price */}
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-xl font-bold text-text-primary">{formatINR(getMinRent(property))}</span>
-                    <span className="text-sm text-text-secondary">/month</span>
-                    <span className="text-xs text-text-tertiary ml-auto">
-                      Deposit: {formatINR(getMinDeposit(property))}
-                    </span>
-                  </div>
+                    {/* Card Content */}
+                    <div className="p-5 space-y-3">
+                      <div>
+                        <div className="text-xs text-slate-500 flex items-center gap-1 font-medium">
+                          <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{property.locality || 'Ludhiana'}, {property.city}</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors mt-0.5">
+                          {property.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                          <Zap className="w-3.5 h-3.5 text-amber-500" />
+                          Commute: <strong className="text-slate-700">{commuteStr}</strong>
+                        </p>
+                      </div>
 
-                  {/* Amenities */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {property.wifiAvailable && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        <Wifi className="w-3 h-3" /> Wi-Fi
-                      </span>
-                    )}
-                    {property.foodAvailable && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        <UtensilsCrossed className="w-3 h-3" /> Food
-                      </span>
-                    )}
-                    {property.laundryAvailable && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        <Shirt className="w-3 h-3" /> Laundry
-                      </span>
-                    )}
-                    {property.parkingAvailable && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        <Car className="w-3 h-3" /> Parking
-                      </span>
-                    )}
-                    {property.rooms.some(r => r.hasAC) && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        <Zap className="w-3 h-3" /> AC
-                      </span>
-                    )}
-                    {property.amenities.slice(0, 2).map(a => (
-                      <span key={a} className="inline-flex items-center px-2 py-0.5 bg-surface-tertiary rounded text-[11px] font-medium text-text-secondary">
-                        {a}
-                      </span>
-                    ))}
-                  </div>
+                      {/* Amenities Pills */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {property.wifiAvailable && (
+                          <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-medium flex items-center gap-1">
+                            <Wifi className="w-3 h-3 text-blue-600" />
+                            Fiber Wi-Fi
+                          </span>
+                        )}
+                        {property.foodAvailable && (
+                          <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-100 text-[11px] font-medium flex items-center gap-1">
+                            <UtensilsCrossed className="w-3 h-3 text-amber-600" />
+                            Meals Included
+                          </span>
+                        )}
+                        {property.amenities.slice(0, 3).map((a) => (
+                          <span key={a} className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">
+                            {a}
+                          </span>
+                        ))}
+                      </div>
 
-                  {/* True Monthly Cost */}
-                  <div className="bg-brand-50 rounded-lg px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-brand-700">Estimated monthly cost</span>
-                      <span className="text-sm font-bold text-brand-800">{formatINR(getEstimatedMonthlyCost(property))}</span>
+                      {/* Availability & Beds Status */}
+                      <div className="flex items-center justify-between bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100 text-xs">
+                        <span className="text-slate-600 font-medium">Bed Availability:</span>
+                        <span className="font-extrabold text-emerald-700 flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          {property.availBeds} available of {property.totalBeds} beds
+                        </span>
+                      </div>
+
+                      {/* J: TRUE MONTHLY COST BREAKDOWN */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1 text-xs">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Base Room Rent:</span>
+                          <strong className="text-slate-900">₹{property.minBaseRent.toLocaleString('en-IN')}/mo</strong>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500 text-[11px]">
+                          <span>Deposit (Refundable):</span>
+                          <span>₹{property.minDeposit.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between">
+                          <span className="font-bold text-slate-800">True Monthly Cost:</span>
+                          <span className="text-base font-extrabold text-emerald-600">
+                            ₹{property.trueMonthlyCost.toLocaleString('en-IN')}/mo
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-500 text-right">
+                          (Rent + Food + Wi-Fi + Maint. + Est. Elec ₹400)
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Verification */}
-                  {property.verificationStatus === 'VERIFIED' && (
-                    <p className="text-[11px] text-text-tertiary flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                      {getVerifiedLabel(property)}
-                      {property.lastAvailabilityConfirm && (
-                        <>
-                          <span className="mx-1">•</span>
-                          Availability confirmed {(() => {
-                            const days = Math.floor((Date.now() - new Date(property.lastAvailabilityConfirm).getTime()) / 86400000);
-                            return days === 0 ? 'today' : `${days}d ago`;
-                          })()}
-                        </>
-                      )}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" className="flex-1">
-                      <Eye className="w-3.5 h-3.5" />
+                  {/* Card Action CTAs */}
+                  <div className="p-5 pt-0 grid grid-cols-2 gap-2.5">
+                    <Link
+                      href={`/student/search/${property.id}`}
+                      className="w-full text-center py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+                    >
                       View Details
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <CalendarCheck className="w-3.5 h-3.5" />
-                      Book Visit
-                    </Button>
+                    </Link>
+                    <Link
+                      href={`/student/search/${property.id}`}
+                      className="w-full text-center py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs transition-colors shadow-md"
+                    >
+                      Reserve Bed (₹399)
+                    </Link>
                   </div>
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                </Card>
+              );
+            })}
+          </div>
+        )
       )}
     </div>
   );

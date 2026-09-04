@@ -1,13 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, StatCard } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { formatINR } from '@/lib/utils';
 import {
-  CreditCard, Calendar, CheckCircle2, Clock, AlertTriangle, ShieldCheck,
-  Zap, HelpCircle, ArrowRight, Check, X, FileText
+  CreditCard,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  ShieldCheck,
+  Zap,
+  HelpCircle,
+  ArrowRight,
+  Check,
+  X,
+  FileText,
+  DollarSign,
+  Sparkles,
+  RefreshCcw,
+  CheckCircle,
 } from 'lucide-react';
 
 export default function RentPaymentsPage() {
@@ -28,220 +41,357 @@ export default function RentPaymentsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">Rent & Payments</h1>
-          <p className="text-text-secondary mt-1">Monthly rent dues, AutoPay, receipts, and payment relief options</p>
+    <div className="space-y-6 animate-fade-in pb-16">
+      {/* Top Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-3xl text-white shadow-xl">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-300 bg-indigo-900/60 px-3 py-1 rounded-full border border-indigo-700/50">
+            <CreditCard className="w-3.5 h-3.5" />
+            Financial Management & AutoPay
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold">Rent & Payments</h1>
+          <p className="text-xs sm:text-sm text-slate-300">
+            Manage monthly rent dues, AutoPay mandates, payment receipts, and financial relief options.
+          </p>
         </div>
-        <div className="p-2.5 bg-brand-50 rounded-xl">
-          <CreditCard className="w-6 h-6 text-brand-600" />
+
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-right">
+            <span className="text-[10px] uppercase font-bold text-slate-300 block">Current Balance</span>
+            <span className="text-lg font-extrabold text-emerald-400">
+              {rentPaid ? '₹0 Dues' : '₹6,000 Due'}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* AutoPay Banner */}
-      <Card className="bg-gradient-to-r from-brand-900 to-brand-800 text-white border-none">
+      {/* AutoPay Mandate Banner */}
+      <Card className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white border-none p-6 shadow-lg rounded-3xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-lg font-bold">UPI AutoPay Mandate</h2>
-              <Badge variant={autoPayEnabled ? 'success' : 'default'} size="sm">
+              <h2 className="text-base sm:text-lg font-extrabold">UPI AutoPay Mandate</h2>
+              <Badge variant={autoPayEnabled ? 'success' : 'outline'}>
                 {autoPayEnabled ? 'ACTIVE' : 'PAUSED'}
               </Badge>
             </div>
-            <p className="text-xs text-brand-200">
-              Next Deduction: <strong>5th of next month</strong> · Amount: <strong>₹6,000</strong> · Method: <strong>UPI AutoPay (XXXX-8921)</strong>
+            <p className="text-xs text-slate-300">
+              Next Deduction: <strong className="text-white">5th of next month</strong> · Amount:{' '}
+              <strong className="text-white">₹6,000</strong> · Method:{' '}
+              <strong className="text-white">UPI AutoPay (HDFC XXXX-8921)</strong>
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={() => setAutoPayEnabled(!autoPayEnabled)}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="px-4 py-2.5 text-xs font-extrabold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all shadow-sm"
             >
-              {autoPayEnabled ? 'Pause AutoPay' : 'Enable AutoPay'}
+              {autoPayEnabled ? 'Pause AutoPay Mandate' : 'Enable AutoPay Mandate'}
             </button>
           </div>
         </div>
       </Card>
 
-      {/* Current Rent Card */}
-      <section>
-        <h2 className="text-lg font-bold text-text-primary mb-3">Current Month Rent</h2>
-        <Card>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Current Month Rent Card */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-indigo-600" />
+          <span>Current Month Rent Status</span>
+        </h2>
+
+        <Card className="p-6 border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-text-secondary">July 2026 Rent</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  July 2026 Monthly Rent
+                </span>
                 <Badge variant={rentPaid ? 'success' : 'warning'}>
-                  {rentPaid ? 'PAID' : 'DUE (5th Jul)'}
+                  {rentPaid ? '✓ PAID' : 'DUE (Due 5th July)'}
                 </Badge>
               </div>
-              <p className="text-3xl font-extrabold text-text-primary">{formatINR(600000)}</p>
-              <p className="text-xs text-text-tertiary">ABC Student Residence · Room 204-A</p>
+              <p className="text-3xl font-black text-slate-900">{formatINR(600000)}</p>
+              <p className="text-xs text-slate-500 font-medium">
+                CampusNest Residence · Room 102 (Bed B)
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               {!rentPaid ? (
                 <>
-                  <Button variant="primary" onClick={handlePaySuccess}>
-                    Pay ₹6,000 via UPI
-                  </Button>
-                  <Button variant="outline" onClick={handlePayFail}>
-                    Simulate Failed Payment
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-amber-300 text-amber-800 hover:bg-amber-50"
-                    onClick={() => setDifficultyModalOpen(true)}
+                  <button
+                    onClick={handlePaySuccess}
+                    className="py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
                   >
-                    <HelpCircle className="w-4 h-4 mr-1 text-amber-600" /> I Can't Pay Rent
-                  </Button>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Pay ₹6,000 via UPI</span>
+                  </button>
+
+                  <button
+                    onClick={handlePayFail}
+                    className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition-all"
+                  >
+                    Simulate Failed Payment
+                  </button>
+
+                  <button
+                    onClick={() => setDifficultyModalOpen(true)}
+                    className="py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-extrabold text-xs border border-amber-300 shadow-sm flex items-center gap-1.5 transition-all"
+                  >
+                    <HelpCircle className="w-4 h-4 text-amber-600" />
+                    <span>I Can't Pay Rent</span>
+                  </button>
                 </>
               ) : (
-                <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 px-4 py-2 rounded-xl font-semibold text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" /> Rent Paid · Receipt Generated (UNP-2026-8841)
+                <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 border border-emerald-200 px-5 py-3 rounded-2xl font-extrabold text-xs shadow-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <span>Rent Paid · Receipt Generated (UNP-2026-8841)</span>
                 </div>
               )}
             </div>
           </div>
 
           {paymentFailMsg && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-center justify-between">
-              <span>⚠️ Transaction failed: Insufficient balance on UPI account XXXX-8921. AutoPay retry scheduled in 24 hrs.</span>
-              <button onClick={() => setPaymentFailMsg(false)} className="font-bold underline">Dismiss</button>
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900 flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>
+                  <strong>Transaction Failed:</strong> Insufficient balance on UPI account XXXX-8921. AutoPay retry scheduled in 24 hrs.
+                </span>
+              </div>
+              <button
+                onClick={() => setPaymentFailMsg(false)}
+                className="font-bold underline text-rose-700 hover:text-rose-900 shrink-0"
+              >
+                Dismiss
+              </button>
             </div>
           )}
 
           {difficultySubmitted && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center justify-between">
-              <span>ℹ️ Rent difficulty request submitted: <strong>{difficultySubmitted}</strong>. Landlord status: <strong className="text-amber-700">UNDER REVIEW</strong>.</span>
+            <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-xs text-indigo-900 flex items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>
+                  Financial Relief Request Submitted: <strong>{difficultySubmitted}</strong>. Status:{' '}
+                  <span className="font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                    UNDER LANDLORD REVIEW
+                  </span>
+                </span>
+              </div>
             </div>
           )}
         </Card>
       </section>
 
-      {/* RENT DIFFICULTY MODAL */}
+      {/* RENT DIFFICULTY / RELIEF MODAL (Fixed, Modern & High Contrast) */}
       {difficultyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface-primary rounded-2xl max-w-lg w-full p-6 space-y-5 animate-scale-in border border-border">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-text-primary">Rent Financial Relief</h3>
-                <p className="text-xs text-text-secondary">Select an option if you are facing difficulty paying this month's rent</p>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl border border-slate-200 animate-scale-in text-slate-900">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
+                  <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+                  Flexi-Rent Relief Program
+                </div>
+                <h3 className="text-xl font-black text-slate-900">Rent Financial Relief</h3>
+                <p className="text-xs text-slate-500">
+                  Select a flexible plan if you are facing difficulty paying this month's rent.
+                </p>
               </div>
-              <button onClick={() => setDifficultyModalOpen(false)} className="text-text-tertiary hover:text-text-primary">
+              <button
+                onClick={() => setDifficultyModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Modal Options List */}
             <div className="space-y-3">
               {/* Option 1: Grace Period */}
               <div
                 onClick={() => setSelectedPlan('GRACE')}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  selectedPlan === 'GRACE' ? 'border-brand-600 bg-brand-50/50' : 'border-border hover:border-brand-300'
+                className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-1.5 ${
+                  selectedPlan === 'GRACE'
+                    ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-600/30'
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-brand-600" />
-                    <span className="font-bold text-sm text-text-primary">Request 7-Day Grace Period</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                      <Clock className="w-4 h-4 text-indigo-600" />
+                    </div>
+                    <span className="font-extrabold text-sm text-slate-900">Request 7-Day Grace Period</span>
                   </div>
-                  <Badge variant="outline" size="sm">0% Late Fee</Badge>
+                  <Badge variant="success" size="sm">
+                    0% Late Fee
+                  </Badge>
                 </div>
-                <p className="text-xs text-text-secondary mt-1">Extends due date from 5th to 12th of this month without penalty.</p>
+                <p className="text-xs text-slate-600 pl-10">
+                  Extends due date from 5th to 12th of this month without penalty.
+                </p>
               </div>
 
               {/* Option 2: Payment Plan */}
               <div
                 onClick={() => setSelectedPlan('PLAN')}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  selectedPlan === 'PLAN' ? 'border-brand-600 bg-brand-50/50' : 'border-border hover:border-brand-300'
+                className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-1.5 ${
+                  selectedPlan === 'PLAN'
+                    ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-600/30'
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-purple-600" />
-                    <span className="font-bold text-sm text-text-primary">Request 2-Split Payment Plan</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                      <Calendar className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <span className="font-extrabold text-sm text-slate-900">Request 2-Split Payment Plan</span>
                   </div>
-                  <Badge variant="outline" size="sm">50% + 50%</Badge>
+                  <Badge variant="info" size="sm">
+                    50% + 50%
+                  </Badge>
                 </div>
-                <p className="text-xs text-text-secondary mt-1">Pay ₹3,000 on 5th and remaining ₹3,000 on 20th.</p>
+                <p className="text-xs text-slate-600 pl-10">
+                  Pay ₹3,000 on 5th and remaining ₹3,000 on 20th.
+                </p>
               </div>
 
               {/* Option 3: Financing Partner */}
               <div
                 onClick={() => setSelectedPlan('FINANCE')}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  selectedPlan === 'FINANCE' ? 'border-brand-600 bg-brand-50/50' : 'border-border hover:border-brand-300'
+                className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-1.5 ${
+                  selectedPlan === 'FINANCE'
+                    ? 'border-indigo-600 bg-indigo-50/80 ring-2 ring-indigo-600/30'
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-emerald-600" />
-                    <span className="font-bold text-sm text-text-primary">Student Rent Credit (Demo Partner)</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                      <Zap className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="font-extrabold text-sm text-slate-900">Student Rent Credit (Demo Partner)</span>
                   </div>
-                  <Badge variant="success" size="sm">Instant Approval</Badge>
+                  <Badge variant="success" size="sm">
+                    Instant Approval
+                  </Badge>
                 </div>
-                <p className="text-xs text-text-secondary mt-1">Partner credit line (Liquiloans demo) pays landlord now; repay in 3 monthly EMIs.</p>
+                <p className="text-xs text-slate-600 pl-10">
+                  Partner credit line (Liquiloans demo) pays landlord now; repay in 3 monthly EMIs.
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button variant="ghost" onClick={() => setDifficultyModalOpen(false)}>Cancel</Button>
-              <Button
-                variant="primary"
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDifficultyModalOpen(false)}
+                className="py-2.5 px-4 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
                 disabled={!selectedPlan}
                 onClick={() => {
-                  const label = selectedPlan === 'GRACE' ? '7-Day Grace Period' : selectedPlan === 'PLAN' ? '2-Split Payment Plan' : 'Student Rent Credit';
+                  const label =
+                    selectedPlan === 'GRACE'
+                      ? '7-Day Grace Period'
+                      : selectedPlan === 'PLAN'
+                      ? '2-Split Payment Plan'
+                      : 'Student Rent Credit';
                   setDifficultySubmitted(label);
                   setDifficultyModalOpen(false);
                 }}
+                className={`py-2.5 px-5 rounded-xl font-extrabold text-xs transition-all shadow-md ${
+                  selectedPlan
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                }`}
               >
                 Submit Request to Landlord
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* Payment History Table */}
-      <section>
-        <h2 className="text-lg font-bold text-text-primary mb-3">Payment Receipts</h2>
-        <Card padding="none">
+      <section className="space-y-3">
+        <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-indigo-600" />
+          <span>Payment Receipts & Transaction History</span>
+        </h2>
+
+        <Card className="p-0 border-slate-200/80 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Transaction ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Description</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Method</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    Transaction ID
+                  </th>
+                  <th className="px-4 py-3.5 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-4 py-3.5 text-right text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-4 py-3.5 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    Payment Method
+                  </th>
+                  <th className="px-4 py-3.5 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    Status
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border-light">
-                <tr className="hover:bg-surface-secondary/50">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-brand-700">UNP-DEMO-2026-000003</td>
-                  <td className="px-4 py-3 text-text-primary">Rent payment — Aug 2026</td>
-                  <td className="px-4 py-3 text-right font-bold text-text-primary">{formatINR(600000)}</td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">UPI AutoPay</td>
-                  <td className="px-4 py-3"><Badge variant="success" size="sm">SUCCESS</Badge></td>
+              <tbody className="divide-y divide-slate-100">
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
+                    UNP-DEMO-2026-000003
+                  </td>
+                  <td className="px-4 py-3.5 font-extrabold text-slate-900">Rent payment — Aug 2026</td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(600000)}</td>
+                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI AutoPay</td>
+                  <td className="px-4 py-3.5">
+                    <Badge variant="success" size="sm">
+                      SUCCESS
+                    </Badge>
+                  </td>
                 </tr>
-                <tr className="hover:bg-surface-secondary/50">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-brand-700">UNP-DEMO-2026-000002</td>
-                  <td className="px-4 py-3 text-text-primary">Rent payment — Jul 2026</td>
-                  <td className="px-4 py-3 text-right font-bold text-text-primary">{formatINR(600000)}</td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">UPI</td>
-                  <td className="px-4 py-3"><Badge variant="success" size="sm">SUCCESS</Badge></td>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
+                    UNP-DEMO-2026-000002
+                  </td>
+                  <td className="px-4 py-3.5 font-extrabold text-slate-900">Rent payment — Jul 2026</td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(600000)}</td>
+                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                  <td className="px-4 py-3.5">
+                    <Badge variant="success" size="sm">
+                      SUCCESS
+                    </Badge>
+                  </td>
                 </tr>
-                <tr className="hover:bg-surface-secondary/50">
-                  <td className="px-4 py-3 font-mono text-xs font-semibold text-brand-700">UNP-DEMO-2026-000001</td>
-                  <td className="px-4 py-3 text-text-primary">Reservation fee for ABC Student Residence</td>
-                  <td className="px-4 py-3 text-right font-bold text-text-primary">{formatINR(39900)}</td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">UPI</td>
-                  <td className="px-4 py-3"><Badge variant="success" size="sm">SUCCESS</Badge></td>
+                <tr className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
+                    UNP-DEMO-2026-000001
+                  </td>
+                  <td className="px-4 py-3.5 font-extrabold text-slate-900">
+                    Reservation fee for CampusNest Residence
+                  </td>
+                  <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(39900)}</td>
+                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                  <td className="px-4 py-3.5">
+                    <Badge variant="success" size="sm">
+                      SUCCESS
+                    </Badge>
+                  </td>
                 </tr>
               </tbody>
             </table>
