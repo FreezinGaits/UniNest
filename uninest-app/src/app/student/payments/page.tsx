@@ -25,6 +25,9 @@ import {
   CheckCircle,
   Download,
   Eye,
+  QrCode,
+  Smartphone,
+  Copy,
 } from 'lucide-react';
 
 export default function RentPaymentsPage() {
@@ -35,6 +38,17 @@ export default function RentPaymentsPage() {
   const [difficultyModalOpen, setDifficultyModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'GRACE' | 'PLAN' | 'FINANCE' | null>(null);
   const [difficultySubmitted, setDifficultySubmitted] = useState<string | null>(null);
+
+  // Real UPI Payment Modal State
+  const [upiModalOpen, setUpiModalOpen] = useState(false);
+  const [rentUtr, setRentUtr] = useState('');
+  const [copiedUpi, setCopiedUpi] = useState(false);
+
+  const UPI_ID = process.env.NEXT_PUBLIC_UPI_ID || 'anupamrai172@oksbi';
+  const PAYEE_NAME = process.env.NEXT_PUBLIC_UPI_NAME || 'UniNest Housing';
+  const RENT_AMOUNT = '6000.00';
+  const upiIntentUri = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${RENT_AMOUNT}&cu=INR&tn=${encodeURIComponent('UniNest Monthly Rent - Room 204')}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiIntentUri)}&margin=8`;
 
   // Document Viewer state
   const [previewDoc, setPreviewDoc] = useState<DocumentPDFData | null>(null);
@@ -184,11 +198,11 @@ export default function RentPaymentsPage() {
               {!rentPaid ? (
                 <>
                   <button
-                    onClick={handlePaySuccess}
+                    onClick={() => setUpiModalOpen(true)}
                     className="py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-95"
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Pay ₹6,000 via UPI</span>
+                    <Smartphone className="w-4 h-4 text-emerald-200" />
+                    <span>Pay ₹6,000 via UPI (QR / Mobile)</span>
                   </button>
 
                   <button
@@ -528,6 +542,116 @@ export default function RentPaymentsPage() {
           </div>
         </Card>
       </section>
+
+      {/* Real UPI QR & Direct Mobile Payment Modal for Monthly Rent */}
+      {upiModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-100 max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 relative">
+              <button
+                onClick={() => setUpiModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/50 mb-1.5">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Direct Real UPI Escrow Transfer
+              </div>
+              <h3 className="text-xl font-extrabold">Pay ₹6,000 Monthly Rent</h3>
+              <p className="text-xs text-slate-300 mt-0.5">CampusNest Residence · Room 102 (Bed B)</p>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-center">
+              <div className="flex items-center justify-between text-xs text-slate-600 border-b border-slate-200 pb-2">
+                <span className="font-semibold">Recipient Payee:</span>
+                <span className="font-extrabold text-slate-900">{PAYEE_NAME}</span>
+              </div>
+
+              {/* Dynamic QR Code */}
+              <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 inline-block mx-auto">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrCodeUrl}
+                  alt="UniNest Rent UPI QR Code"
+                  className="w-48 h-48 mx-auto rounded-lg"
+                />
+                <div className="flex items-center justify-center gap-1.5 mt-2 text-[11px] font-bold text-slate-600">
+                  <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Scan to pay ₹6,000 via GPay, PhonePe, Paytm, or BHIM</span>
+                </div>
+              </div>
+
+              {/* Mobile One-Tap Link */}
+              <a
+                href={upiIntentUri}
+                className="w-full py-3 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-indigo-600/20"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Tap to Open UPI App on Mobile Phone</span>
+              </a>
+
+              {/* Copy UPI ID */}
+              <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                <span className="font-mono text-slate-800 font-semibold text-[11px] truncate">
+                  {UPI_ID}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(UPI_ID);
+                    setCopiedUpi(true);
+                    setTimeout(() => setCopiedUpi(false), 2000);
+                  }}
+                  className="text-indigo-600 hover:text-indigo-800 font-bold text-[11px] flex items-center gap-1 shrink-0 ml-2"
+                >
+                  {copiedUpi ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy UPI ID</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* UTR input */}
+              <div className="text-left space-y-1 pt-1">
+                <label className="text-[11px] font-bold text-slate-700 block">
+                  12-Digit Bank Reference / UTR Number (Optional verification):
+                </label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  value={rentUtr}
+                  onChange={(e) => setRentUtr(e.target.value.replace(/[^0-9]/g, ''))}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
+                  placeholder="e.g. 426819203810"
+                />
+              </div>
+
+              {/* Confirm paid */}
+              <button
+                type="button"
+                onClick={() => {
+                  setUpiModalOpen(false);
+                  handlePaySuccess();
+                }}
+                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span>I have completed ₹6,000 Payment → Generate Tax Invoice</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document Viewer Modal */}
       <DocumentViewerModal
