@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatINR } from '@/lib/utils';
+import { downloadDocumentPDF, DocumentPDFData } from '@/lib/pdfGenerator';
+import { DocumentViewerModal } from '@/components/documents/DocumentViewerModal';
 import {
   CreditCard,
   Calendar,
@@ -21,23 +23,79 @@ import {
   Sparkles,
   RefreshCcw,
   CheckCircle,
+  Download,
+  Eye,
 } from 'lucide-react';
 
 export default function RentPaymentsPage() {
   const [autoPayEnabled, setAutoPayEnabled] = useState(true);
   const [rentPaid, setRentPaid] = useState(false);
+  const [paidReceiptDoc, setPaidReceiptDoc] = useState<DocumentPDFData | null>(null);
   const [paymentFailMsg, setPaymentFailMsg] = useState(false);
   const [difficultyModalOpen, setDifficultyModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'GRACE' | 'PLAN' | 'FINANCE' | null>(null);
   const [difficultySubmitted, setDifficultySubmitted] = useState<string | null>(null);
 
+  // Document Viewer state
+  const [previewDoc, setPreviewDoc] = useState<DocumentPDFData | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+
   function handlePaySuccess() {
     setRentPaid(true);
     setPaymentFailMsg(false);
+
+    const refNo = `UN-RCT-2026-07${Math.floor(10 + Math.random() * 90)}`;
+    const newDoc: DocumentPDFData = {
+      id: `doc-rent-${Date.now()}`,
+      title: `July 2026 Monthly Rent Receipt (₹6,000 Paid)`,
+      category: 'RECEIPT',
+      referenceNo: refNo,
+      issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      fileSize: '340 KB',
+      status: 'ISSUED',
+      issuer: 'Razorpay / UniNest Automated Billing',
+      amount: '₹6,000.00',
+      tenantName: 'Rahul Sharma',
+      roomDetails: 'CampusNest Residence (Room 102, Bed B)',
+      paymentMethod: 'UPI (HDFC Bank XXXX-8921)',
+      transactionId: `pay_Pz92kL${Math.floor(1000 + Math.random() * 9000)}`,
+    };
+
+    setPaidReceiptDoc(newDoc);
+
+    // Save/Upload sample invoice to local storage document store so it appears in Documents Vault
+    try {
+      const stored = localStorage.getItem('uninest_documents_store');
+      const docsArr = stored ? JSON.parse(stored) : [];
+      docsArr.unshift(newDoc);
+      localStorage.setItem('uninest_documents_store', JSON.stringify(docsArr));
+    } catch (e) {
+      console.error('Failed to store generated invoice:', e);
+    }
   }
 
   function handlePayFail() {
     setPaymentFailMsg(true);
+  }
+
+  function handleViewTxnPDF(title: string, refNo: string, amount: string, date: string, method: string) {
+    const docData: DocumentPDFData = {
+      id: `doc-txn-${refNo}`,
+      title,
+      category: 'RECEIPT',
+      referenceNo: refNo,
+      issueDate: date,
+      fileSize: '320 KB',
+      status: 'ISSUED',
+      issuer: 'Razorpay / UniNest Automated Billing',
+      amount,
+      tenantName: 'Rahul Sharma',
+      roomDetails: 'CampusNest Residence (Room 102, Bed B)',
+      paymentMethod: method,
+      transactionId: `pay_${refNo.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+    };
+    setPreviewDoc(docData);
+    setIsViewerOpen(true);
   }
 
   return (
@@ -122,7 +180,7 @@ export default function RentPaymentsPage() {
                 <>
                   <button
                     onClick={handlePaySuccess}
-                    className="py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all"
+                    className="py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-95"
                   >
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Pay ₹6,000 via UPI</span>
@@ -144,9 +202,23 @@ export default function RentPaymentsPage() {
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 border border-emerald-200 px-5 py-3 rounded-2xl font-extrabold text-xs shadow-sm">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  <span>Rent Paid · Receipt Generated (UNP-2026-8841)</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-sm">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <span>Rent Paid · Invoice Uploaded to Vault ({paidReceiptDoc?.referenceNo})</span>
+                  </div>
+                  {paidReceiptDoc && (
+                    <button
+                      onClick={() => {
+                        setPreviewDoc(paidReceiptDoc);
+                        setIsViewerOpen(true);
+                      }}
+                      className="py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View & Download Invoice</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -185,7 +257,7 @@ export default function RentPaymentsPage() {
         </Card>
       </section>
 
-      {/* RENT DIFFICULTY / RELIEF MODAL (Fixed, Modern & High Contrast) */}
+      {/* RENT DIFFICULTY / RELIEF MODAL */}
       {difficultyModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl border border-slate-200 animate-scale-in text-slate-900">
@@ -349,9 +421,38 @@ export default function RentPaymentsPage() {
                   <th className="px-4 py-3.5 text-left text-xs font-extrabold text-slate-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-3.5 text-center text-xs font-extrabold text-slate-500 uppercase tracking-wider">
+                    View / Download PDF
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
+                {paidReceiptDoc && (
+                  <tr className="bg-emerald-50/50 hover:bg-emerald-50 transition-colors">
+                    <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-emerald-700">
+                      {paidReceiptDoc.referenceNo}
+                    </td>
+                    <td className="px-4 py-3.5 font-extrabold text-slate-900">{paidReceiptDoc.title}</td>
+                    <td className="px-4 py-3.5 text-right font-black text-emerald-700">₹6,000.00</td>
+                    <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                    <td className="px-4 py-3.5">
+                      <Badge variant="success" size="sm">
+                        SUCCESS
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <button
+                        onClick={() => {
+                          setPreviewDoc(paidReceiptDoc);
+                          setIsViewerOpen(true);
+                        }}
+                        className="py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View / Download
+                      </button>
+                    </td>
+                  </tr>
+                )}
                 <tr className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
                     UNP-DEMO-2026-000003
@@ -363,6 +464,14 @@ export default function RentPaymentsPage() {
                     <Badge variant="success" size="sm">
                       SUCCESS
                     </Badge>
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <button
+                      onClick={() => handleViewTxnPDF('August 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-DEMO-2026-000003', '₹6,000.00', '01 Sep 2026', 'UPI AutoPay')}
+                      className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View / Download
+                    </button>
                   </td>
                 </tr>
                 <tr className="hover:bg-slate-50/80 transition-colors">
@@ -376,6 +485,14 @@ export default function RentPaymentsPage() {
                     <Badge variant="success" size="sm">
                       SUCCESS
                     </Badge>
+                  </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <button
+                      onClick={() => handleViewTxnPDF('July 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-DEMO-2026-000002', '₹6,000.00', '01 Aug 2026', 'UPI')}
+                      className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View / Download
+                    </button>
                   </td>
                 </tr>
                 <tr className="hover:bg-slate-50/80 transition-colors">
@@ -392,12 +509,29 @@ export default function RentPaymentsPage() {
                       SUCCESS
                     </Badge>
                   </td>
+                  <td className="px-4 py-3.5 text-center">
+                    <button
+                      onClick={() => handleViewTxnPDF('Reservation Fee Receipt (CampusNest Residence)', 'UNP-DEMO-2026-000001', '₹399.00', '15 Jul 2026', 'UPI')}
+                      className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View / Download
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </Card>
       </section>
+
+      {/* Document Viewer Modal */}
+      <DocumentViewerModal
+        isOpen={isViewerOpen}
+        onClose={() => setIsViewerOpen(false)}
+        doc={previewDoc}
+      />
     </div>
   );
 }
+
+

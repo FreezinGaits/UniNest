@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
+import { Select, Input } from '@/components/ui/Input';
 import { formatINR } from '@/lib/utils';
 import {
   AlertTriangle, Shield, Clock, FileText, CheckCircle2, MessageSquare,
@@ -299,57 +301,42 @@ export default function DisputesComplaintsPage() {
         </div>
       </div>
 
-      {/* FILE DISPUTE MODAL */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-surface-primary rounded-2xl max-w-lg w-full p-6 space-y-4 animate-scale-in border border-border">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-lg font-bold text-text-primary">File New Dispute Claim</h3>
-              <button onClick={() => setModalOpen(false)} className="text-text-tertiary hover:text-text-primary">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* FILE DISPUTE MODAL USING STANDARDIZED MODAL COMPONENT */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title="File New Dispute Claim"
+        description="Submit a formal deposit, rent, damage, or service dispute to the UniNest arbitration tribunal"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Select
+            label="Dispute Category"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            options={categories.filter(c => c !== 'ALL').map(c => ({ value: c, label: c }))}
+          />
 
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="font-bold text-text-primary block mb-1">Dispute Category</label>
-                <select
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-border bg-surface-secondary text-text-primary"
-                >
-                  {categories.filter(c => c !== 'ALL').map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+          <Input
+            label="Dispute Subject / Title *"
+            placeholder="e.g. Unjustified deposit deduction for room painting"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+          />
 
-              <div>
-                <label className="font-bold text-text-primary block mb-1">Dispute Subject / Title</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Unjustified deposit deduction for room painting"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-border bg-surface-secondary text-text-primary"
-                />
-              </div>
+          <div className="p-3 bg-brand-50 border border-brand-100 rounded-xl flex items-center gap-2 text-xs text-brand-900">
+            <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
+            <span>Demo Evidence file attached: <strong>Student_Claim_Photos_Receipts.pdf</strong></span>
+          </div>
 
-              <div className="p-3 bg-brand-50 border border-brand-100 rounded-xl flex items-center gap-2">
-                <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
-                <span>Demo Evidence file attached: <strong>Student_Claim_Photos_Receipts.pdf</strong></span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-              <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-              <Button variant="primary" disabled={!newTitle} onClick={handleFileDispute}>
-                Submit to Arbitrator
-              </Button>
-            </div>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button disabled={!newTitle} onClick={handleFileDispute} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
+              Submit to Arbitrator
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
