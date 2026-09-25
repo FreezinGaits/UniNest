@@ -15,6 +15,15 @@ export function formatINR(paise: number): string {
   }).format(rupees);
 }
 
+/** Format rupees directly as INR string: 6000 → "₹6,000" */
+export function formatRupees(rupees: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(rupees);
+}
+
 /** Format date to readable string */
 export function formatDate(date: Date | string): string {
   return new Date(date).toLocaleDateString('en-IN', {

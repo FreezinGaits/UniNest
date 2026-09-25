@@ -1,0 +1,16 @@
+[
+  {
+    "id": "el-new-1790311247491",
+    "property": "Passi Luxury PG & Co-Living",
+    "room": "Room 205 (Sub-Meter #205)",
+    "tenant": "Rohit Verma",
+    "previousReading": 1100,
+    "currentReading": 1245,
+    "unitsConsumed": 145,
+    "ratePerUnit": 10,
+    "totalBill": 1450,
+    "status": "UNPAID",
+    "month": "September 2026",
+    "createdAt": "2026-09-25T04:40:47.491Z"
+  }
+]

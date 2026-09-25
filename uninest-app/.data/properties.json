@@ -1,0 +1,19 @@
+[
+  {
+    "id": "prop-new-1790310602987",
+    "name": "PCTE hostle",
+    "type": "PG",
+    "locality": "Ferozepur Road",
+    "city": "Ludhiana",
+    "address": "Pcte",
+    "verificationStatus": "UNDER_REVIEW",
+    "totalRooms": 4,
+    "totalBeds": 8,
+    "occupiedBeds": 0,
+    "rentPerMonth": 6000,
+    "openTickets": 0,
+    "ownerName": "Vikram Singh (Landlord)",
+    "createdAt": "2026-09-25T04:30:02.987Z",
+    "description": ""
+  }
+]

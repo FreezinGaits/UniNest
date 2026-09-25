@@ -1,20 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Send, ShieldCheck, Sparkles, Building2, AlertTriangle,
   Lock, CheckCheck, RefreshCw, Home, Heart, PhoneOff, MessageSquare
 } from 'lucide-react';
-import { Card, Badge, Button, Input } from '@/components/ui/Shared';
+import { Card, Badge, Button } from '@/components/ui/Shared';
 
 export default function ModeratedRoommateChatPage({
-  params,
+  params: paramsPromise,
 }: {
-  params: { matchId: string };
+  params: Promise<{ matchId: string }> | { matchId: string };
 }) {
   const router = useRouter();
+  const routeParams = useParams();
+  
+  // Safely unwrap matchId from params or routeParams
+  const resolvedParams = paramsPromise && typeof (paramsPromise as any).then === 'function' 
+    ? use(paramsPromise as Promise<{ matchId: string }>)
+    : (paramsPromise as { matchId: string });
+    
+  const matchId = resolvedParams?.matchId || (routeParams?.matchId as string) || 'match-demo-01';
+
   const [matchData, setMatchData] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
@@ -25,7 +34,7 @@ export default function ModeratedRoommateChatPage({
 
   useEffect(() => {
     fetchChat();
-  }, [params.matchId]);
+  }, [matchId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -33,7 +42,7 @@ export default function ModeratedRoommateChatPage({
 
   const fetchChat = async () => {
     try {
-      const res = await fetch(`/api/student/roommates/matches/${params.matchId}/chat`);
+      const res = await fetch(`/api/student/roommates/matches/${matchId}/chat`);
       const data = await res.json();
       if (data.success && data.match) {
         setMatchData(data.match);
@@ -55,11 +64,11 @@ export default function ModeratedRoommateChatPage({
     setSending(true);
     setSafetyWarning(null);
 
-    // Current sender ID (Rahul Sharma student ID)
     const senderId = matchData?.studentAId || 'rahul-student-id';
+    const partnerId = matchData?.studentBId || 'aman-student-id';
 
     try {
-      const res = await fetch(`/api/student/roommates/matches/${params.matchId}/chat`, {
+      const res = await fetch(`/api/student/roommates/matches/${matchId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -70,14 +79,40 @@ export default function ModeratedRoommateChatPage({
 
       const data = await res.json();
       if (data.success && data.message) {
-        setMessages((prev) => [...prev, data.message]);
+        const newMsg = data.message;
+        setMessages((prev) => [...prev, newMsg]);
 
         if (data.isBlocked) {
-          setSafetyWarning(data.warningMessage || '⚠️ For your safety, please keep communication within UniNest.');
+          setSafetyWarning(data.warningMessage || '⚠️ For your safety, phone numbers, emails, and links are masked.');
+        }
+
+        // Simulate interactive reply from Aman Verma after 1.5 seconds if not blocked
+        if (!data.isBlocked) {
+          setTimeout(() => {
+            const partnerReply = {
+              id: `msg-reply-${Date.now()}`,
+              matchId,
+              senderId: partnerId,
+              content: "Sounds great! I'm checking double sharing PGs near PCTE campus on UniNest right now. Let's reserve a bed together!",
+              isBlocked: false,
+              createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => [...prev, partnerReply]);
+          }, 1500);
         }
       }
     } catch (err) {
       console.error('Error sending chat message:', err);
+      // Fallback local append for immediate UI feedback
+      const localMsg = {
+        id: `msg-local-${Date.now()}`,
+        matchId,
+        senderId,
+        content: currentText,
+        isBlocked: false,
+        createdAt: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, localMsg]);
     } finally {
       setSending(false);
     }
@@ -94,12 +129,11 @@ export default function ModeratedRoommateChatPage({
 
   const reqA = matchData?.requestA;
   const reqB = matchData?.requestB;
-  // Identify partner (Aman Verma)
   const partnerReq = reqB || reqA;
   const score = matchData?.compatibilityScore || 91;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div className="flex flex-col h-[calc(100vh-6rem)] bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-sm animate-fade-in">
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-3.5">
@@ -131,7 +165,7 @@ export default function ModeratedRoommateChatPage({
         </div>
 
         {/* Room Search CTA */}
-        <Link href={`/student/roommates/rooms?matchId=${params.matchId}`}>
+        <Link href={`/student/roommates/rooms?matchId=${matchId}`}>
           <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-sm">
             <Home className="w-4 h-4 mr-1.5" />
             Find a Room Together 🏠
@@ -154,7 +188,7 @@ export default function ModeratedRoommateChatPage({
 
       {/* Live Moderation Warning Alert */}
       {safetyWarning && (
-        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs text-rose-800 flex items-center justify-between animate-in fade-in shrink-0">
+        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-xs text-rose-800 flex items-center justify-between animate-slide-down shrink-0">
           <div className="flex items-center gap-2 font-medium">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{safetyWarning}</span>
