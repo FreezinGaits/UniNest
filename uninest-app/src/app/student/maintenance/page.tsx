@@ -70,18 +70,18 @@ export default function MaintenanceTicketsPage() {
   const [priority, setPriority] = useState<'URGENT' | 'MEDIUM' | 'LOW'>('MEDIUM');
   const [slot, setSlot] = useState('Morning (9 AM - 12 PM)');
 
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description) return;
 
     const newTicket: MaintenanceTicket = {
       id: `tkt-${Date.now()}`,
-      ticketId: `TKT-${category.slice(0, 3)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      ticketId: `MNT-2026-${Math.floor(100 + Math.random() * 900)}`,
       category,
       title,
       description,
       priority,
-      status: 'PENDING',
+      status: 'OPEN',
       technician: 'Auto-assigned to UniNest Duty Technician',
       createdAt: 'Just now',
       eta: 'SLA Guarantee: Within 24 hours',
@@ -91,6 +91,13 @@ export default function MaintenanceTicketsPage() {
     setModalOpen(false);
     setTitle('');
     setDescription('');
+
+    // Trigger demo maintenance API persistence
+    try {
+      await fetch('/api/demo/maintenance', { method: 'POST' });
+    } catch (err) {
+      console.warn('Background ticket sync:', err);
+    }
   };
 
   return (

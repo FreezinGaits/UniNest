@@ -1,7 +1,7 @@
 export interface DocumentPDFData {
   id: string;
   title: string;
-  category: 'AGREEMENT' | 'RECEIPT' | 'KYC' | 'COLLEGE' | 'AUDIT';
+  category: 'AGREEMENT' | 'RECEIPT' | 'KYC' | 'COLLEGE' | 'AUDIT' | 'POLICE';
   referenceNo: string;
   issueDate: string;
   fileSize?: string;
@@ -149,6 +149,51 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           <p><strong>TO WHOM IT MAY CONCERN:</strong></p>
           <p>This is to certify that <strong>${tenant}</strong> is a bonafide student residing at off-campus verified housing: <strong>${room}</strong> under reference number <strong>${doc.referenceNo}</strong>.</p>
           <p>The institute has verified the local guardian and residential premises compliance on <strong>${doc.issueDate}</strong>.</p>
+        </div>
+      </div>
+    `;
+  } else if (doc.category === 'POLICE') {
+    bodyContent = `
+      <div style="border: 2px solid #1e3a8a; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #f8fafc;">
+        <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 16px; margin-bottom: 20px;">
+          <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em;">PUNJAB POLICE HEADQUARTERS • LUDHIANA COMMISSIONERATE</div>
+          <h2 style="margin: 6px 0 2px 0; font-size: 20px; color: #0f172a; font-weight: 900;">TENANT VERIFICATION REGISTRATION FORM (FORM-11)</h2>
+          <p style="margin: 0; font-size: 11px; color: #475569;">Mandatory filing under Section 144 of CrPC & Punjab Security of Premises Act</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600; width: 40%;">Police Station Jurisdiction:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">Police Station Sarabha Nagar / BRS Nagar, Ludhiana</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">Tenant Full Name:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">${tenant}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">College / Institute:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">PCTE Institute of Management, Baddowal</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">Rented Accommodation:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">${room}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">Landlord / Property Owner:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">${doc.issuer}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">Aadhaar / ID Reference:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-family: monospace; font-weight: 800;">VERIFIED (UIDAI Virtual ID #8892)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 0; color: #475569; font-weight: 600;">Filing Reference Number:</td>
+            <td style="padding: 8px 0; color: #2563eb; font-family: monospace; font-weight: 800;">${doc.referenceNo}</td>
+          </tr>
+        </table>
+
+        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #065f46;">
+          <strong>VERIFICATION ACKNOWLEDGMENT:</strong> This document certifies that tenant particulars and landlord declarations have been digitally submitted to the jurisdictional Police Authority via UniNest Compliance Portal.
         </div>
       </div>
     `;

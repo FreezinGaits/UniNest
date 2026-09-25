@@ -63,6 +63,11 @@ export default function RentPaymentsPage() {
 
     setPaidReceiptDoc(newDoc);
 
+    // Call demo payment backend sync to update DB audit log & payment records
+    fetch('/api/demo/payment', { method: 'POST' }).catch((err) =>
+      console.warn('Background payment record sync:', err)
+    );
+
     // Save/Upload sample invoice to local storage document store so it appears in Documents Vault
     try {
       const stored = localStorage.getItem('uninest_documents_store');
