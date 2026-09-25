@@ -1,131 +1,70 @@
-import { prisma } from '@/lib/db';
+'use client';
+
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { DollarSign } from 'lucide-react';
+import { DollarSign, Wrench, Zap, Wind, Sparkles, Key, Paintbrush, Info } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 
-export default async function PricingCommissionsPage() {
-  let items: any[] = [];
-  const tableType = 'providerPricing' as string;
-  try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
-    }
-  } catch (e) {
-    items = [];
-  }
+const rateCard = [
+  { id: 1, service: 'Plumbing Repair', rate: '₹350 base + ₹150/hr', type: 'variable', icon: Wrench },
+  { id: 2, service: 'Electrical Wiring', rate: '₹400 base + ₹200/hr', type: 'variable', icon: Zap },
+  { id: 3, service: 'AC Service/Gas Refill', rate: '₹800 flat', type: 'flat', icon: Wind },
+  { id: 4, service: 'Deep Cleaning (1 Room)', rate: '₹500 flat', type: 'flat', icon: Sparkles },
+  { id: 5, service: 'Deep Cleaning (Full PG)', rate: '₹2,500 flat', type: 'flat', icon: Sparkles },
+  { id: 6, service: 'Lock Replacement', rate: '₹450 flat', type: 'flat', icon: Key },
+  { id: 7, service: 'Painting (per wall)', rate: '₹1,200', type: 'flat', icon: Paintbrush },
+];
 
+export default function PricingCommissionsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Pricing & Commissions</h1>
-          <p className="text-text-secondary mt-1">Set rate cards for plumbing, electrical, and cleaning</p>
+          <h1 className="text-2xl font-bold text-text-primary">Service Rate Card & Pricing</h1>
+          <p className="text-text-secondary mt-1">Manage your standard service rates and base charges</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <DollarSign className="w-6 h-6 text-brand-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card className="bg-blue-50/50 border-blue-100">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div>
+            <h3 className="text-sm font-medium text-blue-900">Material Charges Policy</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Extra materials billed at MRP + 10% handling. Material costs must be approved by the customer before starting work.
+            </p>
           </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <DollarSign className="w-6 h-6 text-brand-600" />
-            </div>
-            <h3 className="text-base font-semibold text-text-primary">Pricing & Commissions</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Set rate cards for plumbing, electrical, and cleaning</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
-          </div>
-        </Card>
-      )}
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {rateCard.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Card key={item.id} className="hover:border-brand-300 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-surface-secondary rounded-lg">
+                    <Icon className="w-5 h-5 text-text-secondary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-text-primary">{item.service}</h3>
+                    <div className="mt-2">
+                      <span className="text-lg font-bold text-brand-600">{item.rate}</span>
+                    </div>
+                  </div>
+                </div>
+                <Badge variant={item.type === 'flat' ? 'success' : 'warning'} size="sm">
+                  {item.type === 'flat' ? 'Fixed Rate' : 'Variable'}
+                </Badge>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
     </div>
   );
 }

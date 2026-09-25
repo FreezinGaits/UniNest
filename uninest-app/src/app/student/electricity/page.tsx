@@ -12,24 +12,25 @@ export default function ElectricityDuesPage() {
   const [paying, setPaying] = useState(false);
 
   const currentBill = {
-    month: 'August 2026',
-    dueDate: '10 Sep 2026',
-    meterNo: 'SUB-MTR-204A',
-    prevReading: 1420,
-    currReading: 1580,
-    totalUnits: 160,
-    ratePerUnit: 8.0,
-    totalAmount: 1280, // ₹1,280
-    studentShare: 640,  // ₹640 (50% split with roommate)
-    roommateShare: 640,
+    month: 'Sep 2026',
+    dueDate: '10 Oct 2026',
+    meterNo: 'SUB-MTR-204',
+    prevReading: 1245,
+    currReading: 1312,
+    totalUnits: 67,
+    ratePerUnit: 9.50,
+    totalAmount: 636.50, // ₹636.50
+    studentShare: 318.25,  // 50% split with roommate
+    roommateShare: 318.25,
     roommateName: 'Aman Verma',
     roommateStatus: 'PAID', // Aman already paid his half
+    property: 'PCTE Smart Student Residency',
+    roomAssignment: 'Room 204, Bed B'
   };
 
   const history = [
-    { month: 'July 2026', units: 180, totalBill: 1440, share: 720, status: 'PAID', datePaid: '08 Aug 2026' },
-    { month: 'June 2026', units: 210, totalBill: 1680, share: 840, status: 'PAID', datePaid: '05 Jul 2026' },
-    { month: 'May 2026', units: 195, totalBill: 1560, share: 780, status: 'PAID', datePaid: '06 Jun 2026' },
+    { month: 'Aug 2026', units: 67, prevReading: 1178, currReading: 1245, totalBill: 636.50, share: 318.25, status: 'PAID', datePaid: '08 Sep 2026' },
+    { month: 'Jul 2026', units: 73, prevReading: 1105, currReading: 1178, totalBill: 693.50, share: 346.75, status: 'PAID', datePaid: '05 Aug 2026' },
   ];
 
   const handlePayBill = () => {
@@ -94,7 +95,7 @@ export default function ElectricityDuesPage() {
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
             <span className="text-[11px] font-semibold text-slate-500 block">Sub-Meter Number</span>
             <span className="text-sm font-extrabold text-slate-900 font-mono block">{currentBill.meterNo}</span>
-            <span className="text-[11px] text-slate-500 block pt-1">Dedicated to Room 204</span>
+            <span className="text-[11px] text-slate-500 block pt-1">{currentBill.property} - {currentBill.roomAssignment}</span>
           </div>
 
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
@@ -165,7 +166,10 @@ export default function ElectricityDuesPage() {
               {history.map((h, i) => (
                 <tr key={i} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-bold text-slate-900">{h.month}</td>
-                  <td className="px-4 py-3">{h.units} kWh</td>
+                  <td className="px-4 py-3">
+                    {h.units} kWh
+                    <span className="block text-[10px] text-slate-400">({h.prevReading} → {h.currReading})</span>
+                  </td>
                   <td className="px-4 py-3 font-semibold">₹{h.totalBill.toLocaleString()}</td>
                   <td className="px-4 py-3 font-bold text-emerald-700">₹{h.share.toLocaleString()}</td>
                   <td className="px-4 py-3">

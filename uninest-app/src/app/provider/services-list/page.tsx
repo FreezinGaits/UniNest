@@ -1,131 +1,86 @@
-import { prisma } from '@/lib/db';
+'use client';
+
+import { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { ShoppingBag } from 'lucide-react';
-import { formatINR } from '@/lib/utils';
+import { ShoppingBag, Wrench, Zap, Wind, Sparkles, Hammer, Bug, Clock, Star } from 'lucide-react';
 
-export default async function ServiceOfferingsPage() {
-  let items: any[] = [];
-  const tableType = 'providerServices' as string;
-  try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
-    }
-  } catch (e) {
-    items = [];
-  }
+const initialServices = [
+  { id: 1, name: 'Plumbing', description: 'Pipe repairs, leak fixes, tap replacements', avgTime: '1.5 hrs', rating: 4.8, active: true, icon: Wrench },
+  { id: 2, name: 'Electrical', description: 'Wiring, switchboards, appliance installation', avgTime: '2 hrs', rating: 4.9, active: true, icon: Zap },
+  { id: 3, name: 'AC/HVAC', description: 'AC servicing, gas refill, installation', avgTime: '1 hr', rating: 4.7, active: true, icon: Wind },
+  { id: 4, name: 'Cleaning', description: 'Deep cleaning for single rooms or full PGs', avgTime: '3 hrs', rating: 4.6, active: true, icon: Sparkles },
+  { id: 5, name: 'Carpentry', description: 'Furniture repair, door locks, woodwork', avgTime: '2 hrs', rating: 0, active: false, icon: Hammer },
+  { id: 6, name: 'Pest Control', description: 'General pest control, termite treatment', avgTime: '1.5 hrs', rating: 0, active: false, icon: Bug },
+];
+
+export default function ServiceOfferingsPage() {
+  const [services, setServices] = useState(initialServices);
+
+  const toggleService = (id: number) => {
+    setServices(services.map(s => s.id === id ? { ...s, active: !s.active } : s));
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Service Offerings</h1>
-          <p className="text-text-secondary mt-1">Manage your service catalog and pricing</p>
+          <h1 className="text-2xl font-bold text-text-primary">My Service Offerings</h1>
+          <p className="text-text-secondary mt-1">Manage which services you are available for</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <ShoppingBag className="w-6 h-6 text-brand-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <ShoppingBag className="w-6 h-6 text-brand-600" />
-            </div>
-            <h3 className="text-base font-semibold text-text-primary">Service Offerings</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Manage your service catalog and pricing</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
-          </div>
-        </Card>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {services.map((service) => {
+          const Icon = service.icon;
+          return (
+            <Card key={service.id} className={service.active ? 'border-brand-200 shadow-sm' : 'opacity-75 grayscale-[0.2]'}>
+              <div className="flex items-start justify-between">
+                <div className="flex gap-4">
+                  <div className={`p-3 rounded-xl ${service.active ? 'bg-brand-50 text-brand-600' : 'bg-surface-secondary text-text-tertiary'}`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-text-primary text-lg">{service.name}</h3>
+                    <p className="text-sm text-text-secondary mt-1 line-clamp-2">{service.description}</p>
+                    
+                    <div className="flex items-center gap-4 mt-4">
+                      <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                        <Clock className="w-4 h-4" />
+                        <span>{service.avgTime}</span>
+                      </div>
+                      {service.rating > 0 && (
+                        <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                          <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                          <span>{service.rating} Avg</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-end gap-3">
+                  <Badge variant={service.active ? 'success' : 'default'}>
+                    {service.active ? 'Active ✅' : 'Inactive'}
+                  </Badge>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={service.active}
+                      onChange={() => toggleService(service.id)}
+                    />
+                    <div className="w-11 h-6 bg-surface-tertiary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                  </label>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }

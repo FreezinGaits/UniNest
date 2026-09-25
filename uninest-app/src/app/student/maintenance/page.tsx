@@ -10,11 +10,11 @@ import { Card, Badge, Button } from '@/components/ui/Shared';
 interface MaintenanceTicket {
   id: string;
   ticketId: string;
-  category: 'PLUMBING' | 'ELECTRICAL' | 'HVAC' | 'LOCKSMITH' | 'FURNITURE' | 'INTERNET';
+  category: 'PLUMBING' | 'ELECTRICAL' | 'HVAC' | 'LOCKSMITH' | 'FURNITURE' | 'INTERNET' | 'Plumbing' | 'Electrical';
   title: string;
   description: string;
-  priority: 'URGENT' | 'MEDIUM' | 'LOW';
-  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
+  priority: 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+  status: 'OPEN' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
   technician: string;
   createdAt: string;
   eta: string;
@@ -23,40 +23,40 @@ interface MaintenanceTicket {
 
 const INITIAL_TICKETS: MaintenanceTicket[] = [
   {
-    id: 'tkt-1',
-    ticketId: 'TKT-PLM-8042',
-    category: 'PLUMBING',
-    title: 'Bathroom Washbasin Tap Leaking & Slow Drainage',
-    description: 'The tap in Room 204 attached bathroom is leaking continuously causing water wastage. Needs washer replacement.',
+    id: 'tkt-3',
+    ticketId: 'MNT-2026-003',
+    category: 'ELECTRICAL',
+    title: 'Power socket sparking in Room 204',
+    description: 'The main power socket is sparking when appliances are plugged in.',
     priority: 'URGENT',
-    status: 'IN_PROGRESS',
-    technician: 'Ramesh Kumar (UniNest Verified Plumber)',
-    createdAt: '04 Sep 2026, 10:15 AM',
-    eta: 'Today by 4:00 PM',
+    status: 'OPEN',
+    technician: 'Pending Assignment',
+    createdAt: 'Just now',
+    eta: 'Within 2 hours',
   },
   {
     id: 'tkt-2',
-    ticketId: 'TKT-HVC-7911',
+    ticketId: 'MNT-2026-002',
     category: 'HVAC',
-    title: 'Air Conditioner Filter Servicing & Cooling Inspection',
-    description: 'Split AC cooling has slowed down. Requesting filter cleaning and gas check prior to semester exams.',
+    title: 'AC not cooling properly',
+    description: 'Air conditioner in the room is running but not cooling the room at all.',
     priority: 'MEDIUM',
-    status: 'PENDING',
-    technician: 'Assigned to CoolFix Solutions',
-    createdAt: '03 Sep 2026, 02:30 PM',
-    eta: 'Tomorrow by 11:00 AM',
+    status: 'IN_PROGRESS',
+    technician: 'QuickFix Services',
+    createdAt: '1 day ago',
+    eta: 'Today by 5:00 PM',
   },
   {
-    id: 'tkt-3',
-    ticketId: 'TKT-ELE-6540',
-    category: 'ELECTRICAL',
-    title: 'Study Desk Tube Light Bulb Replacement',
-    description: 'Main LED tube light near study table flickered and burned out.',
-    priority: 'LOW',
+    id: 'tkt-1',
+    ticketId: 'MNT-2026-001',
+    category: 'PLUMBING',
+    title: 'Bathroom tap leaking',
+    description: 'Continuous water dripping from the washbasin tap.',
+    priority: 'HIGH',
     status: 'RESOLVED',
-    technician: 'Suresh Verma (Electrician)',
-    createdAt: '28 Aug 2026, 09:00 AM',
-    eta: 'Resolved on 28 Aug',
+    technician: 'UniNest Plumber',
+    createdAt: '3 days ago',
+    eta: 'Resolved',
     rating: 5,
   },
 ];

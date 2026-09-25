@@ -1,131 +1,100 @@
-import { prisma } from '@/lib/db';
+'use client';
+
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Star } from 'lucide-react';
-import { formatINR } from '@/lib/utils';
+import { Star, MessageSquare } from 'lucide-react';
 
-export default async function CustomerRatingsPage() {
-  let items: any[] = [];
-  const tableType = 'providerRatings' as string;
-  try {
-    if (['bookings', 'studentBookings', 'landlordBookings'].includes(tableType)) {
-      items = await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true, user: true, bed: { include: { room: true } } }
-      });
-    } else if (['payments', 'studentPayments', 'rent', 'earnings'].includes(tableType)) {
-      items = await prisma.payment.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { user: true }
-      });
-    } else if (['maintenance', 'studentMaintenance', 'landlordMaintenance'].includes(tableType)) {
-      items = await prisma.maintenanceTicket.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { property: true }
-      });
-    } else if (['tenants', 'collegeStudents'].includes(tableType)) {
-      items = await prisma.student.findMany({
-        include: { user: true, college: true }
-      });
-    } else if (tableType === 'kyc') {
-      items = await prisma.kYCRecord.findMany({
-        include: { student: { include: { user: true } } }
-      });
-    } else if (['tenantVerification', 'compliance'].includes(tableType)) {
-      items = await prisma.tenantVerification.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['properties', 'landlordProperties', 'collegeHousing', 'collegeVerified'].includes(tableType)) {
-      items = await prisma.property.findMany({
-        orderBy: { createdAt: 'desc' },
-        include: { rooms: { include: { beds: true } }, landlord: { include: { user: true } } }
-      });
-    } else if (['disputes', 'studentDisputes', 'landlordDisputes', 'collegeIssues'].includes(tableType)) {
-      items = await prisma.dispute.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (['services', 'studentServices', 'landlordServices', 'providerJobs'].includes(tableType)) {
-      items = await prisma.serviceOrder.findMany({
-        orderBy: { createdAt: 'desc' }
-      });
-    } else if (tableType === 'auditLog') {
-      items = await prisma.auditLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        include: { user: true }
-      });
-    } else if (tableType === 'beds') {
-      items = await prisma.bed.findMany({
-        include: { room: { include: { property: true } } },
-        take: 30
-      });
-    }
-  } catch (e) {
-    items = [];
-  }
+const reviews = [
+  { id: 1, student: 'Rahul Sharma', rating: 5, date: '12 Sep 2026', service: 'Plumbing Repair', comment: 'Very quick and professional. Fixed the leaky tap in 10 minutes.' },
+  { id: 2, student: 'Amit Kumar', rating: 4, date: '05 Sep 2026', service: 'AC Service/Gas Refill', comment: 'Good service, AC is cooling well now. Arrived 15 mins late though.' },
+  { id: 3, student: 'Priya Patel', rating: 5, date: '28 Aug 2026', service: 'Deep Cleaning (Full PG)', comment: 'Excellent deep cleaning! The PG looks brand new. Highly recommended.' },
+  { id: 4, student: 'Vikram Singh', rating: 5, date: '15 Aug 2026', service: 'Electrical Wiring', comment: 'Fixed the short circuit issue safely and quickly.' },
+  { id: 5, student: 'Neha Gupta', rating: 3, date: '02 Aug 2026', service: 'Lock Replacement', comment: 'Job was done, but left a bit of a mess near the door.' },
+];
 
+export default function CustomerRatingsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Customer Ratings</h1>
-          <p className="text-text-secondary mt-1">Feedback and ratings from completed service jobs</p>
+          <h1 className="text-2xl font-bold text-text-primary">Customer Reviews & Ratings</h1>
+          <p className="text-text-secondary mt-1">See what students and landlords are saying about your services</p>
         </div>
         <div className="p-2.5 bg-brand-50 rounded-xl">
           <Star className="w-6 h-6 text-brand-600" />
         </div>
       </div>
 
-      {items.length > 0 ? (
-        <Card padding="none">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-surface-tertiary border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">ID / Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Details</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border-light">
-                {items.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-surface-secondary/50">
-                    <td className="px-4 py-3 font-medium text-text-primary">
-                      {item.name || item.studentName || item.user?.name || item.reportedBy || item.title || item.referenceNo || `Item #${idx + 1}`}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {item.email || item.property?.name || item.city || item.description || item.category || (item.amount ? formatINR(item.amount) : '—')}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={
-                        (item.status === 'VERIFIED' || item.status === 'ACTIVE' || item.status === 'SUCCESS' || item.status === 'PAID') ? 'success' :
-                        (item.status === 'PENDING' || item.status === 'OPEN' || item.status === 'DUE') ? 'warning' : 'default'
-                      } size="sm">
-                        {item.status || item.verificationStatus || item.role || 'ACTIVE'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-brand-50 rounded-2xl flex items-center justify-center mb-3">
-              <Star className="w-6 h-6 text-brand-600" />
+      <Card className="bg-gradient-to-br from-brand-50 to-white">
+        <div className="flex flex-col md:flex-row items-center gap-8">
+          <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm min-w-[150px]">
+            <span className="text-4xl font-bold text-text-primary">4.7</span>
+            <div className="flex items-center gap-1 mt-2 text-amber-500">
+              <Star className="w-5 h-5 fill-current" />
+              <Star className="w-5 h-5 fill-current" />
+              <Star className="w-5 h-5 fill-current" />
+              <Star className="w-5 h-5 fill-current" />
+              <Star className="w-5 h-5 fill-current opacity-50" />
             </div>
-            <h3 className="text-base font-semibold text-text-primary">Customer Ratings</h3>
-            <p className="text-sm text-text-secondary max-w-md mt-1 mb-4">Feedback and ratings from completed service jobs</p>
-            <Badge variant="outline">UniNest Demo Module</Badge>
+            <span className="text-sm text-text-secondary mt-2">34 Total Reviews</span>
           </div>
-        </Card>
-      )}
+          
+          <div className="flex-1 w-full space-y-3">
+            {[
+              { stars: 5, count: 22, percent: (22/34)*100 },
+              { stars: 4, count: 8, percent: (8/34)*100 },
+              { stars: 3, count: 3, percent: (3/34)*100 },
+              { stars: 2, count: 1, percent: (1/34)*100 },
+              { stars: 1, count: 0, percent: 0 },
+            ].map((row) => (
+              <div key={row.stars} className="flex items-center gap-3">
+                <div className="flex items-center gap-1 w-12 text-sm font-medium text-text-secondary">
+                  {row.stars} <Star className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="flex-1 h-2.5 bg-surface-secondary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-amber-500 rounded-full" 
+                    style={{ width: `${row.percent}%` }}
+                  />
+                </div>
+                <div className="w-8 text-sm text-right text-text-secondary">{row.count}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-brand-500" />
+          Recent Reviews
+        </h3>
+        
+        {reviews.map((review) => (
+          <Card key={review.id}>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h4 className="font-semibold text-text-primary">{review.student}</h4>
+                  <Badge variant="outline" size="sm">{review.service}</Badge>
+                </div>
+                <div className="flex items-center gap-1 mt-1.5 text-amber-500">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star 
+                      key={i} 
+                      className={`w-4 h-4 ${i < review.rating ? 'fill-current' : 'text-surface-tertiary'}`} 
+                    />
+                  ))}
+                </div>
+                <p className="text-text-secondary mt-3">{review.comment}</p>
+              </div>
+              <div className="text-sm text-text-tertiary whitespace-nowrap">
+                {review.date}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
