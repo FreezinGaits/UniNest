@@ -25,7 +25,7 @@ const roleNavItems: Record<string, NavItem[]> = {
     { label: 'Dashboard', href: '/student/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
     { label: 'Find PG', href: '/student/search', icon: <Search className="w-4.5 h-4.5" /> },
     { label: 'Find Roommate', href: '/student/roommates', icon: <Users className="w-4.5 h-4.5" /> },
-    { label: 'Onboarding', href: '/onboarding/student', icon: <ClipboardList className="w-4.5 h-4.5" /> },
+
     { label: 'Saved', href: '/student/saved', icon: <Heart className="w-4.5 h-4.5" /> },
     { label: 'Bookings', href: '/student/bookings', icon: <CalendarCheck className="w-4.5 h-4.5" /> },
     { label: 'My Stay', href: '/student/stay', icon: <Building2 className="w-4.5 h-4.5" /> },
@@ -41,7 +41,7 @@ const roleNavItems: Record<string, NavItem[]> = {
   LANDLORD: [
     { label: 'Dashboard', href: '/landlord/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
     { label: 'Properties', href: '/landlord/properties', icon: <Building2 className="w-4.5 h-4.5" /> },
-    { label: 'Onboarding', href: '/onboarding/landlord', icon: <ClipboardList className="w-4.5 h-4.5" /> },
+
     { label: 'Beds', href: '/landlord/beds', icon: <BedDouble className="w-4.5 h-4.5" /> },
     { label: 'Bookings', href: '/landlord/bookings', icon: <CalendarCheck className="w-4.5 h-4.5" /> },
     { label: 'Tenants', href: '/landlord/tenants', icon: <Users className="w-4.5 h-4.5" /> },
@@ -75,7 +75,7 @@ const roleNavItems: Record<string, NavItem[]> = {
   ],
   COLLEGE: [
     { label: 'Overview', href: '/college/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
-    { label: 'Onboarding', href: '/onboarding/college', icon: <ClipboardList className="w-4.5 h-4.5" /> },
+
     { label: 'Students', href: '/college/students', icon: <GraduationCap className="w-4.5 h-4.5" /> },
     { label: 'Off-Campus Housing', href: '/college/housing', icon: <Building2 className="w-4.5 h-4.5" /> },
     { label: 'Near Campus PGs', href: '/college/verified-pgs', icon: <Shield className="w-4.5 h-4.5" /> },
@@ -85,7 +85,7 @@ const roleNavItems: Record<string, NavItem[]> = {
   ],
   PROVIDER: [
     { label: 'Dashboard', href: '/provider/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
-    { label: 'Onboarding', href: '/onboarding/provider', icon: <ClipboardList className="w-4.5 h-4.5" /> },
+
     { label: 'Jobs', href: '/provider/jobs', icon: <Briefcase className="w-4.5 h-4.5" /> },
     { label: 'Customers', href: '/provider/customers', icon: <Users className="w-4.5 h-4.5" /> },
     { label: 'Availability', href: '/provider/availability', icon: <Clock className="w-4.5 h-4.5" /> },
