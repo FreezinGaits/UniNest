@@ -19,45 +19,10 @@ export interface PropertyItem {
   description?: string;
 }
 
-// ─── File-based persistence ─────────────────────────────────────────────────
-// We write to a JSON file on disk so data survives server restarts, HMR reloads,
-// and Next.js re-imports — unlike globalThis which is wiped in dev mode.
-
 const DATA_DIR = path.join(process.cwd(), '.data');
 const PROPERTIES_FILE = path.join(DATA_DIR, 'properties.json');
 
-function ensureDataDir(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function readPropertiesFromDisk(): PropertyItem[] {
-  try {
-    ensureDataDir();
-    if (fs.existsSync(PROPERTIES_FILE)) {
-      const raw = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (err) {
-    console.warn('Failed to read properties file, returning empty array:', err);
-  }
-  return [];
-}
-
-function writePropertiesToDisk(properties: PropertyItem[]): void {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(properties, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to write properties file:', err);
-  }
-}
-
-// ─── Demo seed properties ───────────────────────────────────────────────────
-
-const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
+export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
   {
     id: 'prop-pcte-1',
     name: 'PCTE Smart Student Residency',
@@ -108,17 +73,129 @@ const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
   },
 ];
 
-// ─── Public API ─────────────────────────────────────────────────────────────
+const globalForPropertiesStore = globalThis as unknown as {
+  uninestPropertiesMemory?: PropertyItem[];
+};
+
+export function normalizePropertyItem(raw: any): PropertyItem {
+  if (!raw || typeof raw !== 'object') {
+    return DEFAULT_DEMO_PROPERTIES[0];
+  }
+
+  const rooms = Array.isArray(raw.rooms) ? raw.rooms : [];
+  const totalRooms = Number(
+    raw.totalRooms ?? (rooms.length > 0 ? rooms.length : 6)
+  ) || 6;
+
+  const bedsFromRooms = rooms.reduce(
+    (acc: number, r: any) => acc + (Array.isArray(r.beds) ? r.beds.length : Number(r.sharing || 2)),
+    0
+  );
+  const occupiedFromRooms = rooms.reduce(
+    (acc: number, r: any) =>
+      acc +
+      (Array.isArray(r.beds)
+        ? r.beds.filter((b: any) => b.status === 'OCCUPIED' || b.status === 'RESERVED').length
+        : 0),
+    0
+  );
+
+  const totalBeds =
+    Number(
+      raw.totalBeds ??
+        (bedsFromRooms > 0 ? bedsFromRooms : totalRooms * Number(raw.bedsPerRoom || 2))
+    ) || 12;
+
+  const occupiedBeds =
+    raw.occupiedBeds !== undefined && raw.occupiedBeds !== null
+      ? Number(raw.occupiedBeds)
+      : bedsFromRooms > 0
+      ? occupiedFromRooms
+      : Math.min(totalBeds, Math.max(0, Math.floor(totalBeds * 0.75)));
+
+  // Normalize rentPerMonth: handle values in paise (> 100,000) vs rupees
+  let rawRent =
+    raw.rentPerMonth ??
+    (rooms[0]?.rent ? Number(rooms[0].rent) : undefined) ??
+    6000;
+  rawRent = Number(rawRent) || 6000;
+  const rentPerMonth = rawRent >= 100000 ? Math.round(rawRent / 100) : rawRent;
+
+  const openTickets =
+    raw.openTickets !== undefined && raw.openTickets !== null
+      ? Number(raw.openTickets)
+      : Array.isArray(raw.maintenanceTickets)
+      ? raw.maintenanceTickets.filter((t: any) => t?.status !== 'RESOLVED').length
+      : 0;
+
+  const statusRaw = String(raw.verificationStatus || raw.status || 'VERIFIED').toUpperCase();
+  const verificationStatus =
+    statusRaw === 'APPROVED' ? 'VERIFIED' : statusRaw;
+
+  return {
+    id: String(raw.id || `prop-${Date.now()}`),
+    name: String(raw.name || 'UniNest Student Residency'),
+    type: String(raw.type || 'PG'),
+    locality: String(raw.locality || 'Ferozepur Road'),
+    city: String(raw.city || 'Ludhiana'),
+    address: String(raw.address || 'Ferozepur Road, Ludhiana'),
+    verificationStatus,
+    totalRooms,
+    totalBeds,
+    occupiedBeds,
+    rentPerMonth,
+    openTickets,
+    ownerName: raw.ownerName || raw.landlord?.user?.name || 'Vikram Singh',
+    createdAt: raw.createdAt
+      ? typeof raw.createdAt === 'string'
+        ? raw.createdAt
+        : new Date(raw.createdAt).toISOString()
+      : new Date().toISOString(),
+    description: String(raw.description || ''),
+  };
+}
+
+function readPropertiesFromDisk(): PropertyItem[] {
+  try {
+    if (fs.existsSync(PROPERTIES_FILE)) {
+      const raw = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizePropertyItem);
+      }
+    }
+  } catch {
+    // Ignore fs errors in serverless environments
+  }
+  return [];
+}
+
+function writePropertiesToDisk(properties: PropertyItem[]): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(properties, null, 2), 'utf-8');
+  } catch {
+    // Ignore fs errors on read-only serverless filesystems
+  }
+}
 
 export async function getAllProperties(): Promise<PropertyItem[]> {
-  const saved = readPropertiesFromDisk();
+  const diskItems = readPropertiesFromDisk();
+  const memItems = globalForPropertiesStore.uninestPropertiesMemory || [];
 
-  // Merge: saved (user-added) properties first, then demo properties that
-  // are not already overridden in saved list
-  const savedIds = new Set(saved.map((p) => p.id));
-  const demos = DEFAULT_DEMO_PROPERTIES.filter((d) => !savedIds.has(d.id));
+  const mergedMap = new Map<string, PropertyItem>();
+  for (const item of [...memItems, ...diskItems, ...DEFAULT_DEMO_PROPERTIES]) {
+    const norm = normalizePropertyItem(item);
+    if (!mergedMap.has(norm.id)) {
+      mergedMap.set(norm.id, norm);
+    }
+  }
 
-  return [...saved, ...demos];
+  const result = Array.from(mergedMap.values());
+  globalForPropertiesStore.uninestPropertiesMemory = result;
+  return result;
 }
 
 export async function createProperty(data: {
@@ -135,9 +212,9 @@ export async function createProperty(data: {
   ownerName?: string;
 }): Promise<PropertyItem> {
   const propId = `prop-new-${Date.now()}`;
-  const totalBeds = Number(data.totalRooms) * Number(data.bedsPerRoom);
+  const totalBeds = Number(data.totalRooms || 4) * Number(data.bedsPerRoom || 2);
 
-  const newProperty: PropertyItem = {
+  const newProperty: PropertyItem = normalizePropertyItem({
     id: propId,
     name: data.name,
     type: data.type || 'PG',
@@ -145,20 +222,20 @@ export async function createProperty(data: {
     city: data.city || 'Ludhiana',
     address: data.address,
     verificationStatus: 'UNDER_REVIEW',
-    totalRooms: Number(data.totalRooms),
+    totalRooms: Number(data.totalRooms || 4),
     totalBeds,
     occupiedBeds: 0,
-    rentPerMonth: Number(data.rentPerMonth),
+    rentPerMonth: Number(data.rentPerMonth || 6000),
     openTickets: 0,
     ownerName: data.ownerName || 'Vikram Singh (Landlord)',
     createdAt: new Date().toISOString(),
     description: data.description || '',
-  };
+  });
 
-  // Read existing, prepend new, write back
-  const existing = readPropertiesFromDisk();
-  existing.unshift(newProperty);
-  writePropertiesToDisk(existing);
+  const existing = await getAllProperties();
+  const updated = [newProperty, ...existing.filter((p) => p.id !== newProperty.id)];
+  globalForPropertiesStore.uninestPropertiesMemory = updated;
+  writePropertiesToDisk(updated);
 
   return newProperty;
 }
@@ -167,30 +244,20 @@ export async function verifyProperty(
   propertyId: string,
   status: 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW'
 ): Promise<boolean> {
-  const saved = readPropertiesFromDisk();
+  const all = await getAllProperties();
   let found = false;
 
-  // Update in saved properties
-  for (const p of saved) {
+  const updated = all.map((p) => {
     if (p.id === propertyId) {
-      p.verificationStatus = status;
       found = true;
-      break;
+      return { ...p, verificationStatus: status };
     }
-  }
+    return p;
+  });
 
   if (found) {
-    writePropertiesToDisk(saved);
-    return true;
-  }
-
-  // If it's a demo property being verified, copy it into the saved file so
-  // the status override persists across reloads
-  const demo = DEFAULT_DEMO_PROPERTIES.find((d) => d.id === propertyId);
-  if (demo) {
-    const copy: PropertyItem = { ...demo, verificationStatus: status };
-    saved.push(copy);
-    writePropertiesToDisk(saved);
+    globalForPropertiesStore.uninestPropertiesMemory = updated;
+    writePropertiesToDisk(updated);
     return true;
   }
 

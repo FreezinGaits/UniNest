@@ -169,10 +169,24 @@ export function PwaManager() {
     const iosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIos(iosDevice);
 
+    // Purge any stale v2.x Service Worker caches immediately on client mount
+    if ('caches' in window) {
+      caches
+        .keys()
+        .then((keys) => {
+          keys.forEach((key) => {
+            if (key !== 'uninest-pwa-v3.0') {
+              caches.delete(key).catch(() => {});
+            }
+          });
+        })
+        .catch(() => {});
+    }
+
     // Register Service Worker (/sw.js)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
-        .register('/sw.js', { scope: '/' })
+        .register('/sw.js', { scope: '/', updateViaCache: 'none' })
         .then((reg) => {
           setSwActive(true);
           reg.update().catch(() => {});

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input, Select } from '@/components/ui/Input';
-import { Zap, Plus, CheckCircle2 } from 'lucide-react';
+import { Plus, CheckCircle2 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 
 export interface ElectricityReadingItem {
@@ -27,8 +27,40 @@ interface ElectricityMeteringClientProps {
   initialReadings: ElectricityReadingItem[];
 }
 
+function sanitizeReading(raw: any): ElectricityReadingItem {
+  const previousReading = Number(raw?.previousReading ?? 1200) || 0;
+  const currentReading = Number(raw?.currentReading ?? 1300) || 0;
+  const ratePerUnit = Number(raw?.ratePerUnit ?? 9.5) || 9.5;
+  const unitsConsumed =
+    raw?.unitsConsumed !== undefined && raw?.unitsConsumed !== null
+      ? Number(raw.unitsConsumed)
+      : Math.max(0, currentReading - previousReading);
+  const totalBill =
+    raw?.totalBill !== undefined && raw?.totalBill !== null
+      ? Number(raw.totalBill)
+      : raw?.totalAmount !== undefined
+      ? Math.round(Number(raw.totalAmount) / 100)
+      : Math.round(unitsConsumed * ratePerUnit);
+
+  return {
+    id: String(raw?.id || `el-${Date.now()}`),
+    property: String(raw?.property || 'PCTE Smart Student Residency'),
+    room: String(raw?.room || 'Room 204 (Sub-Meter #204)'),
+    tenant: String(raw?.tenant || 'Rahul Sharma'),
+    previousReading,
+    currentReading,
+    unitsConsumed,
+    ratePerUnit,
+    totalBill,
+    status: String(raw?.status || 'UNPAID'),
+    month: String(raw?.month || 'September 2026'),
+  };
+}
+
 export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteringClientProps) {
-  const [readings, setReadings] = useState<ElectricityReadingItem[]>(initialReadings);
+  const [readings, setReadings] = useState<ElectricityReadingItem[]>(() =>
+    (Array.isArray(initialReadings) ? initialReadings : []).map(sanitizeReading)
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -43,12 +75,11 @@ export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteri
   });
 
   useEffect(() => {
-    // Fetch latest persisted readings from server API
-    fetch('/api/electricity')
-      .then((res) => res.json())
+    fetch('/api/electricity', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.readings && Array.isArray(data.readings)) {
-          setReadings(data.readings);
+        if (data?.readings && Array.isArray(data.readings) && data.readings.length > 0) {
+          setReadings(data.readings.map(sanitizeReading));
         }
       })
       .catch((err) => console.warn('Error syncing electricity readings from API:', err));
@@ -78,7 +109,8 @@ export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteri
 
       const data = await res.json();
       if (res.ok && data.reading) {
-        setReadings((prev) => [data.reading, ...prev.filter(r => r.id !== data.reading.id)]);
+        const cleanReading = sanitizeReading(data.reading);
+        setReadings((prev) => [cleanReading, ...prev.filter((r) => r.id !== cleanReading.id)]);
         setIsModalOpen(false);
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 4000);
@@ -93,8 +125,8 @@ export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteri
     }
   };
 
-  const totalUnits = readings.reduce((sum, r) => sum + r.unitsConsumed, 0);
-  const totalBilled = readings.reduce((sum, r) => sum + r.totalBill, 0);
+  const totalUnits = readings.reduce((sum, r) => sum + Number(r.unitsConsumed || 0), 0);
+  const totalBilled = readings.reduce((sum, r) => sum + Number(r.totalBill || 0), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -155,25 +187,28 @@ export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteri
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light">
-              {readings.map((el) => (
-                <tr key={el.id} className="hover:bg-surface-secondary/50">
-                  <td className="px-4 py-3 font-bold text-slate-900">
-                    <div>{el.property}</div>
-                    <div className="text-xs text-amber-700 font-medium">{el.room}</div>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary font-medium">{el.tenant}</td>
-                  <td className="px-4 py-3 text-right text-xs font-mono text-slate-600">
-                    {el.previousReading} → {el.currentReading}
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-900">{el.unitsConsumed} kWh</td>
-                  <td className="px-4 py-3 text-right font-black text-emerald-700">{formatRupees(el.totalBill)}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={el.status === 'PAID' ? 'success' : 'warning'} size="sm">
-                      {el.status}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
+              {readings.map((rawEl) => {
+                const el = sanitizeReading(rawEl);
+                return (
+                  <tr key={el.id} className="hover:bg-surface-secondary/50">
+                    <td className="px-4 py-3 font-bold text-slate-900">
+                      <div>{el.property}</div>
+                      <div className="text-xs text-amber-700 font-medium">{el.room}</div>
+                    </td>
+                    <td className="px-4 py-3 text-text-secondary font-medium">{el.tenant}</td>
+                    <td className="px-4 py-3 text-right text-xs font-mono text-slate-600">
+                      {el.previousReading} → {el.currentReading}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900">{el.unitsConsumed} kWh</td>
+                    <td className="px-4 py-3 text-right font-black text-emerald-700">{formatRupees(el.totalBill)}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={el.status === 'PAID' ? 'success' : 'warning'} size="sm">
+                        {el.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

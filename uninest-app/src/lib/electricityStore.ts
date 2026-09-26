@@ -19,36 +19,7 @@ export interface ElectricityReadingItem {
 const DATA_DIR = path.join(process.cwd(), '.data');
 const ELECTRICITY_FILE = path.join(DATA_DIR, 'electricity.json');
 
-function ensureDataDir(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-function readReadingsFromDisk(): ElectricityReadingItem[] {
-  try {
-    ensureDataDir();
-    if (fs.existsSync(ELECTRICITY_FILE)) {
-      const raw = fs.readFileSync(ELECTRICITY_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-    }
-  } catch (err) {
-    console.warn('Failed to read electricity file, returning empty array:', err);
-  }
-  return [];
-}
-
-function writeReadingsToDisk(readings: ElectricityReadingItem[]): void {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(ELECTRICITY_FILE, JSON.stringify(readings, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to write electricity file:', err);
-  }
-}
-
-const DEFAULT_DEMO_READINGS: ElectricityReadingItem[] = [
+export const DEFAULT_DEMO_READINGS: ElectricityReadingItem[] = [
   {
     id: 'el-1',
     property: 'PCTE Smart Student Residency',
@@ -60,7 +31,7 @@ const DEFAULT_DEMO_READINGS: ElectricityReadingItem[] = [
     ratePerUnit: 9.5,
     totalBill: 1330,
     status: 'PAID',
-    month: 'August 2026',
+    month: 'September 2026',
     createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
   },
   {
@@ -74,16 +45,93 @@ const DEFAULT_DEMO_READINGS: ElectricityReadingItem[] = [
     ratePerUnit: 9.5,
     totalBill: 1995,
     status: 'UNPAID',
-    month: 'August 2026',
+    month: 'September 2026',
     createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
   },
 ];
 
+const globalForElectricityStore = globalThis as unknown as {
+  uninestElectricityMemory?: ElectricityReadingItem[];
+};
+
+export function normalizeElectricityItem(raw: any): ElectricityReadingItem {
+  if (!raw || typeof raw !== 'object') {
+    return DEFAULT_DEMO_READINGS[0];
+  }
+
+  const previousReading = Number(raw.previousReading ?? raw.prevReading ?? 1200) || 0;
+  const currentReading = Number(raw.currentReading ?? raw.currReading ?? 1300) || 0;
+  const ratePerUnit = Number(raw.ratePerUnit ?? 9.5) || 9.5;
+  const unitsConsumed =
+    raw.unitsConsumed !== undefined && raw.unitsConsumed !== null
+      ? Number(raw.unitsConsumed)
+      : Math.max(0, currentReading - previousReading);
+
+  let rawBill =
+    raw.totalBill ??
+    (raw.totalAmount !== undefined ? Number(raw.totalAmount) / 100 : undefined) ??
+    Math.round(unitsConsumed * ratePerUnit);
+  rawBill = Number(rawBill) || Math.round(unitsConsumed * ratePerUnit);
+
+  return {
+    id: String(raw.id || `el-${Date.now()}`),
+    property: String(raw.property || 'PCTE Smart Student Residency'),
+    room: String(raw.room || 'Room 204 (Sub-Meter #204)'),
+    tenant: String(raw.tenant || 'Rahul Sharma'),
+    previousReading,
+    currentReading,
+    unitsConsumed,
+    ratePerUnit,
+    totalBill: rawBill,
+    status: String(raw.status || (raw.isPaid ? 'PAID' : 'UNPAID')),
+    month: String(raw.month || 'September 2026'),
+    createdAt: raw.createdAt
+      ? typeof raw.createdAt === 'string'
+        ? raw.createdAt
+        : new Date(raw.createdAt).toISOString()
+      : new Date().toISOString(),
+  };
+}
+
+function readReadingsFromDisk(): ElectricityReadingItem[] {
+  try {
+    if (fs.existsSync(ELECTRICITY_FILE)) {
+      const raw = fs.readFileSync(ELECTRICITY_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(normalizeElectricityItem);
+    }
+  } catch {
+    // Ignore fs errors on serverless
+  }
+  return [];
+}
+
+function writeReadingsToDisk(readings: ElectricityReadingItem[]): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(ELECTRICITY_FILE, JSON.stringify(readings, null, 2), 'utf-8');
+  } catch {
+    // Ignore fs errors on serverless
+  }
+}
+
 export async function getAllElectricityReadings(): Promise<ElectricityReadingItem[]> {
-  const saved = readReadingsFromDisk();
-  const savedIds = new Set(saved.map((r) => r.id));
-  const demos = DEFAULT_DEMO_READINGS.filter((d) => !savedIds.has(d.id));
-  return [...saved, ...demos];
+  const disk = readReadingsFromDisk();
+  const mem = globalForElectricityStore.uninestElectricityMemory || [];
+  const mergedMap = new Map<string, ElectricityReadingItem>();
+
+  for (const item of [...mem, ...disk, ...DEFAULT_DEMO_READINGS]) {
+    const norm = normalizeElectricityItem(item);
+    if (!mergedMap.has(norm.id)) {
+      mergedMap.set(norm.id, norm);
+    }
+  }
+
+  const result = Array.from(mergedMap.values());
+  globalForElectricityStore.uninestElectricityMemory = result;
+  return result;
 }
 
 export async function createElectricityReading(data: {
@@ -96,9 +144,9 @@ export async function createElectricityReading(data: {
   month?: string;
 }): Promise<ElectricityReadingItem> {
   const unitsConsumed = Math.max(0, Number(data.currentReading) - Number(data.previousReading));
-  const totalBill = Math.round(unitsConsumed * Number(data.ratePerUnit));
+  const totalBill = Math.round(unitsConsumed * Number(data.ratePerUnit || 9.5));
 
-  const newReading: ElectricityReadingItem = {
+  const newReading: ElectricityReadingItem = normalizeElectricityItem({
     id: `el-new-${Date.now()}`,
     property: data.property || 'PCTE Smart Student Residency',
     room: data.room || 'Room 101',
@@ -106,16 +154,17 @@ export async function createElectricityReading(data: {
     previousReading: Number(data.previousReading),
     currentReading: Number(data.currentReading),
     unitsConsumed,
-    ratePerUnit: Number(data.ratePerUnit),
+    ratePerUnit: Number(data.ratePerUnit || 9.5),
     totalBill,
     status: 'UNPAID',
     month: data.month || 'September 2026',
     createdAt: new Date().toISOString(),
-  };
+  });
 
-  const existing = readReadingsFromDisk();
-  existing.unshift(newReading);
-  writeReadingsToDisk(existing);
+  const existing = await getAllElectricityReadings();
+  const updated = [newReading, ...existing.filter((r) => r.id !== newReading.id)];
+  globalForElectricityStore.uninestElectricityMemory = updated;
+  writeReadingsToDisk(updated);
 
   return newReading;
 }

@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Building2, ShieldCheck, CheckCircle2, XCircle, Clock, MapPin, Search, Eye } from 'lucide-react';
+import { Building2, ShieldCheck, CheckCircle2, XCircle, Clock, MapPin, Search } from 'lucide-react';
 import { PropertyItem } from '@/lib/propertiesStore';
 
 interface AdminPropertiesClientProps {
@@ -12,14 +12,28 @@ interface AdminPropertiesClientProps {
 }
 
 export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClientProps) {
-  const [properties, setProperties] = useState<PropertyItem[]>(initialProperties);
+  const [properties, setProperties] = useState<PropertyItem[]>(initialProperties || []);
   const [activeTab, setActiveTab] = useState<'ALL' | 'UNDER_REVIEW' | 'VERIFIED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    fetch('/api/properties', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
+          setProperties(data.properties);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const underReviewCount = properties.filter(
-    (p) => p.verificationStatus === 'UNDER_REVIEW' || p.verificationStatus === 'PENDING' || p.verificationStatus === 'SUBMITTED'
+    (p) =>
+      p.verificationStatus === 'UNDER_REVIEW' ||
+      p.verificationStatus === 'PENDING' ||
+      p.verificationStatus === 'SUBMITTED'
   ).length;
 
   const handleStatusChange = async (propertyId: string, newStatus: 'VERIFIED' | 'REJECTED') => {
@@ -53,7 +67,10 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
   };
 
   const filteredProperties = properties.filter((p) => {
-    const isUnderReview = p.verificationStatus === 'UNDER_REVIEW' || p.verificationStatus === 'PENDING' || p.verificationStatus === 'SUBMITTED';
+    const isUnderReview =
+      p.verificationStatus === 'UNDER_REVIEW' ||
+      p.verificationStatus === 'PENDING' ||
+      p.verificationStatus === 'SUBMITTED';
     const isVerified = p.verificationStatus === 'VERIFIED';
 
     if (activeTab === 'UNDER_REVIEW' && !isUnderReview) return false;
@@ -62,9 +79,9 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.address.toLowerCase().includes(q) ||
-        p.city.toLowerCase().includes(q) ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.address || '').toLowerCase().includes(q) ||
+        (p.city || '').toLowerCase().includes(q) ||
         (p.ownerName && p.ownerName.toLowerCase().includes(q))
       );
     }
@@ -173,6 +190,8 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
                     p.verificationStatus === 'SUBMITTED';
                   const isVerified = p.verificationStatus === 'VERIFIED';
                   const isRejected = p.verificationStatus === 'REJECTED';
+                  const rentVal = Number(p.rentPerMonth || 6000);
+                  const displayRent = rentVal >= 100000 ? Math.round(rentVal / 100) : rentVal;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
@@ -190,14 +209,14 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
 
                       <td className="px-4 py-4 text-xs text-slate-600">
                         <p className="flex items-center gap-1 font-medium text-slate-900">
-                          <MapPin className="w-3.5 h-3.5 text-brand-600" /> {p.locality}, {p.city}
+                          <MapPin className="w-3.5 h-3.5 text-brand-600" /> {p.locality || 'Ferozepur Road'}, {p.city || 'Ludhiana'}
                         </p>
-                        <p className="text-emerald-700 font-bold mt-0.5">₹{p.rentPerMonth.toLocaleString()}/mo</p>
+                        <p className="text-emerald-700 font-bold mt-0.5">₹{displayRent.toLocaleString('en-IN')}/mo</p>
                       </td>
 
                       <td className="px-4 py-4 text-xs">
-                        <span className="font-bold text-slate-900">{p.totalBeds || (p.totalRooms * 2)} beds</span>
-                        <span className="text-slate-500 block text-[11px]">{p.totalRooms} rooms</span>
+                        <span className="font-bold text-slate-900">{p.totalBeds || (p.totalRooms || 6) * 2} beds</span>
+                        <span className="text-slate-500 block text-[11px]">{p.totalRooms || 6} rooms</span>
                       </td>
 
                       <td className="px-4 py-4">

@@ -1,57 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const globalForProperties = globalThis as unknown as { fallbackProperties: any[] };
-if (!globalForProperties.fallbackProperties) {
-  globalForProperties.fallbackProperties = [
-    {
-      id: "demo-prop-1",
-      name: "PCTE Premium Boys PG",
-      address: "Baddowal, Ludhiana",
-      locality: "Baddowal",
-      city: "Ludhiana",
-      type: "PG",
-      totalRooms: 10,
-      bedsPerRoom: 2,
-      rentPerMonth: 750000,
-      gender: "MALE",
-      description: "Premium PG near PCTE campus",
-      status: "APPROVED",
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: "demo-prop-2",
-      name: "UniNest Girls Hostel",
-      address: "Sarabha Nagar, Ludhiana",
-      locality: "Sarabha Nagar",
-      city: "Ludhiana",
-      type: "HOSTEL",
-      totalRooms: 15,
-      bedsPerRoom: 3,
-      rentPerMonth: 650000,
-      gender: "FEMALE",
-      description: "Safe and secure girls hostel",
-      status: "APPROVED",
-      createdAt: new Date().toISOString(),
-    }
-  ];
-}
+import {
+  getAllProperties,
+  createProperty,
+  normalizePropertyItem,
+  PropertyItem,
+} from '@/lib/propertiesStore';
 
 export async function GET() {
   try {
-    let properties;
+    const storeProperties = await getAllProperties();
+    let dbProperties: PropertyItem[] = [];
+
     try {
-      properties = await prisma.property.findMany();
+      const rawDbProps = await prisma.property.findMany({
+        include: {
+          rooms: {
+            include: {
+              beds: true,
+            },
+          },
+          maintenanceTickets: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (Array.isArray(rawDbProps) && rawDbProps.length > 0) {
+        dbProperties = rawDbProps.map(normalizePropertyItem);
+      }
     } catch (dbError) {
-      console.error("Database error fetching properties:", dbError);
+      console.warn('Database fallback used for GET /api/properties:', dbError);
     }
 
-    if (!properties || properties.length === 0) {
-      properties = globalForProperties.fallbackProperties;
+    // Merge DB properties with store properties without duplicates (by id or name)
+    const seenIds = new Set<string>();
+    const seenNames = new Set<string>();
+    const merged: PropertyItem[] = [];
+
+    for (const item of [...storeProperties, ...dbProperties]) {
+      const norm = normalizePropertyItem(item);
+      const nameKey = norm.name.trim().toLowerCase();
+      if (!seenIds.has(norm.id) && !seenNames.has(nameKey)) {
+        seenIds.add(norm.id);
+        seenNames.add(nameKey);
+        merged.push(norm);
+      }
     }
-    return NextResponse.json({ properties });
+
+    return NextResponse.json({ properties: merged });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch properties' }, { status: 500 });
+    const fallback = await getAllProperties();
+    return NextResponse.json({ properties: fallback });
   }
 }
 
@@ -60,25 +58,29 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (!body.name || !body.address) {
-      return NextResponse.json({ error: 'Property Name and Address are required.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Property Name and Address are required.' },
+        { status: 400 }
+      );
     }
 
     const data = {
-      name: body.name,
-      locality: body.locality || 'Ferozepur Road',
-      city: body.city || 'Ludhiana',
-      address: body.address,
-      type: body.type || 'PG',
+      name: String(body.name).trim(),
+      locality: String(body.locality || 'Ferozepur Road').trim(),
+      city: String(body.city || 'Ludhiana').trim(),
+      address: String(body.address).trim(),
+      type: String(body.type || 'PG'),
       totalRooms: Number(body.totalRooms || 4),
       bedsPerRoom: Number(body.bedsPerRoom || 2),
-      rentPerMonth: Number(body.rentPerMonth || 6000), // Note: Should ideally be paise
-      gender: body.gender || 'ANY',
-      description: body.description || '',
+      rentPerMonth: Number(body.rentPerMonth || 6000),
+      gender: String(body.gender || 'ANY'),
+      description: String(body.description || ''),
     };
 
-    let newProperty;
+    // Always persist to the unified propertiesStore (memory + local disk fallback)
+    let createdItem = await createProperty(data);
+
     try {
-      // Find a valid landlord to associate with
       let landlord = await prisma.landlord.findFirst();
       if (!landlord) {
         const demoUser = await prisma.user.findFirst({ where: { role: 'LANDLORD' } });
@@ -88,7 +90,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (landlord) {
-        newProperty = await prisma.$transaction(async (tx) => {
+        const dbProp = await prisma.$transaction(async (tx) => {
           const prop = await tx.property.create({
             data: {
               name: data.name,
@@ -109,7 +111,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Auto-generate Room and Bed records for the property
           const totalRooms = data.totalRooms || 4;
           const bedsPerRoom = data.bedsPerRoom || 2;
           const rentPaise = data.rentPerMonth * 100;
@@ -141,27 +142,26 @@ export async function POST(req: NextRequest) {
 
           return prop;
         });
-      } else {
-        throw new Error('No landlord found in database');
+
+        createdItem = normalizePropertyItem({
+          ...createdItem,
+          id: dbProp.id,
+        });
       }
     } catch (dbError) {
-      console.warn("Database error creating property with rooms/beds, falling back to memory:", dbError);
-      newProperty = {
-        id: `prop-${Date.now()}`,
-        ...data,
-        verificationStatus: 'UNDER_REVIEW',
-        createdAt: new Date().toISOString(),
-      };
-      globalForProperties.fallbackProperties.push(newProperty);
+      console.warn('Database fallback used for POST /api/properties:', dbError);
     }
 
     return NextResponse.json({
       success: true,
       message: 'Property created successfully and sent to Admin for review.',
-      property: newProperty,
+      property: createdItem,
     });
   } catch (error: any) {
     console.error('Error creating property:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create property' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Failed to create property' },
+      { status: 500 }
+    );
   }
 }
