@@ -5,8 +5,18 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { CalendarCheck, MapPin, ChevronRight, Sparkles, Clock, CheckCircle2, ShieldCheck, ArrowRight, BedDouble } from 'lucide-react';
-import { formatINR } from '@/lib/utils';
+import {
+  CalendarCheck,
+  MapPin,
+  ChevronRight,
+  Sparkles,
+  Clock,
+  CheckCircle2,
+  ShieldCheck,
+  BedDouble,
+  Key,
+  KeyRound,
+} from 'lucide-react';
 
 interface StudentBookingsClientProps {
   initialBookings: any[];
@@ -19,29 +29,51 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
 
   const filteredBookings = bookings.filter((b) => {
     if (filter === 'ALL') return true;
-    if (filter === 'RESERVED') return b.status === 'RESERVED' || b.status === 'PENDING';
-    if (filter === 'VISIT') return b.status === 'VISIT_REQUESTED' || b.status === 'VISIT_CONFIRMED';
-    if (filter === 'CONFIRMED') return b.status === 'CONFIRMED' || b.status === 'OCCUPIED';
-    if (filter === 'CANCELLED') return b.status === 'CANCELLED' || b.status === 'EXPIRED';
+    if (filter === 'RESERVED') return ['RESERVED', 'PENDING', 'VISITED'].includes(b.status);
+    if (filter === 'VISIT') return ['VISIT_REQUESTED', 'VISIT_CONFIRMED', 'VISITED'].includes(b.status);
+    if (filter === 'CONFIRMED') return ['CONFIRMED', 'MOVE_IN_READY', 'ACTIVE', 'OCCUPIED'].includes(b.status);
+    if (filter === 'CANCELLED') return ['CANCELLED', 'EXPIRED'].includes(b.status);
     return true;
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (booking: any) => {
+    const status = booking.status;
+    const isAdv = booking.reservationType === 'ADVANCE_SESSION';
+    const tokenAmt = isAdv
+      ? (booking.advanceTokenAmount || 90000) / 100
+      : (booking.reservationFee || 39900) / 100;
+
+    if (booking.handshakeStatus === 'DISPUTE_FROZEN') {
+      return <Badge variant="danger">❄️ Escrow Frozen (Dispute)</Badge>;
+    }
     switch (status) {
       case 'VISIT_REQUESTED':
         return <Badge variant="warning">📅 Visit Requested</Badge>;
       case 'VISIT_CONFIRMED':
         return <Badge variant="success">✓ Visit Confirmed</Badge>;
+      case 'VISITED':
+        return <Badge variant="info">👁️ Stage 1 OTP Verified</Badge>;
       case 'RESERVED':
       case 'PENDING':
-        return <Badge variant="info">🔒 Bed Reserved (₹399 Paid)</Badge>;
+        return (
+          <Badge variant="info">
+            🔒 {isAdv ? `Advance Hold (₹${tokenAmt})` : `72h Bed Hold (₹${tokenAmt})`}
+          </Badge>
+        );
       case 'CONFIRMED':
+      case 'MOVE_IN_READY':
+        return (
+          <Badge variant="success">
+            {booking.escrowAmount ? '🔐 ₹6,000 in Escrow Vault' : '✅ Room Accepted'}
+          </Badge>
+        );
+      case 'ACTIVE':
       case 'OCCUPIED':
-        return <Badge variant="success">🎉 Move-in Confirmed</Badge>;
+        return <Badge variant="success">🏠 Tenancy Active</Badge>;
       case 'CANCELLED':
-        return <Badge variant="danger">✕ Cancelled</Badge>;
+        return <Badge variant="danger">✕ Cancelled / Refunded</Badge>;
       case 'EXPIRED':
-        return <Badge variant="outline">⏱ Expired</Badge>;
+        return <Badge variant="warning">⚖️ Grace Expired (Auto-Split)</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -49,23 +81,29 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
 
   const getNextActionHint = (booking: any) => {
     const status = booking.status;
-    const visit = booking.visitAppointments?.[0];
-
-    if (status === 'VISIT_REQUESTED') {
-      return visit
-        ? `Awaiting Landlord approval for ${new Date(visit.scheduledDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })} (${visit.timeSlot})`
-        : 'Schedule property visit timing';
+    if (booking.handshakeStatus === 'DISPUTE_FROZEN') {
+      return '100% Escrow Frozen due to room discrepancy. Full ₹6,000 refund initiated.';
     }
-    if (status === 'VISIT_CONFIRMED') {
-      return `Visit confirmed for ${visit ? new Date(visit.scheduledDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : 'Upcoming'}. Tap to get directions.`;
+    if (status === 'RESERVED' || status === 'VISIT_REQUESTED' || status === 'VISIT_CONFIRMED') {
+      return `Stage 1 Handshake: Visit PG & enter Landlord's 4-Digit Visit OTP (Demo PIN: ${
+        booking.visitOtp || '8412'
+      })`;
     }
-    if (status === 'RESERVED' || status === 'PENDING') {
-      return 'Schedule property visit or proceed with agreement & KYC';
+    if (status === 'VISITED') {
+      return 'Visit OTP Verified! Choose "I Love It (Credit ₹399 to Rent)" or "100% Instant Refund".';
     }
-    if (status === 'CONFIRMED') {
-      return 'Tenancy active. View agreement, pay rent, or request maintenance.';
+    if (status === 'CONFIRMED' && !booking.escrowAmount) {
+      return 'Room Accepted! Pay remaining rent balance into UniNest Escrow Vault.';
     }
-    return 'View booking workspace details';
+    if (status === 'CONFIRMED' || status === 'MOVE_IN_READY') {
+      return `Stage 2 Handshake: Share 6-Digit Move-In Key (${
+        booking.moveInOtp ? `${booking.moveInOtp.slice(0, 3)}-${booking.moveInOtp.slice(3)}` : '792-410'
+      }) with Landlord on Move-In Day.`;
+    }
+    if (status === 'ACTIVE') {
+      return 'Tenancy active! ₹6,000 released from Escrow to Landlord.';
+    }
+    return booking.notes || 'Open Escrow Workspace for full details.';
   };
 
   return (
@@ -73,13 +111,13 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-3xl text-white shadow-xl">
         <div>
-          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-300 bg-indigo-900/60 px-3 py-1 rounded-full border border-indigo-700/50 mb-2">
-            <CalendarCheck className="w-3.5 h-3.5" />
-            Interactive Workspace Ecosystem
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-900/50 px-3 py-1 rounded-full border border-emerald-700/50 mb-2">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Two-Stage OTP Handshake & Algorithmic Escrow
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold">My Bookings</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold">My Escrow Bookings</h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Track bed reservations, schedule visits, access exact location & communicate safely with landlords.
+            Manage 72-hour commitment holds (₹399), 15–45 day advance reservations (15% token), Stage 1 Visit OTPs, and Stage 2 Move-In Keys.
           </p>
         </div>
 
@@ -96,10 +134,9 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold">
         {[
           { key: 'ALL', label: `All Bookings (${bookings.length})` },
-          { key: 'RESERVED', label: 'Reserved (₹399 Hold)' },
-          { key: 'VISIT', label: 'Visits Scheduled' },
-          { key: 'CONFIRMED', label: 'Confirmed / Active' },
-          { key: 'CANCELLED', label: 'Cancelled / Expired' },
+          { key: 'RESERVED', label: 'Stage 1: Visit Hold (₹399)' },
+          { key: 'CONFIRMED', label: 'Stage 2: Escrow Locked / Active' },
+          { key: 'CANCELLED', label: 'Cancelled / Auto-Split' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -122,6 +159,10 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
             const property = booking.property;
             const room = booking.bed?.room;
             const bed = booking.bed;
+            const isAdv = booking.reservationType === 'ADVANCE_SESSION';
+            const tokenAmt = isAdv
+              ? (booking.advanceTokenAmount || 90000) / 100
+              : (booking.reservationFee || 39900) / 100;
             const createdDateStr = new Date(booking.createdAt).toLocaleDateString('en-IN', {
               day: 'numeric',
               month: 'short',
@@ -137,22 +178,29 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
                 {/* Left Section: Image & Info */}
                 <div className="flex items-start gap-4">
                   <div className="relative w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={property?.images?.[0] || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'}
+                      src={
+                        property?.images?.[0] ||
+                        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'
+                      }
                       alt={property?.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute bottom-1 right-1 bg-slate-900/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                      ₹399 Paid
+                    <div className="absolute bottom-1 right-1 bg-slate-900/85 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                      ₹{tokenAmt} Token
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        REF: {booking.id}
+                      <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                        {booking.referenceNo || booking.id}
                       </span>
-                      {getStatusBadge(booking.status)}
+                      {getStatusBadge(booking)}
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {isAdv ? 'Advance (15–45d)' : 'Immediate (72h)'}
+                      </span>
                     </div>
 
                     <h3 className="text-lg font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
@@ -166,13 +214,17 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
                       </span>
                       {room && (
                         <span className="font-semibold text-slate-800 bg-indigo-50 text-indigo-900 px-2 py-0.5 rounded-md border border-indigo-100">
-                          Room {room.roomNumber} ({bed?.label || 'Bed'})
+                          Room {room.roomNumber} (Bed {bed?.label || bed?.bedNumber || 'A'})
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-500 pt-1 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <p className="text-xs text-slate-600 pt-1 flex items-center gap-1.5 font-medium">
+                      {booking.status === 'RESERVED' ? (
+                        <Key className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      ) : (
+                        <KeyRound className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                      )}
                       <span>{getNextActionHint(booking)}</span>
                     </p>
                   </div>
@@ -181,11 +233,12 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
                 {/* Right Section: Fee, Date & CTA Button */}
                 <div className="flex items-center justify-between md:flex-col md:items-end gap-3 pt-3 md:pt-0 border-t md:border-t-0 border-slate-100 shrink-0">
                   <div className="text-left md:text-right">
-                    <div className="text-[11px] font-medium text-slate-400">Booked On</div>
-                    <div className="text-xs font-bold text-slate-800">{createdDateStr}</div>
-                    <div className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 mt-0.5">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                      ₹399 Fee Paid
+                    <div className="text-[11px] font-medium text-slate-400">Booked On {createdDateStr}</div>
+                    <div className="text-xs font-extrabold text-emerald-700 flex items-center md:justify-end gap-1 mt-0.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      {booking.escrowAmount
+                        ? `₹${(booking.escrowAmount / 100).toLocaleString('en-IN')} in Escrow`
+                        : `₹${tokenAmt} Token Paid`}
                     </div>
                   </div>
 
@@ -193,7 +246,7 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
                     type="button"
                     className="py-2.5 px-4 rounded-xl bg-indigo-600 group-hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-all"
                   >
-                    <span>Open Workspace</span>
+                    <span>Open Escrow Workspace</span>
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
@@ -212,7 +265,7 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
             <div className="space-y-1">
               <h3 className="text-xl font-extrabold text-slate-900">No bookings match filter</h3>
               <p className="text-xs text-slate-500">
-                You haven't placed any bed reservations under this status yet. Reserve a bed for ₹399 to unlock exact property locations.
+                Reserve a bed with a ₹399 commitment token (72h hold) or 15% advance token (15–45 days) to unlock our Two-Stage OTP Escrow protection.
               </p>
             </div>
 

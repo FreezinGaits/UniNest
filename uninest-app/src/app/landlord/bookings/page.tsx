@@ -1,7 +1,11 @@
 import { prisma } from '@/lib/db';
+import { getEscrowStore } from '@/lib/escrowStore';
 import { LandlordBookingsClient } from './LandlordBookingsClient';
 
+export const dynamic = 'force-dynamic';
+
 export default async function LandlordBookingsPage() {
+  const store = getEscrowStore();
   let bookings: any[] = [];
   let visits: any[] = [];
 
@@ -23,39 +27,15 @@ export default async function LandlordBookingsPage() {
       },
     });
   } catch (error) {
-    console.warn('Database error in LandlordBookingsPage, using fallback demo data:', error);
+    // Database offline — use synchronized globalThis Escrow Store
   }
 
-  // Fallback demo data if DB query fails or returns empty
   if (!bookings || bookings.length === 0) {
-    bookings = [
-      {
-        id: 'bkg-pcte-2026-demo',
-        referenceNo: 'RES-PCTE-88902',
-        status: 'RESERVED',
-        tokenAmountPaid: 1000,
-        remainingAmountDue: 5000,
-        monthlyRent: 6000,
-        createdAt: new Date().toISOString(),
-        user: { name: 'Rahul Sharma', email: 'rahul@uninest.demo', phone: '+91 98765 43210' },
-        property: { name: 'PCTE Smart Student Residency', locality: 'Ferozepur Road', city: 'Ludhiana' },
-        bed: { bedNumber: 'A', room: { roomNumber: '204' } },
-      },
-    ];
+    bookings = store.bookings;
   }
 
   if (!visits || visits.length === 0) {
-    visits = [
-      {
-        id: 'vst-1',
-        scheduledDate: '2026-09-08',
-        timeSlot: 'Morning (11:00 AM)',
-        status: 'CONFIRMED',
-        createdAt: new Date().toISOString(),
-        student: { name: 'Rahul Sharma', email: 'rahul@uninest.demo', phone: '+91 98765 43210' },
-        property: { name: 'PCTE Smart Student Residency', locality: 'Ferozepur Road', city: 'Ludhiana' },
-      },
-    ];
+    visits = store.visits;
   }
 
   return <LandlordBookingsClient bookings={bookings} visits={visits} />;

@@ -170,6 +170,20 @@ enum AgreementStatus {
   TERMINATED
 }
 
+enum ReservationType {
+  IMMEDIATE_VISIT
+  ADVANCE_SESSION
+}
+
+enum HandshakeStatus {
+  PENDING
+  VISIT_OTP_VERIFIED
+  MOVEIN_OTP_VERIFIED
+  DISPUTE_FROZEN
+  AUTO_RELEASED_GRACE
+  REFUNDED_EMERGENCY
+}
+
 enum RentStatus {
   UPCOMING
   DUE
@@ -494,6 +508,31 @@ model Booking {
   moveInDate    DateTime?
   expiresAt     DateTime?
   notes         String?
+
+  // ─── ESCROW HANDSHAKE FIELDS ─────────────────
+  reservationType    ReservationType  @default(IMMEDIATE_VISIT)
+  visitOtp           String?          // 4-digit numeric code for visit verification
+  visitOtpExpiresAt  DateTime?        // When the visit OTP expires (72h from creation)
+  visitVerifiedAt    DateTime?        // When visit OTP was verified
+  moveInOtp          String?          // 6-digit handshake PIN for move-in
+  moveInVerifiedAt   DateTime?        // When move-in OTP was verified
+  handshakeStatus    HandshakeStatus  @default(PENDING)
+  postVisitDecision  String?          // 'ACCEPTED' | 'REJECTED' | 'EMERGENCY_CANCEL'
+  
+  // Timing & Buffer Tracking
+  agreedMoveInDate   DateTime?        // The official scheduled move-in date
+  delayedMoveInDate  DateTime?        // If student declared late arrival
+  graceWindowEndsAt  DateTime?        // MoveInDate + 7 Days auto-release
+  emergencyReason    String?          // Reason for emergency cancellation
+  emergencyWaiverCount Int            @default(0) // Track waivers used this semester
+  vacancyCompAmount  Int?             // in paise, paid to landlord on forfeit
+  
+  // Escrow financial tracking
+  escrowAmount       Int?             // Total amount held in escrow (paise)
+  escrowReleasedAt   DateTime?        // When escrow was released to landlord
+  advanceTokenAmount Int?             // For advance bookings: 15% holding token (paise)
+  visitRejectCount   Int              @default(0) // Fair-use: track free visit rejections
+
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
