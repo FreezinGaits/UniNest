@@ -12,6 +12,7 @@ const publicRoutes = [
   '/legal',
   '/manifest.webmanifest',
   '/manifest.json',
+  '/.well-known',
   '/sw.js',
   '/icon',
   '/apple-icon',
