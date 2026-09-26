@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Smartphone,
   Download,
@@ -24,14 +24,133 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+const INSTALLED_STORAGE_KEY = 'uninest_pwa_installed_v1';
+const BANNER_DISMISSED_KEY = 'uninest_pwa_banner_dismissed';
+
+// Module-level singleton so the prompt persists across Next.js client route navigation
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+let globalIsInstalled = false;
+
+function checkIsStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const isStandaloneDisplay =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://');
+
+  if (isStandaloneDisplay) {
+    try {
+      localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
+    } catch {
+      // ignore storage errors
+    }
+    globalIsInstalled = true;
+    return true;
+  }
+  return false;
+}
+
+function notifyPwaListeners() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('uninest:pwa-state-updated'));
+  }
+}
+
 export function triggerPwaInstallModal() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('uninest:open-pwa-install'));
   }
 }
 
+/**
+ * Hook used by Sidebar and Mobile Header to know whether to display the Install button.
+ * Returns `isInstallable = true` ONLY when the user is on the web page AND the PWA is NOT installed yet.
+ */
+export function usePwaInstallState() {
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  const evaluateState = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    // 1. If running inside the installed PWA window, never show the install button
+    if (checkIsStandalone() || globalIsInstalled) {
+      setIsInstallable(false);
+      return;
+    }
+
+    // 2. Check if already marked installed in shared origin localStorage
+    try {
+      if (localStorage.getItem(INSTALLED_STORAGE_KEY) === 'true') {
+        setIsInstallable(false);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. On iOS Safari (no beforeinstallprompt API), show until installed in standalone mode
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIosSafari =
+      /iphone|ipad|ipod/.test(ua) && /safari/.test(ua) && !/crios|fxios|opios|edgios/.test(ua);
+
+    if (isIosSafari) {
+      setIsInstallable(true);
+      return;
+    }
+
+    // 4. On Chrome / Edge / Android / Desktop: ONLY show if the browser fired `beforeinstallprompt`
+    // (When the PWA is already installed and Chrome shows "Open in app" in the URL bar,
+    // Chrome does NOT fire `beforeinstallprompt`, so `globalDeferredPrompt` is null and the button stays hidden!)
+    setIsInstallable(globalDeferredPrompt !== null);
+  }, []);
+
+  useEffect(() => {
+    evaluateState();
+
+    // Also query navigator.getInstalledRelatedApps() where supported
+    if (typeof navigator !== 'undefined' && 'getInstalledRelatedApps' in navigator) {
+      (navigator as any)
+        .getInstalledRelatedApps()
+        .then((apps: any[]) => {
+          if (Array.isArray(apps) && apps.length > 0) {
+            globalIsInstalled = true;
+            try {
+              localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
+            } catch {}
+            setIsInstallable(false);
+          }
+        })
+        .catch(() => {});
+    }
+
+    const mediaQuery = window.matchMedia('(display-mode: standalone)');
+    const handleMediaChange = () => evaluateState();
+
+    window.addEventListener('uninest:pwa-state-updated', evaluateState);
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    }
+
+    return () => {
+      window.removeEventListener('uninest:pwa-state-updated', evaluateState);
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      }
+    };
+  }, [evaluateState]);
+
+  return {
+    isInstallable,
+    triggerInstall: triggerPwaInstallModal,
+  };
+}
+
 export function PwaManager() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(
+    globalDeferredPrompt
+  );
   const [isStandalone, setIsStandalone] = useState(false);
   const [swActive, setSwActive] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
@@ -43,23 +162,14 @@ export function PwaManager() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. Check standalone mode & iOS detection
-    const standalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
+    const standalone = checkIsStandalone();
     setIsStandalone(standalone);
 
     const ua = window.navigator.userAgent.toLowerCase();
     const iosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIos(iosDevice);
 
-    // Show subtle install banner on mobile if not dismissed and not standalone
-    const dismissed = sessionStorage.getItem('uninest_pwa_banner_dismissed');
-    if (!standalone && !dismissed && window.innerWidth < 768) {
-      setShowMobileBanner(true);
-    }
-
-    // 2. Register Service Worker (/sw.js)
+    // Register Service Worker (/sw.js)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
@@ -72,25 +182,51 @@ export function PwaManager() {
         });
     }
 
-    // 3. Listen for beforeinstallprompt (Android / Chrome / Edge)
+    // Listen for beforeinstallprompt (fired ONLY when PWA is not yet installed)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      // If the user reinstalled after uninstalling, clear the old flag because browser says it's installable again
+      try {
+        localStorage.removeItem(INSTALLED_STORAGE_KEY);
+      } catch {}
+      globalIsInstalled = false;
+      globalDeferredPrompt = e as BeforeInstallPromptEvent;
+      setDeferredPrompt(globalDeferredPrompt);
+      notifyPwaListeners();
+
+      const dismissed = sessionStorage.getItem(BANNER_DISMISSED_KEY);
+      if (!checkIsStandalone() && !dismissed && window.innerWidth < 768) {
+        setShowMobileBanner(true);
+      }
     };
 
     const handleAppInstalled = () => {
+      globalIsInstalled = true;
+      globalDeferredPrompt = null;
+      try {
+        localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
+      } catch {}
       setIsStandalone(true);
       setDeferredPrompt(null);
       setShowInstallModal(false);
       setShowMobileBanner(false);
+      notifyPwaListeners();
     };
 
-    // 4. Listen for custom event from Sidebar / Mobile Header
-    const handleOpenInstallModal = () => {
+    const handleOpenInstallModal = async () => {
+      // If native prompt is ready, trigger it directly in 1 click!
+      if (globalDeferredPrompt) {
+        await globalDeferredPrompt.prompt();
+        const choice = await globalDeferredPrompt.userChoice;
+        if (choice.outcome === 'accepted') {
+          handleAppInstalled();
+        }
+        return;
+      }
       setShowInstallModal(true);
     };
 
-    // 5. Online / Offline resilience tracking for PG gate visits
+    // Online / Offline resilience tracking
     setIsOnline(navigator.onLine);
     const handleOnline = () => {
       setIsOnline(true);
@@ -118,13 +254,21 @@ export function PwaManager() {
   }, []);
 
   const handleNativeInstall = async () => {
-    if (deferredPrompt) {
-      await deferredPrompt.prompt();
-      const choice = await deferredPrompt.userChoice;
+    const promptEvent = globalDeferredPrompt || deferredPrompt;
+    if (promptEvent) {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
       if (choice.outcome === 'accepted') {
+        globalIsInstalled = true;
+        globalDeferredPrompt = null;
+        try {
+          localStorage.setItem(INSTALLED_STORAGE_KEY, 'true');
+        } catch {}
         setDeferredPrompt(null);
+        setIsStandalone(true);
         setShowInstallModal(false);
         setShowMobileBanner(false);
+        notifyPwaListeners();
       }
     } else {
       setShowInstallModal(true);
@@ -132,7 +276,7 @@ export function PwaManager() {
   };
 
   const dismissBanner = () => {
-    sessionStorage.setItem('uninest_pwa_banner_dismissed', '1');
+    sessionStorage.setItem(BANNER_DISMISSED_KEY, '1');
     setShowMobileBanner(false);
   };
 
@@ -155,8 +299,8 @@ export function PwaManager() {
         </div>
       )}
 
-      {/* Mobile Floating Install App Banner (above bottom nav) */}
-      {showMobileBanner && !isStandalone && (
+      {/* Mobile Floating Install App Banner — ONLY shown when not installed */}
+      {showMobileBanner && !isStandalone && deferredPrompt && (
         <div className="fixed bottom-20 left-3 right-3 z-40 md:hidden bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-2xl border border-indigo-500/40 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-600 flex items-center justify-center font-black text-base shrink-0 shadow-md">
@@ -190,8 +334,8 @@ export function PwaManager() {
         </div>
       )}
 
-      {/* PWA Installation & Mobile Handshake Guide Modal */}
-      {showInstallModal && (
+      {/* PWA Installation Guide Modal (Fallback for iOS Safari) */}
+      {showInstallModal && !isStandalone && (
         <div className="fixed inset-0 z-[90] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 relative">
             <button
@@ -213,7 +357,7 @@ export function PwaManager() {
                   <ShieldCheck className="w-3 h-3" /> Progressive Web App (PWA)
                 </div>
                 <h3 className="text-lg font-extrabold text-slate-900 mt-1">
-                  {isStandalone ? 'UniNest App Installed' : 'Install UniNest on Your Device'}
+                  Install UniNest on Your Device
                 </h3>
                 <p className="text-xs text-slate-500">
                   Full-screen mobile & desktop app with real-time Escrow OTP sync
@@ -221,7 +365,6 @@ export function PwaManager() {
               </div>
             </div>
 
-            {/* Live PWA & Escrow Engine Diagnostics */}
             <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-slate-600 font-semibold flex items-center gap-1.5">
@@ -243,57 +386,19 @@ export function PwaManager() {
               </div>
             </div>
 
-            {deferredPrompt ? (
-              <button
-                onClick={handleNativeInstall}
-                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white font-extrabold text-sm shadow-lg flex items-center justify-center gap-2 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                <span>Install UniNest App Now (1-Tap)</span>
-              </button>
-            ) : isStandalone ? (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-900 font-semibold flex items-center gap-2.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <span>
-                  You are currently running UniNest in installed standalone app mode!
-                </span>
-              </div>
-            ) : (
-              <div className="space-y-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-1.5">
-                  <p className="font-extrabold text-indigo-950 flex items-center gap-1.5">
-                    <Smartphone className="w-4 h-4 text-indigo-600" />
-                    <span>Android (Chrome / Edge / Samsung)</span>
-                  </p>
-                  <p className="text-indigo-800 leading-relaxed">
-                    Tap the browser menu <strong>(⋮)</strong> in the top-right corner and select{' '}
-                    <strong>&ldquo;Install App&rdquo;</strong> or <strong>&ldquo;Add to Home Screen&rdquo;</strong>.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
-                  <p className="font-extrabold text-slate-900 flex items-center gap-1.5">
-                    <Share className="w-4 h-4 text-blue-600" />
-                    <span>iPhone & iPad (Safari)</span>
-                  </p>
-                  <p className="text-slate-600 leading-relaxed">
-                    Tap the <strong>Share</strong> icon at the bottom of Safari, scroll down, and tap{' '}
-                    <strong className="inline-flex items-center gap-1 text-slate-900">
-                      <PlusSquare className="w-3.5 h-3.5 inline" /> Add to Home Screen
-                    </strong>
-                    .
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-1.5">
-                  <p className="font-extrabold text-emerald-950 flex items-center gap-1.5">
-                    <Download className="w-4 h-4 text-emerald-600" />
-                    <span>Desktop (Chrome / Edge on Windows & Mac)</span>
-                  </p>
-                  <p className="text-emerald-800 leading-relaxed">
-                    Click the <strong>Install UniNest icon</strong> on the right side of your address bar to launch UniNest as a standalone desktop window.
-                  </p>
-                </div>
+            {isIos && (
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+                <p className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                  <Share className="w-4 h-4 text-blue-600" />
+                  <span>iPhone & iPad (Safari)</span>
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  Tap the <strong>Share</strong> icon at the bottom of Safari, scroll down, and tap{' '}
+                  <strong className="inline-flex items-center gap-1 text-slate-900">
+                    <PlusSquare className="w-3.5 h-3.5 inline" /> Add to Home Screen
+                  </strong>
+                  .
+                </p>
               </div>
             )}
 

@@ -258,7 +258,7 @@ export default function StudentSearchPage() {
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
               Verified Marketplace
             </span>
-            <span className="text-xs text-slate-500">• Demo City: Ludhiana, Punjab</span>
+            <span className="text-xs text-slate-500">• Campus Hub: Ludhiana, Punjab</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
             Find Student PGs & Accommodation
@@ -268,14 +268,14 @@ export default function StudentSearchPage() {
           </p>
         </div>
 
-        {/* Primary Demo Persona Matching Banner (Requirement V) */}
+        {/* Verified Student Matching Banner */}
         <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5 text-emerald-700" />
           </div>
           <div>
             <div className="text-xs font-semibold text-emerald-800">
-              Rahul Sharma Persona Search Active
+              Verified Student Match Active
             </div>
             <div className="text-sm font-extrabold text-slate-900">
               {properties.length} PGs match your preferences

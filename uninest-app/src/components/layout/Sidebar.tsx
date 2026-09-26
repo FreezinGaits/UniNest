@@ -42,7 +42,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/Shared';
-import { triggerPwaInstallModal } from '@/components/pwa/PwaManager';
+import { triggerPwaInstallModal, usePwaInstallState } from '@/components/pwa/PwaManager';
 
 export interface NavItem {
   label: string;
@@ -210,6 +210,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { isInstallable } = usePwaInstallState();
   const navItems = roleNavItems[role] || [];
   const bottomItems = mobileBottomTabs[role] || mobileBottomTabs.STUDENT;
 
@@ -258,14 +259,16 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={triggerPwaInstallModal}
-            className="px-2.5 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold flex items-center gap-1 active:scale-95 transition-transform"
-            title="Install UniNest Mobile App"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-            <span>App</span>
-          </button>
+          {isInstallable && (
+            <button
+              onClick={triggerPwaInstallModal}
+              className="px-2.5 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold flex items-center gap-1 active:scale-95 transition-transform"
+              title="Install UniNest Mobile App"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+              <span>App</span>
+            </button>
+          )}
           <button
             onClick={onRoleSwitch}
             className="p-2 rounded-xl bg-surface-secondary border border-border text-text-secondary hover:text-text-primary active:scale-95 transition-transform"
@@ -350,16 +353,18 @@ export function Sidebar({
 
         {/* Footer */}
         <div className="border-t border-border p-3 space-y-2 flex-shrink-0">
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              triggerPwaInstallModal();
-            }}
-            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Install UniNest App (PWA)</span>
-          </button>
+          {isInstallable && (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                triggerPwaInstallModal();
+              }}
+              className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Install UniNest App (PWA)</span>
+            </button>
+          )}
 
           <Link
             href="/legal"
