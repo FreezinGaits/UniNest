@@ -2,7 +2,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifyToken, signToken } from '@/lib/auth/session';
 
-const publicRoutes = ['/', '/login', '/register', '/api', '/investor', '/demo', '/legal'];
+const publicRoutes = [
+  '/',
+  '/login',
+  '/register',
+  '/api',
+  '/investor',
+  '/demo',
+  '/legal',
+  '/manifest.webmanifest',
+  '/manifest.json',
+  '/sw.js',
+  '/icon',
+  '/apple-icon',
+];
 const roleRoutes: Record<string, string> = {
   STUDENT: '/student',
   LANDLORD: '/landlord',

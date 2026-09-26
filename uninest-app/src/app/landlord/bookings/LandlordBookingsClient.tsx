@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   CalendarCheck,
@@ -31,6 +31,8 @@ export function LandlordBookingsClient({
 }: LandlordBookingsClientProps) {
   const [visits, setVisits] = useState(initialVisits);
   const [bookings, setBookings] = useState(initialBookings);
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>('Live');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [banner, setBanner] = useState<{
     type: 'success' | 'warning' | 'danger';
@@ -53,6 +55,48 @@ export function LandlordBookingsClient({
   const [verifyingMoveIn, setVerifyingMoveIn] = useState<string | null>(null);
   const [moveInVerified, setMoveInVerified] = useState<Record<string, boolean>>({});
   const [processingSplitFor, setProcessingSplitFor] = useState<string | null>(null);
+
+  const syncLivePortal = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setIsLiveSyncing(true);
+    try {
+      const res = await fetch('/api/booking/live-sync', { cache: 'no-store' });
+      const data = await res.json();
+      if (data?.success) {
+        if (Array.isArray(data.bookings) && data.bookings.length > 0) {
+          setBookings(data.bookings);
+        }
+        if (Array.isArray(data.visits) && data.visits.length > 0) {
+          setVisits(data.visits);
+        }
+        setLastSyncedAt(
+          new Date().toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        );
+      }
+    } catch {
+      // Ignore transient offline error
+    } finally {
+      if (showSpinner) setIsLiveSyncing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncLivePortal(false);
+      }
+    }, 4000);
+
+    const handleReconnected = () => syncLivePortal(true);
+    window.addEventListener('uninest:network-reconnected', handleReconnected);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('uninest:network-reconnected', handleReconnected);
+    };
+  }, [syncLivePortal]);
 
   const handleRespondVisit = async (visitId: string, action: 'ACCEPT' | 'COUNTER_PROPOSE' | 'DECLINE') => {
     setLoadingId(visitId);
@@ -318,14 +362,24 @@ export function LandlordBookingsClient({
             Generate Stage 1 Visit OTPs (4-digit), verify Stage 2 Move-In Keys (6-digit) to release ₹6,000 escrow, and file statutory vacancy compensation claims.
           </p>
         </div>
-        <Link
-          href="/legal?doc=escrow"
-          target="_blank"
-          className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shrink-0 self-start sm:self-center"
-        >
-          <Scale className="w-4 h-4 text-emerald-400" />
-          <span>Escrow &amp; Vacancy Policy</span>
-        </Link>
+        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center flex-wrap">
+          <button
+            type="button"
+            onClick={() => syncLivePortal(true)}
+            className="px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 rounded-xl text-xs font-extrabold text-emerald-200 flex items-center gap-1.5 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? 'animate-spin' : ''}`} />
+            <span>Sync Live ({lastSyncedAt})</span>
+          </button>
+          <Link
+            href="/legal?doc=escrow"
+            target="_blank"
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold text-white flex items-center gap-1.5"
+          >
+            <Scale className="w-4 h-4 text-emerald-400" />
+            <span>Escrow &amp; Vacancy Policy</span>
+          </Link>
+        </div>
       </div>
 
       {/* Live Action Banner */}
@@ -563,6 +617,29 @@ export function LandlordBookingsClient({
                     <p className="text-xs text-indigo-800">
                       When {b.user?.name || 'Rahul Sharma'} arrives for physical check-in and inspects the room, ask them for their <strong>6-Digit Move-In Handshake Key</strong>. Entering it below immediately releases <strong>₹6,000</strong> from UniNest Escrow to your bank account.
                     </p>
+
+                    {b.moveInOtp && (
+                      <div className="bg-indigo-100/90 border border-indigo-300 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping shrink-0" />
+                          <span className="font-extrabold text-indigo-950">
+                            Live Signal: Student Generated Move-In Key ({String(b.moveInOtp).slice(0, 3)}-{String(b.moveInOtp).slice(3)})
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMoveInKeyInput((prev) => ({
+                              ...prev,
+                              [b.id]: `${String(b.moveInOtp).slice(0, 3)}-${String(b.moveInOtp).slice(3)}`,
+                            }))
+                          }
+                          className="px-3 py-1 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs transition-colors"
+                        >
+                          Auto-Fill Key
+                        </button>
+                      </div>
+                    )}
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <input

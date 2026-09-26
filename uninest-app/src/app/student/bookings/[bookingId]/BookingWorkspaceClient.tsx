@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -53,6 +53,8 @@ interface BookingWorkspaceClientProps {
 
 export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorkspaceClientProps) {
   const [booking, setBooking] = useState<any>(initialBooking);
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string>('Live');
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [isAcceptingCounter, setIsAcceptingCounter] = useState(false);
@@ -116,6 +118,60 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const [discrepancyType, setDiscrepancyType] = useState('Room has no AC (Listed as AC Room)');
   const [discrepancyDesc, setDiscrepancyDesc] = useState('');
   const [isFreezingEscrow, setIsFreezingEscrow] = useState(false);
+
+  const syncLiveBookingState = useCallback(
+    async (showSpinner = false) => {
+      if (!booking?.id) return;
+      if (showSpinner) setIsLiveSyncing(true);
+      try {
+        const res = await fetch(
+          `/api/booking/live-sync?bookingId=${encodeURIComponent(booking.id)}`,
+          { cache: 'no-store' }
+        );
+        const data = await res.json();
+        if (data?.success && data.booking) {
+          setBooking((prev: any) => ({
+            ...prev,
+            ...data.booking,
+          }));
+          if (data.booking.visitVerifiedAt) {
+            setVisitVerified(true);
+          }
+          if (data.booking.moveInOtp) {
+            const raw = String(data.booking.moveInOtp);
+            setMoveInKey(raw.length === 6 ? `${raw.slice(0, 3)}-${raw.slice(3)}` : raw);
+          }
+          setLastSyncedAt(
+            new Date().toLocaleTimeString('en-IN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+          );
+        }
+      } catch {
+        // Ignore transient offline error
+      } finally {
+        if (showSpinner) setIsLiveSyncing(false);
+      }
+    },
+    [booking?.id]
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncLiveBookingState(false);
+      }
+    }, 4000);
+
+    const handleReconnected = () => syncLiveBookingState(true);
+    window.addEventListener('uninest:network-reconnected', handleReconnected);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('uninest:network-reconnected', handleReconnected);
+    };
+  }, [syncLiveBookingState]);
 
   const property = booking?.property || {};
   const room = booking?.bed?.room || {};
@@ -745,6 +801,15 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
           <span>Back to All Bookings</span>
         </Link>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => syncLiveBookingState(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors"
+            title="Synchronize live OTP & Escrow state with Landlord Portal"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? 'animate-spin' : ''}`} />
+            <span>Sync Live OTP ({lastSyncedAt})</span>
+          </button>
           <Link
             href="/legal?doc=escrow"
             target="_blank"
@@ -934,6 +999,29 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
 
           {!visitVerified && !booking.visitVerifiedAt ? (
             <div className="space-y-4">
+              {booking.visitOtp && (
+                <div className="bg-emerald-100/90 border border-emerald-300 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping shrink-0" />
+                    <div className="text-xs">
+                      <span className="font-extrabold text-emerald-950 block">
+                        Live Handshake Signal: Landlord Issued Visit PIN ({booking.visitOtp})
+                      </span>
+                      <span className="text-[11px] text-emerald-800">
+                        Synchronized live from Landlord Portal. Tap to auto-fill or type manually.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVisitOtpInput(String(booking.visitOtp))}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-xs transition-colors"
+                  >
+                    Auto-Fill {booking.visitOtp}
+                  </button>
+                </div>
+              )}
+
               {/* 4-Digit OTP Input + Verify Button */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
                 <div className="flex-1">
