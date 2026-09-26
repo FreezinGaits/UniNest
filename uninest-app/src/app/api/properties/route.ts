@@ -4,52 +4,19 @@ import {
   getAllProperties,
   createProperty,
   normalizePropertyItem,
-  PropertyItem,
 } from '@/lib/propertiesStore';
 
 export async function GET() {
   try {
-    const storeProperties = await getAllProperties();
-    let dbProperties: PropertyItem[] = [];
-
-    try {
-      const rawDbProps = await prisma.property.findMany({
-        include: {
-          rooms: {
-            include: {
-              beds: true,
-            },
-          },
-          maintenanceTickets: true,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (Array.isArray(rawDbProps) && rawDbProps.length > 0) {
-        dbProperties = rawDbProps.map(normalizePropertyItem);
-      }
-    } catch (dbError) {
-      console.warn('Database fallback used for GET /api/properties:', dbError);
-    }
-
-    // Merge DB properties with store properties without duplicates (by id or name)
-    const seenIds = new Set<string>();
-    const seenNames = new Set<string>();
-    const merged: PropertyItem[] = [];
-
-    for (const item of [...storeProperties, ...dbProperties]) {
-      const norm = normalizePropertyItem(item);
-      const nameKey = norm.name.trim().toLowerCase();
-      if (!seenIds.has(norm.id) && !seenNames.has(nameKey)) {
-        seenIds.add(norm.id);
-        seenNames.add(nameKey);
-        merged.push(norm);
-      }
-    }
-
-    return NextResponse.json({ properties: merged });
+    // Return the landlord's portfolio from the unified propertiesStore
+    // (excludes the 13 city-wide student search marketplace seed properties)
+    const properties = await getAllProperties();
+    return NextResponse.json({ properties: properties.map(normalizePropertyItem) });
   } catch (error: any) {
-    const fallback = await getAllProperties();
-    return NextResponse.json({ properties: fallback });
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch properties' },
+      { status: 500 }
+    );
   }
 }
 
@@ -77,9 +44,10 @@ export async function POST(req: NextRequest) {
       description: String(body.description || ''),
     };
 
-    // Always persist to the unified propertiesStore (memory + local disk fallback)
-    let createdItem = await createProperty(data);
+    // Persist to the unified landlord propertiesStore (memory + local disk)
+    const createdItem = await createProperty(data);
 
+    // Also mirror into Prisma DB if available so Student Search can discover it once verified
     try {
       let landlord = await prisma.landlord.findFirst();
       if (!landlord) {
@@ -90,7 +58,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (landlord) {
-        const dbProp = await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
           const prop = await tx.property.create({
             data: {
               name: data.name,
@@ -142,14 +110,9 @@ export async function POST(req: NextRequest) {
 
           return prop;
         });
-
-        createdItem = normalizePropertyItem({
-          ...createdItem,
-          id: dbProp.id,
-        });
       }
     } catch (dbError) {
-      console.warn('Database fallback used for POST /api/properties:', dbError);
+      console.warn('Database mirror skipped for POST /api/properties:', dbError);
     }
 
     return NextResponse.json({

@@ -1,37 +1,73 @@
-import { prisma } from '@/lib/db';
+import { getAllProperties } from '@/lib/propertiesStore';
 import { BedInventoryClient, BedItem } from './BedInventoryClient';
 
-const DEMO_BEDS: BedItem[] = [
-  { id: 'b1', bedLabel: 'Bed 204-A', roomNo: 'Room 204', property: 'PCTE Smart Student Residency', sharing: '2-Sharing', status: 'OCCUPIED', tenant: 'Rahul Sharma', rent: 6000 },
-  { id: 'b2', bedLabel: 'Bed 204-B', roomNo: 'Room 204', property: 'PCTE Smart Student Residency', sharing: '2-Sharing', status: 'RESERVED', tenant: 'Rohit Verma', rent: 6000 },
-  { id: 'b3', bedLabel: 'Bed 205-A', roomNo: 'Room 205', property: 'PCTE Smart Student Residency', sharing: '2-Sharing', status: 'AVAILABLE', tenant: '—', rent: 6000 },
-  { id: 'b4', bedLabel: 'Bed 205-B', roomNo: 'Room 205', property: 'PCTE Smart Student Residency', sharing: '2-Sharing', status: 'AVAILABLE', tenant: '—', rent: 6000 },
-  { id: 'b5', bedLabel: 'Bed 102-A', roomNo: 'Room 102', property: 'Passi Luxury PG', sharing: 'Single Occupancy', status: 'OCCUPIED', tenant: 'Aman Verma', rent: 7500 },
-  { id: 'b6', bedLabel: 'Bed 301-A', roomNo: 'Room 301', property: 'Campus Edge Girls Hostel', sharing: '2-Sharing', status: 'OCCUPIED', tenant: 'Priya Sharma', rent: 6500 },
-];
+export const dynamic = 'force-dynamic';
 
 export default async function BedInventoryPage() {
-  let beds = DEMO_BEDS;
+  const properties = await getAllProperties();
 
-  try {
-    const dbBeds = await prisma.bed.findMany({
-      include: { room: { include: { property: true } } },
-      take: 30,
-    });
-    if (dbBeds && dbBeds.length > 0) {
-      beds = dbBeds.map((b: any) => ({
-        id: b.id,
-        bedLabel: `Bed ${b.room?.roomNumber || '101'}-${b.label}`,
-        roomNo: `Room ${b.room?.roomNumber || '101'}`,
-        property: b.room?.property?.name || 'PCTE Smart Student Residency',
-        sharing: `${b.room?.sharing || 2}-Sharing`,
-        status: b.status || 'AVAILABLE',
-        tenant: b.status === 'OCCUPIED' ? 'Rahul Sharma' : '—',
-        rent: b.room?.rent || 6000,
-      }));
+  // Generate bed inventory directly from the landlord's actual portfolio properties
+  // so total beds, occupied beds, and vacant beds match Dashboard and Properties!
+  const beds: BedItem[] = [];
+  const sampleTenants = [
+    'Rahul Sharma',
+    'Aman Verma',
+    'Priya Sharma',
+    'Karanveer Gill',
+    'Simran Kaur',
+    'Arjun Mehta',
+    'Neha Gupta',
+    'Rohan Joshi',
+  ];
+  let tenantIdx = 0;
+
+  for (const prop of properties) {
+    const totalRooms = Math.max(1, Number(prop.totalRooms || 4));
+    const totalBeds = Math.max(1, Number(prop.totalBeds || totalRooms * 2));
+    const bedsPerRoom = Math.max(1, Math.round(totalBeds / totalRooms));
+    const occupiedTarget = Number(prop.occupiedBeds || 0);
+    const rent = Number(prop.rentPerMonth || 6000);
+    const sharingLabel =
+      bedsPerRoom === 1
+        ? 'Single Occupancy'
+        : `${bedsPerRoom}-Sharing`;
+
+    let occupiedAssigned = 0;
+    let reservedAssigned = prop.id === 'prop-pcte-1' ? 0 : 1; // 1 reserved bed in PCTE Smart Student Residency
+    const labels = ['A', 'B', 'C', 'D'];
+
+    for (let r = 1; r <= totalRooms; r++) {
+      const roomNumber = prop.id === 'prop-pcte-1' ? `${203 + r}` : `${100 + r}`;
+      for (let b = 0; b < bedsPerRoom; b++) {
+        if (beds.filter((x) => x.property === prop.name).length >= totalBeds) break;
+
+        let status = 'AVAILABLE';
+        let tenant = '—';
+
+        if (occupiedAssigned < occupiedTarget) {
+          status = 'OCCUPIED';
+          tenant = sampleTenants[tenantIdx % sampleTenants.length];
+          tenantIdx++;
+          occupiedAssigned++;
+        } else if (reservedAssigned === 0) {
+          status = 'RESERVED';
+          tenant = 'Rohit Verma (OTP Hold)';
+          reservedAssigned = 1;
+        }
+
+        const labelChar = labels[b] || `${b + 1}`;
+        beds.push({
+          id: `${prop.id}-r${roomNumber}-${labelChar}`,
+          bedLabel: `Bed ${roomNumber}-${labelChar}`,
+          roomNo: `Room ${roomNumber}`,
+          property: prop.name,
+          sharing: sharingLabel,
+          status,
+          tenant,
+          rent,
+        });
+      }
     }
-  } catch (error) {
-    console.warn('Database error in BedInventoryPage, using demo fallback beds:', error);
   }
 
   return <BedInventoryClient initialBeds={beds} />;
