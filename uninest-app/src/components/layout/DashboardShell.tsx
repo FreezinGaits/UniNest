@@ -76,8 +76,8 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
       <Modal
         isOpen={showRoleModal}
         onClose={() => setShowRoleModal(false)}
-        title="Switch Demo Role"
-        description="Switch between different user roles to explore the platform."
+        title="Switch Workspace Portal"
+        description="Switch between your authorized UniNest portals."
         size="md"
       >
         <div className="space-y-2">
@@ -98,7 +98,7 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
                 <p className="text-xs text-text-secondary">{opt.desc}</p>
               </div>
               {role === opt.role && (
-                <span className="text-xs font-semibold text-brand-600 bg-brand-100 px-2 py-0.5 rounded-full">Current</span>
+                <span className="text-xs font-semibold text-brand-600 bg-brand-100 px-2 py-0.5 rounded-full">Active</span>
               )}
               {switching === opt.role && (
                 <span className="text-xs text-text-tertiary">Switching…</span>
@@ -106,9 +106,6 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
             </button>
           ))}
         </div>
-        <p className="text-xs text-text-tertiary mt-4 text-center">
-          Demo mode — role switching is for demonstration purposes only.
-        </p>
       </Modal>
     </div>
   );

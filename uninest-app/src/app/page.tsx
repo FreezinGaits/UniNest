@@ -42,20 +42,23 @@ export default async function LandingPage() {
             </div>
             <span className="text-xl font-bold text-gray-900">UniNest</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/investor" className="text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors hidden sm:block">
-              Investor Deck
+          <div className="flex items-center gap-4">
+            <Link href="/student/search" className="text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors hidden sm:block">
+              Browse Verified PGs
             </Link>
-            <Link href="/demo" className="text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors hidden sm:block">
-              Product Demo
+            <Link href="/legal" className="text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors hidden sm:block">
+              Escrow & Legal Policy
+            </Link>
+            <Link href="/investor" className="text-sm font-medium text-gray-600 hover:text-brand-700 transition-colors hidden md:block">
+              Architecture & Economics
             </Link>
             {session ? (
               <Link href={userDashboardUrl!} className="px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors">
-                Dashboard
+                My Dashboard
               </Link>
             ) : (
               <Link href="/login" className="px-4 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors">
-                Sign In
+                Sign In / Register
               </Link>
             )}
           </div>
@@ -65,23 +68,23 @@ export default async function LandingPage() {
       {/* Hero */}
       <section className="pt-20 pb-16 sm:pt-28 sm:pb-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand-50 border border-brand-200 rounded-full text-xs font-semibold text-brand-700 mb-6">
-            <span className="w-1.5 h-1.5 bg-brand-500 rounded-full animate-pulse" />
-            Pre-Launch Demo — Pilot: Ludhiana
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full text-xs font-bold text-emerald-800 mb-6">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            Verified Student Housing & Two-Stage OTP Escrow Platform — Live in Ludhiana
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight tracking-tight">
             Student Housing,<br />
-            <span className="text-brand-600">Without the Headache.</span>
+            <span className="text-brand-600">Protected by Algorithmic Escrow.</span>
           </h1>
           <p className="mt-5 text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
-            UniNest connects students with verified independent PGs — and continues beyond booking with digital tenancy, rent, utilities, maintenance, support, and student services.
+            UniNest connects students with verified independent PGs using a Two-Stage OTP Handshake Escrow, legally binding 11-month tripartite agreements, sub-meter utility billing, and full tenancy protection.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/demo" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-all shadow-sm text-base">
-              <Search className="w-4.5 h-4.5" /> Launch Product Demo
+            <Link href="/student/search" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-xl transition-all shadow-sm text-base">
+              <Search className="w-4.5 h-4.5" /> Explore Verified PGs
             </Link>
-            <Link href="/investor" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-all text-base">
-              <TrendingUp className="w-4.5 h-4.5 text-brand-600" /> View Investor Deck
+            <Link href="/legal?doc=escrow" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-all text-base">
+              <ShieldCheck className="w-4.5 h-4.5 text-emerald-600" /> Two-Stage Escrow Charter
             </Link>
           </div>
         </div>
@@ -242,18 +245,18 @@ export default async function LandingPage() {
       {/* Revenue Engine */}
       <section className="py-16 sm:py-24 px-4 bg-gray-50 border-y border-gray-100">
         <div className="max-w-5xl mx-auto">
-          <p className="text-center text-xs font-semibold text-brand-600 uppercase tracking-widest mb-3">Business Model</p>
-          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-3">How UniNest Makes Money</h2>
-          <p className="text-center text-xs text-gray-400 mb-10">Illustrative pricing / demo economics — not actual rates</p>
+          <p className="text-center text-xs font-semibold text-brand-600 uppercase tracking-widest mb-3">Transparent Platform Economics</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-3">Standardized Fee & Escrow Structure</h2>
+          <p className="text-center text-xs text-gray-500 mb-10">Regulated under UniNest Escrow Charter & Indian Contract Act, 1872</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { title: 'Booking Fee', from: 'Student', amount: '₹399', desc: 'Per successful reservation', icon: CalendarCheck },
-              { title: 'Success Fee', from: 'Landlord', amount: '₹500', desc: 'Per confirmed move-in', icon: CheckCircle2 },
-              { title: 'SaaS Subscription', from: 'Landlord', amount: '₹499–999/mo', desc: 'Pro management tools', icon: BarChart3 },
-              { title: 'Payment Processing', from: 'Rent Transactions', amount: '1–2%', desc: 'Gateway economics', icon: CreditCard },
-              { title: 'Service Commission', from: 'Vendors', amount: '15–20%', desc: 'Cleaning, laundry, food', icon: ShoppingBag },
-              { title: 'College Partnerships', from: 'Institutions', amount: 'Future', desc: 'B2B housing data', icon: Star },
+              { title: 'Commitment Hold Token', from: 'Student (100% Refundable/Credited)', amount: '₹399', desc: 'Locks bed for 72h; credited to 1st month rent', icon: CalendarCheck },
+              { title: 'Verified Move-In Fee', from: 'Landlord', amount: '₹500', desc: 'Only upon Stage 2 Move-In Key verification', icon: CheckCircle2 },
+              { title: 'Landlord Operating SaaS', from: 'Landlord', amount: '₹499–999/mo', desc: 'Sub-meter billing, compliance & rent ledger', icon: BarChart3 },
+              { title: 'Direct UPI Escrow', from: 'Rent & Deposit Vault', amount: '0% Student Fee', desc: 'Direct NPCI UPI UTR-verified settlement', icon: CreditCard },
+              { title: 'Service Marketplace', from: 'Verified Vendors', amount: '15–20%', desc: 'Plumbing, electrical, laundry & meals', icon: ShoppingBag },
+              { title: 'Institutional Portal', from: 'Partner Colleges', amount: 'Enterprise', desc: 'Off-campus safety & Form-11 compliance', icon: Star },
             ].map(item => (
               <div key={item.title} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3 mb-3">
@@ -297,35 +300,78 @@ export default async function LandingPage() {
                 <h3 className="font-bold text-brand-800">UniNest</h3>
               </div>
               <div className="space-y-2.5 text-sm text-brand-900">
-                {['Verified listings with true-cost', 'Digital bed-level booking', 'Automated rent collection', 'Digital 11-month agreements', 'Sub-meter electricity splits', 'Tracked maintenance tickets', 'Documented dispute resolution'].map(i => (
+                {['Verified listings with true-cost', 'Two-Stage OTP Handshake Escrow', 'Direct UPI UTR-verified rent ledger', 'Digital 11-month tripartite agreements (Sec 10A IT Act)', 'Sub-meter electricity splits', 'Tracked SLA maintenance tickets', 'Documented dispute resolution & escrow freeze'].map(i => (
                   <div key={i} className="flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />{i}</div>
                 ))}
               </div>
             </div>
           </div>
-          <p className="text-center text-sm text-gray-500 mt-6 max-w-lg mx-auto">UniNest replaces fragmented rental administration with one connected workflow.</p>
+          <p className="text-center text-sm text-gray-500 mt-6 max-w-lg mx-auto">UniNest replaces fragmented rental administration with one legally compliant workflow.</p>
         </div>
       </section>
 
       {/* CTA */}
       <section className="py-16 px-4 bg-brand-600">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">See the Full Platform</h2>
-          <p className="text-brand-100 mb-8">Explore the complete student housing lifecycle — from search to move-out.</p>
+          <h2 className="text-3xl font-bold text-white mb-3">Ready to Reserve Your Verified PG?</h2>
+          <p className="text-brand-100 mb-8">Browse verified student accommodations near PCTE, PAU & GNDEC with 100% Escrow protection.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/demo" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-brand-700 font-semibold rounded-xl hover:bg-brand-50 transition-all">
-              <Star className="w-4 h-4" /> Product Demo
+            <Link href="/student/search" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-brand-700 font-semibold rounded-xl hover:bg-brand-50 transition-all">
+              <Search className="w-4 h-4" /> Browse Verified PGs
             </Link>
-            <Link href="/investor" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 border-2 border-brand-300 text-white font-semibold rounded-xl hover:bg-brand-500 transition-all">
-              <TrendingUp className="w-4 h-4" /> Investor Deck
+            <Link href="/login" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 border-2 border-brand-300 text-white font-semibold rounded-xl hover:bg-brand-500 transition-all">
+              <UserCheck className="w-4 h-4" /> Sign In to Portal
             </Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-4 bg-gray-900 text-gray-400 text-center text-xs">
-        <p>© 2026 UniNest. Pre-launch demo — all data is seeded for demonstration purposes.</p>
+      <footer className="py-12 px-4 bg-gray-900 text-gray-400 text-xs border-t border-gray-800">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8 text-left">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-white font-bold text-base">
+              <Building2 className="w-5 h-5 text-brand-400" />
+              <span>UniNest Housing</span>
+            </div>
+            <p className="text-gray-400 leading-relaxed">
+              Verified Student Housing & Two-Stage OTP Handshake Escrow Platform. Operating in Ludhiana, Punjab (PCTE, PAU & GNDEC).
+            </p>
+            <p className="text-[11px] text-gray-500">Official Escrow UPI: anupamrai172@oksbi</p>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Platform Portals</h4>
+            <ul className="space-y-1.5">
+              <li><Link href="/student/search" className="hover:text-white transition-colors">Student PG Discovery</Link></li>
+              <li><Link href="/student/bookings" className="hover:text-white transition-colors">Escrow Booking Workspace</Link></li>
+              <li><Link href="/landlord/dashboard" className="hover:text-white transition-colors">Landlord Operating System</Link></li>
+              <li><Link href="/college/dashboard" className="hover:text-white transition-colors">College Compliance Portal</Link></li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Statutory Legal Center</h4>
+            <ul className="space-y-1.5">
+              <li><Link href="/legal?doc=escrow" className="hover:text-white transition-colors">Escrow & Refund Charter (Contract Act, 1872)</Link></li>
+              <li><Link href="/legal?doc=lease" className="hover:text-white transition-colors">11-Month Leave & License Master Agreement</Link></li>
+              <li><Link href="/legal?doc=privacy" className="hover:text-white transition-colors">DPDP Act, 2023 & Form-11 KYC Privacy Notice</Link></li>
+              <li><Link href="/legal?doc=terms" className="hover:text-white transition-colors">Platform Terms & Consumer Redressal (2020)</Link></li>
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <h4 className="font-bold text-white uppercase tracking-wider text-[11px]">Grievance & Compliance</h4>
+            <p className="text-gray-400">Nodal Officer: Adv. Rajeshwar Singh Gill</p>
+            <p className="text-gray-400">Email: legal@uninest.in</p>
+            <p className="text-gray-400">Jurisdiction: Civil Courts of Ludhiana, Punjab</p>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p>© 2026 UniNest Housing Technologies Pvt. Ltd. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <Link href="/legal?doc=escrow" className="hover:text-white">Escrow Policy</Link>
+            <Link href="/legal?doc=privacy" className="hover:text-white">Privacy (DPDP 2023)</Link>
+            <Link href="/legal?doc=terms" className="hover:text-white">Terms of Use</Link>
+          </div>
+        </div>
       </footer>
     </div>
   );

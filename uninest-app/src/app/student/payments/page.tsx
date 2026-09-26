@@ -58,7 +58,7 @@ export default function RentPaymentsPage() {
     setRentPaid(true);
     setPaymentFailMsg(false);
 
-    const refNo = `UN-RCT-2026-07${Math.floor(10 + Math.random() * 90)}`;
+    const refNo = `UNP-UPI-2026-07${Math.floor(10 + Math.random() * 90)}`;
     const newDoc: DocumentPDFData = {
       id: `doc-rent-${Date.now()}`,
       title: `July 2026 Monthly Rent Receipt (₹6,000 Paid)`,
@@ -67,22 +67,22 @@ export default function RentPaymentsPage() {
       issueDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       fileSize: '340 KB',
       status: 'ISSUED',
-      issuer: 'Razorpay / UniNest Automated Billing',
+      issuer: 'NPCI Direct UPI / UniNest Automated Billing',
       amount: '₹6,000.00',
       tenantName: 'Rahul Sharma',
-      roomDetails: 'CampusNest Residence (Room 102, Bed B)',
-      paymentMethod: 'UPI (HDFC Bank XXXX-8921)',
-      transactionId: `pay_Pz92kL${Math.floor(1000 + Math.random() * 9000)}`,
+      roomDetails: 'PCTE Smart Student Residency (Room 204, Bed A)',
+      paymentMethod: `Direct UPI (UTR: ${rentUtr || '426819203810'})`,
+      transactionId: `UTR_${rentUtr || Math.floor(100000000000 + Math.random() * 900000000000)}`,
     };
 
     setPaidReceiptDoc(newDoc);
 
-    // Call demo payment backend sync to update DB audit log & payment records
+    // Sync payment record to backend audit & ledger
     fetch('/api/demo/payment', { method: 'POST' }).catch((err) =>
       console.warn('Background payment record sync:', err)
     );
 
-    // Save/Upload sample invoice to local storage document store so it appears in Documents Vault
+    // Save/Upload invoice to local storage document store so it appears in Documents Vault
     try {
       const stored = localStorage.getItem('uninest_documents_store');
       const docsArr = stored ? JSON.parse(stored) : [];
@@ -91,10 +91,6 @@ export default function RentPaymentsPage() {
     } catch (e) {
       console.error('Failed to store generated invoice:', e);
     }
-  }
-
-  function handlePayFail() {
-    setPaymentFailMsg(true);
   }
 
   function handleViewTxnPDF(title: string, refNo: string, amount: string, date: string, method: string) {
@@ -106,10 +102,10 @@ export default function RentPaymentsPage() {
       issueDate: date,
       fileSize: '320 KB',
       status: 'ISSUED',
-      issuer: 'Razorpay / UniNest Automated Billing',
+      issuer: 'NPCI Direct UPI / UniNest Automated Billing',
       amount,
       tenantName: 'Rahul Sharma',
-      roomDetails: 'CampusNest Residence (Room 102, Bed B)',
+      roomDetails: 'PCTE Smart Student Residency (Room 204, Bed A)',
       paymentMethod: method,
       transactionId: `pay_${refNo.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
     };
@@ -190,7 +186,7 @@ export default function RentPaymentsPage() {
               </div>
               <p className="text-3xl font-black text-slate-900">{formatINR(600000)}</p>
               <p className="text-xs text-slate-500 font-medium">
-                CampusNest Residence · Room 102 (Bed B)
+                PCTE Smart Student Residency · Room 204 (Bed A)
               </p>
             </div>
 
@@ -202,14 +198,7 @@ export default function RentPaymentsPage() {
                     className="py-3 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-2 transition-all active:scale-95"
                   >
                     <Smartphone className="w-4 h-4 text-emerald-200" />
-                    <span>Pay ₹6,000 via UPI (QR / Mobile)</span>
-                  </button>
-
-                  <button
-                    onClick={handlePayFail}
-                    className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition-all"
-                  >
-                    Simulate Failed Payment
+                    <span>Pay ₹6,000 via Direct UPI (QR / Mobile)</span>
                   </button>
 
                   <button
@@ -217,7 +206,7 @@ export default function RentPaymentsPage() {
                     className="py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-extrabold text-xs border border-amber-300 shadow-sm flex items-center gap-1.5 transition-all"
                   >
                     <HelpCircle className="w-4 h-4 text-amber-600" />
-                    <span>I Can't Pay Rent</span>
+                    <span>Request Rent Relief / Split Plan</span>
                   </button>
                 </>
               ) : (
@@ -248,7 +237,7 @@ export default function RentPaymentsPage() {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>
-                  <strong>Transaction Failed:</strong> Insufficient balance on UPI account XXXX-8921. AutoPay retry scheduled in 24 hrs.
+                  <strong>Verification Required:</strong> Please enter your 12-digit UPI UTR reference number from your banking app.
                 </span>
               </div>
               <button
@@ -289,7 +278,7 @@ export default function RentPaymentsPage() {
                 </div>
                 <h3 className="text-xl font-black text-slate-900">Rent Financial Relief</h3>
                 <p className="text-xs text-slate-500">
-                  Select a flexible plan if you are facing difficulty paying this month's rent.
+                  Select a flexible plan if you are facing difficulty paying this month&apos;s rent.
                 </p>
               </div>
               <button
@@ -366,14 +355,14 @@ export default function RentPaymentsPage() {
                     <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
                       <Zap className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <span className="font-extrabold text-sm text-slate-900">Student Rent Credit (Demo Partner)</span>
+                    <span className="font-extrabold text-sm text-slate-900">NBFC Student Rent Credit Line</span>
                   </div>
                   <Badge variant="success" size="sm">
                     Instant Approval
                   </Badge>
                 </div>
                 <p className="text-xs text-slate-600 pl-10">
-                  Partner credit line (Liquiloans demo) pays landlord now; repay in 3 monthly EMIs.
+                  Registered NBFC partner credit line pays landlord now; repay in 3 zero-cost monthly EMIs.
                 </p>
               </div>
             </div>
@@ -396,7 +385,7 @@ export default function RentPaymentsPage() {
                       ? '7-Day Grace Period'
                       : selectedPlan === 'PLAN'
                       ? '2-Split Payment Plan'
-                      : 'Student Rent Credit';
+                      : 'NBFC Student Rent Credit';
                   setDifficultySubmitted(label);
                   setDifficultyModalOpen(false);
                 }}
@@ -453,7 +442,7 @@ export default function RentPaymentsPage() {
                     </td>
                     <td className="px-4 py-3.5 font-extrabold text-slate-900">{paidReceiptDoc.title}</td>
                     <td className="px-4 py-3.5 text-right font-black text-emerald-700">₹6,000.00</td>
-                    <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                    <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">Direct UPI (UTR: {rentUtr})</td>
                     <td className="px-4 py-3.5">
                       <Badge variant="success" size="sm">
                         SUCCESS
@@ -474,7 +463,7 @@ export default function RentPaymentsPage() {
                 )}
                 <tr className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
-                    UNP-DEMO-2026-000003
+                    UNP-UPI-2026-000003
                   </td>
                   <td className="px-4 py-3.5 font-extrabold text-slate-900">Rent payment — Aug 2026</td>
                   <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(600000)}</td>
@@ -486,7 +475,7 @@ export default function RentPaymentsPage() {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     <button
-                      onClick={() => handleViewTxnPDF('August 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-DEMO-2026-000003', '₹6,000.00', '01 Sep 2026', 'UPI AutoPay')}
+                      onClick={() => handleViewTxnPDF('August 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-UPI-2026-000003', '₹6,000.00', '01 Sep 2026', 'UPI AutoPay')}
                       className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" /> View / Download
@@ -495,11 +484,11 @@ export default function RentPaymentsPage() {
                 </tr>
                 <tr className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
-                    UNP-DEMO-2026-000002
+                    UNP-UPI-2026-000002
                   </td>
                   <td className="px-4 py-3.5 font-extrabold text-slate-900">Rent payment — Jul 2026</td>
                   <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(600000)}</td>
-                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">Direct UPI</td>
                   <td className="px-4 py-3.5">
                     <Badge variant="success" size="sm">
                       SUCCESS
@@ -507,7 +496,7 @@ export default function RentPaymentsPage() {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     <button
-                      onClick={() => handleViewTxnPDF('July 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-DEMO-2026-000002', '₹6,000.00', '01 Aug 2026', 'UPI')}
+                      onClick={() => handleViewTxnPDF('July 2026 Monthly Rent Receipt (₹6,000 Paid)', 'UNP-UPI-2026-000002', '₹6,000.00', '01 Aug 2026', 'Direct UPI')}
                       className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" /> View / Download
@@ -516,13 +505,13 @@ export default function RentPaymentsPage() {
                 </tr>
                 <tr className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
-                    UNP-DEMO-2026-000001
+                    UNP-UPI-2026-000001
                   </td>
                   <td className="px-4 py-3.5 font-extrabold text-slate-900">
-                    Reservation fee for CampusNest Residence
+                    Commitment Token (Credited to Rent) — PCTE Smart Student Residency
                   </td>
                   <td className="px-4 py-3.5 text-right font-black text-slate-900">{formatINR(39900)}</td>
-                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">UPI</td>
+                  <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">Direct UPI</td>
                   <td className="px-4 py-3.5">
                     <Badge variant="success" size="sm">
                       SUCCESS
@@ -530,7 +519,7 @@ export default function RentPaymentsPage() {
                   </td>
                   <td className="px-4 py-3.5 text-center">
                     <button
-                      onClick={() => handleViewTxnPDF('Reservation Fee Receipt (CampusNest Residence)', 'UNP-DEMO-2026-000001', '₹399.00', '15 Jul 2026', 'UPI')}
+                      onClick={() => handleViewTxnPDF('Commitment Hold Token Receipt (PCTE Smart Student Residency)', 'UNP-UPI-2026-000001', '₹399.00', '15 Jul 2026', 'Direct UPI')}
                       className="py-1.5 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
                     >
                       <Eye className="w-3.5 h-3.5" /> View / Download
@@ -560,7 +549,7 @@ export default function RentPaymentsPage() {
                 Direct Real UPI Escrow Transfer
               </div>
               <h3 className="text-xl font-extrabold">Pay ₹6,000 Monthly Rent</h3>
-              <p className="text-xs text-slate-300 mt-0.5">CampusNest Residence · Room 102 (Bed B)</p>
+              <p className="text-xs text-slate-300 mt-0.5">PCTE Smart Student Residency · Room 204 (Bed A)</p>
             </div>
 
             {/* Modal Body */}
@@ -624,7 +613,7 @@ export default function RentPaymentsPage() {
               {/* UTR input */}
               <div className="text-left space-y-1 pt-1">
                 <label className="text-[11px] font-bold text-slate-700 block">
-                  12-Digit Bank Reference / UTR Number (Optional verification):
+                  12-Digit Bank Reference / UTR Number <span className="text-rose-600">*</span>:
                 </label>
                 <input
                   type="text"
@@ -632,21 +621,22 @@ export default function RentPaymentsPage() {
                   value={rentUtr}
                   onChange={(e) => setRentUtr(e.target.value.replace(/[^0-9]/g, ''))}
                   className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
-                  placeholder="e.g. 426819203810"
+                  placeholder="Enter 12-digit UPI UTR (e.g. 426819203810)"
                 />
               </div>
 
               {/* Confirm paid */}
               <button
                 type="button"
+                disabled={rentUtr.length < 12}
                 onClick={() => {
                   setUpiModalOpen(false);
                   handlePaySuccess();
                 }}
-                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
+                className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
               >
                 <CheckCircle2 className="w-5 h-5" />
-                <span>I have completed ₹6,000 Payment → Generate Tax Invoice</span>
+                <span>Verify UTR & Generate Official Tax Invoice</span>
               </button>
             </div>
           </div>

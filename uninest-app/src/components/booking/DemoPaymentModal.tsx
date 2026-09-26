@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
-  CreditCard,
   Smartphone,
   CheckCircle2,
   ShieldCheck,
@@ -10,7 +10,6 @@ import {
   X,
   ArrowRight,
   Loader2,
-  Sparkles,
   QrCode,
   Copy,
   Check,
@@ -18,6 +17,8 @@ import {
   CalendarClock,
   Clock,
   Info,
+  Scale,
+  AlertCircle,
 } from 'lucide-react';
 
 interface DemoPaymentModalProps {
@@ -47,15 +48,15 @@ export function DemoPaymentModal({
   roomId,
   bedId,
 }: DemoPaymentModalProps) {
-  // Stage 0: Booking Intent Type ('IMMEDIATE_VISIT' = ₹399 for 72h | 'ADVANCE_SESSION' = 15% Token for 15-45 days)
   const [reservationType, setReservationType] = useState<'IMMEDIATE_VISIT' | 'ADVANCE_SESSION'>('IMMEDIATE_VISIT');
   const defaultAdvanceDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const minAdvanceDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const maxAdvanceDate = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [agreedMoveInDate, setAgreedMoveInDate] = useState(defaultAdvanceDate);
 
-  const [method, setMethod] = useState<'real_upi' | 'card' | 'demo'>('real_upi');
   const [utrNumber, setUtrNumber] = useState('');
+  const [acceptedEscrowAgreement, setAcceptedEscrowAgreement] = useState(true);
+  const [validationError, setValidationError] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
@@ -64,7 +65,6 @@ export function DemoPaymentModal({
     address: string;
     landlordPhone: string;
     bookingId?: string;
-    visitOtp?: string;
     reservationType?: string;
     amountPaid?: string;
   } | null>(null);
@@ -100,6 +100,22 @@ export function DemoPaymentModal({
   };
 
   const handleConfirmPayment = async () => {
+    setValidationError('');
+
+    if (!utrNumber || utrNumber.length < 12) {
+      setValidationError(
+        'Please enter your 12-digit UPI Reference / UTR Number from GPay, PhonePe, Paytm, or BHIM to verify your payment.'
+      );
+      return;
+    }
+
+    if (!acceptedEscrowAgreement) {
+      setValidationError(
+        'Please accept the Statutory Escrow & Cancellation Agreement before locking your reservation.'
+      );
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const res = await fetch('/api/demo/reservation', {
@@ -113,8 +129,8 @@ export function DemoPaymentModal({
           bedId,
           reservationType,
           agreedMoveInDate: reservationType === 'ADVANCE_SESSION' ? agreedMoveInDate : undefined,
-          utr: utrNumber || `UTR-${Date.now().toString().slice(-8)}`,
-          paymentMethod: method === 'real_upi' ? 'REAL_UPI_DIRECT' : method,
+          utr: utrNumber,
+          paymentMethod: 'DIRECT_UPI_ESCROW',
         }),
       });
 
@@ -124,23 +140,21 @@ export function DemoPaymentModal({
       if (data.success) {
         setIsSuccess(true);
         const details = {
-          transactionId:
-            data.transactionId || (utrNumber ? `UPI-${utrNumber}` : `UNR-${Date.now().toString().slice(-6)}`),
+          transactionId: `UPI-UTR-${utrNumber}`,
           address:
             data.propertyAddress || 'Plot 42, Block B, BRS Nagar, Ferozepur Rd, Ludhiana - 141012',
           landlordPhone: data.landlordPhone || '+91 98989 89801',
           bookingId: data.bookingId,
-          visitOtp: data.visitOtp,
           reservationType,
           amountPaid: AMOUNT,
         };
         setTxDetails(details);
       } else {
-        alert(data.error || 'Payment confirmation failed');
+        setValidationError(data.error || 'Payment verification failed');
       }
     } catch (err) {
       setIsProcessing(false);
-      alert('Payment server communication error');
+      setValidationError('Payment server communication error');
     }
   };
 
@@ -166,7 +180,7 @@ export function DemoPaymentModal({
               </button>
               <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-800/50 mb-1.5">
                 <Lock className="w-3 h-3" />
-                UniNest Algorithmic Escrow Mediator • 0% Fee UPI
+                NPCI Direct UPI Escrow Vault • 0% Gateway Fee
               </div>
               <h3 className="text-xl font-extrabold">
                 {reservationType === 'IMMEDIATE_VISIT'
@@ -203,7 +217,7 @@ export function DemoPaymentModal({
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-600 leading-snug">
-                      Locks bed for <strong>72 Hours</strong>. Visit PG & verify 4-digit OTP → ₹399 credited into rent or 100% instant refund!
+                      Locks bed for <strong>72 Hours</strong>. Visit PG &amp; verify 4-digit OTP → ₹399 credited into rent or 100% instant refund!
                     </p>
                   </button>
 
@@ -251,7 +265,7 @@ export function DemoPaymentModal({
                   <div className="text-[10px] text-indigo-800 space-y-1 border-t border-indigo-200/70 pt-2">
                     <div className="font-bold flex items-center gap-1">
                       <Info className="w-3 h-3 text-indigo-600" />
-                      Tiered Cancellation Protection (Indian Contract Act Compliant):
+                      Tiered Cancellation Schedule (Indian Contract Act, 1872):
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-center pt-0.5">
                       <div className="bg-white p-1.5 rounded-lg border border-indigo-100">
@@ -271,159 +285,111 @@ export function DemoPaymentModal({
                 </div>
               )}
 
-              {/* STEP 2: PAYMENT METHOD TABS */}
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMethod('real_upi')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                    method === 'real_upi'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <Smartphone className="w-4 h-4 text-emerald-600" />
-                  <span>Real UPI (QR)</span>
-                </button>
+              {/* STEP 2: DIRECT UPI QR & MOBILE INTENT */}
+              <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">
+                <div className="flex items-center justify-between text-xs text-slate-600 border-b border-slate-200 pb-2">
+                  <span className="font-semibold">Escrow Custodian Account:</span>
+                  <span className="font-extrabold text-slate-900">{PAYEE_NAME}</span>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMethod('card')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                    method === 'card'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4 text-blue-600" />
-                  <span>Card / NetBanking</span>
-                </button>
+                {/* QR Code Frame */}
+                <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 inline-block mx-auto">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrCodeUrl}
+                    alt="UniNest Official UPI Escrow QR Code"
+                    className="w-40 h-40 mx-auto rounded-lg"
+                  />
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5 text-[11px] font-bold text-slate-600">
+                    <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Scan to Pay ₹{AMOUNT} with GPay, PhonePe, Paytm, or BHIM</span>
+                  </div>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMethod('demo')}
-                  className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
-                    method === 'demo'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-500 shadow-sm ring-1 ring-emerald-500'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
+                {/* Mobile Direct Tap Button */}
+                <a
+                  href={upiIntentUri}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm"
                 >
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>Instant Demo</span>
-                </button>
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span>Open UPI App on Mobile Phone (₹{AMOUNT})</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                </a>
+
+                {/* Copy UPI ID */}
+                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                  <span className="font-mono text-slate-800 font-semibold text-[11px] truncate">
+                    UPI ID: {UPI_ID}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyUPI}
+                    className="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1 shrink-0 ml-2"
+                  >
+                    {copiedUpi ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy UPI ID</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Mandatory 12-Digit UTR Input */}
+                <div className="text-left space-y-1 pt-1">
+                  <label className="text-[11px] font-extrabold text-slate-800 block">
+                    Enter 12-Digit UPI Reference / UTR Number <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={utrNumber}
+                    onChange={(e) => {
+                      setUtrNumber(e.target.value.replace(/[^0-9]/g, ''));
+                      setValidationError('');
+                    }}
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none"
+                    placeholder="Enter 12-digit UTR from your UPI receipt (e.g. 426819203810)"
+                    required
+                  />
+                </div>
               </div>
 
-              {/* REAL UPI QR & MOBILE INTENT */}
-              {method === 'real_upi' && (
-                <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center">
-                  <div className="flex items-center justify-between text-xs text-slate-600 border-b border-slate-200 pb-2">
-                    <span className="font-semibold">Escrow Payee Account:</span>
-                    <span className="font-extrabold text-slate-900">{PAYEE_NAME}</span>
-                  </div>
-
-                  {/* QR Code Frame */}
-                  <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 inline-block mx-auto">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrCodeUrl}
-                      alt="UniNest Dynamic UPI QR Code"
-                      className="w-36 h-36 mx-auto rounded-lg"
-                    />
-                    <div className="flex items-center justify-center gap-1.5 mt-1.5 text-[11px] font-bold text-slate-600">
-                      <QrCode className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Scan with GPay, PhonePe, Paytm, or BHIM</span>
-                    </div>
-                  </div>
-
-                  {/* Mobile Direct Tap Button */}
-                  <a
-                    href={upiIntentUri}
-                    className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm"
+              {/* Mandatory Legal Escrow Checkbox */}
+              <div className="flex items-start gap-2.5 text-left px-1">
+                <input
+                  type="checkbox"
+                  id="escrowLegalConsent"
+                  checked={acceptedEscrowAgreement}
+                  onChange={(e) => {
+                    setAcceptedEscrowAgreement(e.target.checked);
+                    setValidationError('');
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 cursor-pointer"
+                />
+                <label htmlFor="escrowLegalConsent" className="text-[11px] text-slate-600 leading-snug cursor-pointer">
+                  I agree to the{' '}
+                  <Link
+                    href="/legal?doc=escrow"
+                    target="_blank"
+                    className="font-bold text-emerald-700 underline inline-flex items-center gap-0.5"
                   >
-                    <span>Tap to Pay ₹{AMOUNT} on Mobile App</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-                  </a>
+                    <Scale className="w-3 h-3" />
+                    UniNest Algorithmic Escrow &amp; Refund Policy
+                  </Link>{' '}
+                  and certify that the 12-digit UTR entered above corresponds to my UPI transfer of ₹{AMOUNT}.
+                </label>
+              </div>
 
-                  {/* Copy UPI ID */}
-                  <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-slate-200 text-xs">
-                    <span className="font-mono text-slate-800 font-semibold text-[11px] truncate">
-                      {UPI_ID}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleCopyUPI}
-                      className="text-emerald-700 hover:text-emerald-800 font-bold text-[11px] flex items-center gap-1 shrink-0 ml-2"
-                    >
-                      {copiedUpi ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* UTR Input */}
-                  <div className="text-left space-y-1 pt-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">
-                      12-Digit UPI Ref / UTR Number (Optional verification):
-                    </label>
-                    <input
-                      type="text"
-                      maxLength={12}
-                      value={utrNumber}
-                      onChange={(e) => setUtrNumber(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-semibold text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none"
-                      placeholder="e.g. 426819203810"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* CARD SIMULATION */}
-              {method === 'card' && (
-                <div className="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">Card Number</label>
-                    <input
-                      type="text"
-                      readOnly
-                      value="4532 •••• •••• 8892"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-medium text-slate-900 font-mono"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Expiry</label>
-                      <input
-                        type="text"
-                        readOnly
-                        value="08 / 28"
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-medium text-slate-900 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">CVV</label>
-                      <input
-                        type="password"
-                        readOnly
-                        value="888"
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 font-medium text-slate-900 font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* INSTANT DEMO */}
-              {method === 'demo' && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
-                  ⚡ <strong>Instant Escrow Test Mode:</strong> Simulates instant token deposit into the UniNest Escrow Ledger without opening external banking apps.
+              {validationError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold p-3 rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{validationError}</span>
                 </div>
               )}
 
@@ -437,7 +403,7 @@ export function DemoPaymentModal({
                   </span>
                   <span className="text-[10px] text-emerald-700">
                     {reservationType === 'IMMEDIATE_VISIT'
-                      ? '100% Refundable on Visit OTP or Emergency Waiver (2/sem)'
+                      ? '100% Refundable on Visit OTP or Credited to 1st Month Rent'
                       : 'Credited towards 1st Month Rent • Protected by Tiered Refund'}
                   </span>
                 </div>
@@ -454,16 +420,12 @@ export function DemoPaymentModal({
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Locking Funds in UniNest Escrow...</span>
+                    <span>Verifying UTR &amp; Locking Bed in Escrow...</span>
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="w-5 h-5" />
-                    <span>
-                      {method === 'real_upi'
-                        ? `I have paid ₹${AMOUNT} → Lock Bed in Escrow`
-                        : `Confirm ₹${AMOUNT} & Lock Bed Now`}
-                    </span>
+                    <span>Verify 12-Digit UTR &amp; Lock Bed in Escrow</span>
                   </>
                 )}
               </button>
@@ -495,7 +457,7 @@ export function DemoPaymentModal({
             {/* Receipt Box */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-left space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-500 font-medium">Escrow Reference</span>
+                <span className="text-slate-500 font-medium">Verified UPI Reference</span>
                 <span className="font-mono font-bold text-slate-900">{txDetails?.transactionId}</span>
               </div>
               <div className="flex justify-between">
@@ -504,12 +466,10 @@ export function DemoPaymentModal({
                   ₹{txDetails?.amountPaid} ({PAYEE_NAME})
                 </span>
               </div>
-              {txDetails?.visitOtp && (
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-medium">Stage 1 Visit OTP Status</span>
-                  <span className="font-bold text-indigo-700">Ready at Landlord Reception</span>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500 font-medium">Stage 1 Handshake</span>
+                <span className="font-bold text-indigo-700">Collect 4-Digit OTP at PG Visit</span>
+              </div>
               <div className="pt-2 border-t border-slate-200">
                 <span className="text-slate-500 font-medium block">Unlocked Property Address</span>
                 <p className="font-bold text-slate-900 mt-0.5">{txDetails?.address}</p>
@@ -521,7 +481,7 @@ export function DemoPaymentModal({
               onClick={handleFinishSuccess}
               className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all"
             >
-              <span>Open Escrow Workspace & Visit Schedule</span>
+              <span>Open Escrow Workspace &amp; Visit Schedule</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

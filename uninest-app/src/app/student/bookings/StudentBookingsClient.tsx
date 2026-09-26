@@ -85,20 +85,16 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
       return '100% Escrow Frozen due to room discrepancy. Full ₹6,000 refund initiated.';
     }
     if (status === 'RESERVED' || status === 'VISIT_REQUESTED' || status === 'VISIT_CONFIRMED') {
-      return `Stage 1 Handshake: Visit PG & enter Landlord's 4-Digit Visit OTP (Demo PIN: ${
-        booking.visitOtp || '8412'
-      })`;
+      return 'Stage 1 Handshake: Visit PG within 72h & enter Landlord’s 4-Digit Visit OTP to verify physical inspection.';
     }
     if (status === 'VISITED') {
-      return 'Visit OTP Verified! Choose "I Love It (Credit ₹399 to Rent)" or "100% Instant Refund".';
+      return 'Visit OTP Verified! Choose "Accept Room (Credit ₹399 to Rent)" or "100% Instant Refund".';
     }
     if (status === 'CONFIRMED' && !booking.escrowAmount) {
-      return 'Room Accepted! Pay remaining rent balance into UniNest Escrow Vault.';
+      return 'Room Accepted! Deposit remaining rent balance into UniNest Escrow Vault & E-Sign 11-Month Agreement.';
     }
     if (status === 'CONFIRMED' || status === 'MOVE_IN_READY') {
-      return `Stage 2 Handshake: Share 6-Digit Move-In Key (${
-        booking.moveInOtp ? `${booking.moveInOtp.slice(0, 3)}-${booking.moveInOtp.slice(3)}` : '792-410'
-      }) with Landlord on Move-In Day.`;
+      return 'Stage 2 Handshake: Share your 6-Digit Move-In Key with the Landlord during physical check-in.';
     }
     if (status === 'ACTIVE') {
       return 'Tenancy active! ₹6,000 released from Escrow to Landlord.';

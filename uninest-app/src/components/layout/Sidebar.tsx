@@ -71,7 +71,7 @@ const roleNavItems: Record<string, NavItem[]> = {
     { label: 'Services', href: '/admin/services', icon: <ShoppingBag className="w-4.5 h-4.5" /> },
     { label: 'Analytics', href: '/admin/analytics', icon: <BarChart3 className="w-4.5 h-4.5" /> },
     { label: 'Audit Log', href: '/admin/audit-log', icon: <Clock className="w-4.5 h-4.5" /> },
-    { label: 'Demo Control', href: '/admin/demo-control', icon: <Play className="w-4.5 h-4.5" /> },
+    { label: 'Legal & Escrow Charter', href: '/legal', icon: <FileText className="w-4.5 h-4.5" /> },
   ],
   COLLEGE: [
     { label: 'Overview', href: '/college/dashboard', icon: <Home className="w-4.5 h-4.5" /> },
@@ -193,15 +193,22 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0, onRo
 
         {/* Footer */}
         <div className="border-t border-border p-3 space-y-2 flex-shrink-0">
+          <Link
+            href="/legal"
+            className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+          >
+            <Shield className="w-3.5 h-3.5 text-emerald-600" />
+            Legal & Escrow Charter
+          </Link>
           {/* Quick actions */}
           <div className="flex items-center gap-1">
             <button
               onClick={onRoleSwitch}
               className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium text-text-secondary hover:bg-surface-tertiary transition-colors"
-              title="Switch Role"
+              title="Switch Workspace Portal"
             >
               <ArrowLeftRight className="w-3.5 h-3.5" />
-              Switch Role
+              Switch Portal
             </button>
             <button
               onClick={onLogout}

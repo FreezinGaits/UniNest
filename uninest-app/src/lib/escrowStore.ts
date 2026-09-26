@@ -215,7 +215,7 @@ function createInitialStore(): GlobalEscrowState {
         visits: [
           {
             id: 'vst-1',
-            appointmentNo: 'VIS-DEMO-1024',
+            appointmentNo: 'VIS-PCTE-1024',
             scheduledDate: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
             timeSlot: '11:00 AM – 12:00 PM',
             status: 'CONFIRMED',

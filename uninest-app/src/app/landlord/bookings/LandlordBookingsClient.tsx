@@ -1,25 +1,22 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   CalendarCheck,
   CheckCircle2,
   Clock,
   XCircle,
   RefreshCw,
-  User,
   ShieldCheck,
   Key,
   KeyRound,
   Loader2,
   Banknote,
   Home,
-  AlertTriangle,
   Copy,
   Check,
-  Timer,
   Scale,
-  Sparkles,
   ShieldAlert,
 } from 'lucide-react';
 
@@ -80,7 +77,6 @@ export function LandlordBookingsClient({
         );
         setCounterId(null);
       } else {
-        // Optimistic update when DB offline
         const fallbackStatus =
           action === 'ACCEPT' ? 'CONFIRMED' : action === 'COUNTER_PROPOSE' ? 'COUNTER_PROPOSED' : 'CANCELLED';
         setVisits((prev) =>
@@ -140,7 +136,7 @@ export function LandlordBookingsClient({
         body: JSON.stringify({
           bookingId,
           mode: 'NO_SHOW_72H',
-          reason: '72-Hour Unexplained Visit No-Show',
+          reason: '72-Hour Unexplained Visit No-Show Claimed by Landlord',
         }),
       });
       const data = await res.json();
@@ -161,7 +157,7 @@ export function LandlordBookingsClient({
         );
         setBanner({
           type: 'warning',
-          title: '⏱ 72-Hour No-Show Enforced — ₹200 Vacancy Credit Paid to Landlord!',
+          title: '⏱ 72-Hour No-Show Claim Processed — ₹200 Vacancy Credit Paid to Landlord!',
           message: data.message,
         });
       }
@@ -173,7 +169,7 @@ export function LandlordBookingsClient({
   const handleVerifyMoveInKey = async (bookingId: string) => {
     const key = moveInKeyInput[bookingId];
     if (!key || key.replace(/[^0-9]/g, '').length !== 6) {
-      alert('Please enter the 6-digit Move-In Key shared by the student');
+      alert('Please enter the 6-digit Move-In Key provided by the student at check-in.');
       return;
     }
     setVerifyingMoveIn(bookingId);
@@ -239,7 +235,7 @@ export function LandlordBookingsClient({
         );
         setBanner({
           type: 'warning',
-          title: '⚖️ Day 7 Total Ghosting Auto-Split — ₹2,800 (14d Pro-Rata) Paid to You!',
+          title: '⚖️ Day 7 Unreachable Tenant Claim Processed — ₹2,800 (14d Pro-Rata) Paid to You!',
           message: data.message,
         });
       }
@@ -315,16 +311,21 @@ export function LandlordBookingsClient({
         <div>
           <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-900/50 px-3 py-1 rounded-full border border-emerald-700/50 mb-2">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Landlord Algorithmic Escrow & Handshake Desk
+            Landlord Algorithmic Escrow &amp; Handshake Desk
           </div>
-          <h1 className="text-2xl font-extrabold">Landlord Escrow & Booking Control</h1>
+          <h1 className="text-2xl font-extrabold">Landlord Escrow &amp; Booking Control</h1>
           <p className="text-xs text-slate-300 mt-1">
-            Generate Stage 1 Visit OTPs (4-digit), verify Stage 2 Move-In Keys (6-digit) to release ₹6,000 escrow, and claim vacancy compensation on no-shows.
+            Generate Stage 1 Visit OTPs (4-digit), verify Stage 2 Move-In Keys (6-digit) to release ₹6,000 escrow, and file statutory vacancy compensation claims.
           </p>
         </div>
-        <div className="p-3.5 bg-white/10 border border-white/15 rounded-2xl shrink-0 self-start sm:self-center">
-          <CalendarCheck className="w-7 h-7 text-emerald-400" />
-        </div>
+        <Link
+          href="/legal?doc=escrow"
+          target="_blank"
+          className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold text-white flex items-center gap-1.5 shrink-0 self-start sm:self-center"
+        >
+          <Scale className="w-4 h-4 text-emerald-400" />
+          <span>Escrow &amp; Vacancy Policy</span>
+        </Link>
       </div>
 
       {/* Live Action Banner */}
@@ -353,7 +354,7 @@ export function LandlordBookingsClient({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
           <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-600" />
-            Two-Stage Escrow Bookings & OTP Handshakes ({bookings.length})
+            Two-Stage Escrow Bookings &amp; OTP Handshakes ({bookings.length})
           </h2>
           <span className="text-xs font-bold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full border border-emerald-200">
             Stage 1 (4-Digit Visit PIN) • Stage 2 (6-Digit Move-In Key)
@@ -437,7 +438,7 @@ export function LandlordBookingsClient({
                   </span>
                 </div>
 
-                {/* Delayed Arrival Alert Banner (If Student tapped "Arriving Late") */}
+                {/* Delayed Arrival Alert Banner */}
                 {b.delayedMoveInDate && (
                   <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-950 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -451,7 +452,7 @@ export function LandlordBookingsClient({
                 )}
 
                 {/* ═══════════════════════════════════════════════════════════════
-                    STAGE 1: GENERATE 4-DIGIT VISIT OTP & 72H NO-SHOW SPLIT
+                    STAGE 1: GENERATE 4-DIGIT VISIT OTP & 72H NO-SHOW CLAIM
                 ═══════════════════════════════════════════════════════════════ */}
                 {['RESERVED', 'VISIT_REQUESTED', 'VISIT_CONFIRMED'].includes(b.status) &&
                   !b.visitVerifiedAt && (
@@ -465,13 +466,13 @@ export function LandlordBookingsClient({
                           type="button"
                           onClick={() => handleTrigger72hNoShow(b.id)}
                           disabled={processingSplitFor === b.id}
-                          className="text-[11px] font-extrabold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg border border-amber-300 transition-colors"
+                          className="text-[11px] font-extrabold text-amber-900 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-lg border border-amber-300 transition-colors"
                         >
-                          Simulate 72h No-Show Split (+₹200 to Landlord)
+                          File 72h Visit No-Show Claim (₹200 Vacancy Credit)
                         </button>
                       </div>
                       <p className="text-xs text-emerald-800">
-                        When {b.user?.name || 'Rahul Sharma'} arrives physically at the PG reception, share this 4-digit Visit OTP. Once they enter it in their app, Stage 1 is verified.
+                        When {b.user?.name || 'Rahul Sharma'} arrives physically at the PG reception, provide this 4-digit Visit OTP. Once they enter it in their Student Portal, Stage 1 is verified.
                       </p>
 
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900 text-white p-4 rounded-xl">
@@ -516,7 +517,7 @@ export function LandlordBookingsClient({
                           ) : (
                             <RefreshCw className="w-4 h-4" />
                           )}
-                          <span>{otpData ? 'Regenerate Visit OTP' : 'Generate 4-Digit Visit OTP'}</span>
+                          <span>{otpData ? 'Issue New Visit OTP' : 'Generate 4-Digit Visit OTP'}</span>
                         </button>
                       </div>
                     </div>
@@ -553,48 +554,15 @@ export function LandlordBookingsClient({
                         type="button"
                         onClick={() => handleTriggerDay7GhostSplit(b.id)}
                         disabled={processingSplitFor === b.id}
-                        className="text-[11px] font-extrabold text-indigo-900 bg-indigo-200/80 hover:bg-indigo-300 px-2.5 py-1 rounded-lg border border-indigo-300 transition-colors"
+                        className="text-[11px] font-extrabold text-indigo-900 bg-indigo-200/80 hover:bg-indigo-300 px-3 py-1 rounded-lg border border-indigo-300 transition-colors"
                       >
-                        Simulate Day 7 Ghosting Auto-Split (+₹2,800 Pro-Rata)
+                        File Day 7 Unreachable Tenant Claim (₹2,800 Pro-Rata)
                       </button>
                     </div>
 
                     <p className="text-xs text-indigo-800">
-                      When {b.user?.name || 'Rahul Sharma'} checks in with luggage and inspects the room, they will hand over their <strong>6-Digit Move-In Key</strong>. Enter it below to immediately release <strong>₹6,000</strong> to your bank account.
+                      When {b.user?.name || 'Rahul Sharma'} arrives for physical check-in and inspects the room, ask them for their <strong>6-Digit Move-In Handshake Key</strong>. Entering it below immediately releases <strong>₹6,000</strong> from UniNest Escrow to your bank account.
                     </p>
-
-                    {/* Helpful Demo Key Auto-Fill Bar */}
-                    <div className="bg-slate-900 text-white rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>
-                          Student&apos;s Active Move-In Key:{' '}
-                          <code className="bg-indigo-500/30 text-emerald-300 px-2 py-0.5 rounded font-mono font-extrabold">
-                            {b.moveInOtp
-                              ? `${b.moveInOtp.slice(0, 3)}-${b.moveInOtp.slice(3)}`
-                              : '792-410'}
-                          </code>
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMoveInKeyInput((prev) => ({
-                            ...prev,
-                            [b.id]: b.moveInOtp
-                              ? `${b.moveInOtp.slice(0, 3)}-${b.moveInOtp.slice(3)}`
-                              : '792-410',
-                          }))
-                        }
-                        className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] shrink-0"
-                      >
-                        Auto-Fill Student Key (
-                        {b.moveInOtp
-                          ? `${b.moveInOtp.slice(0, 3)}-${b.moveInOtp.slice(3)}`
-                          : '792-410'}
-                        )
-                      </button>
-                    </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                       <input
@@ -608,7 +576,7 @@ export function LandlordBookingsClient({
                           }))
                         }
                         className="flex-1 bg-white border-2 border-indigo-300 rounded-xl px-4 py-3 text-xl font-mono font-black text-center text-indigo-950 tracking-[0.3em] placeholder:text-slate-300 focus:border-indigo-600 focus:outline-none"
-                        placeholder="792-410"
+                        placeholder="XXX-XXX"
                       />
                       <button
                         type="button"
@@ -621,7 +589,7 @@ export function LandlordBookingsClient({
                         ) : (
                           <ShieldCheck className="w-4 h-4" />
                         )}
-                        <span>Verify Key & Release ₹6,000 Escrow</span>
+                        <span>Verify Key &amp; Release ₹6,000 Escrow</span>
                       </button>
                     </div>
                   </div>
@@ -640,7 +608,7 @@ export function LandlordBookingsClient({
                           Escrow Released to Your Bank Account!
                         </h4>
                         <p className="text-xs text-emerald-800">
-                          {b.user?.name || 'Rahul Sharma'} is now an ACTIVE tenant. Bed marked OCCUPIED & 11-Month Digital Lease activated.
+                          {b.user?.name || 'Rahul Sharma'} is now an ACTIVE tenant. Bed marked OCCUPIED &amp; 11-Month Digital Lease activated.
                         </p>
                       </div>
                     </div>

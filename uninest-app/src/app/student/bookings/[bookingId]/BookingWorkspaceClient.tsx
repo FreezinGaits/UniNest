@@ -38,9 +38,12 @@ import {
   Check,
   QrCode,
   Scale,
-  PhoneCall,
+  FileCheck2,
+  Download,
+  Smartphone,
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
+import { downloadDocumentPDF, DocumentPDFData } from '@/lib/pdfGenerator';
 import { VisitSchedulingModal } from '@/components/booking/VisitSchedulingModal';
 import { UniNestMessagesModal } from '@/components/booking/UniNestMessagesModal';
 
@@ -79,9 +82,16 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       ? new Date(initialBooking.agreedMoveInDate).toISOString().split('T')[0]
       : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [escrowPayMethod, setEscrowPayMethod] = useState<'upi_qr' | 'instant_demo'>('instant_demo');
   const [escrowUtr, setEscrowUtr] = useState('');
+  const [escrowTermsAccepted, setEscrowTermsAccepted] = useState(true);
+  const [copiedUpi, setCopiedUpi] = useState(false);
   const [isPayingEscrow, setIsPayingEscrow] = useState(false);
+
+  // Digital Tripartite Leave & License Agreement E-Sign States
+  const [signerName, setSignerName] = useState(initialBooking?.user?.name || '');
+  const [aadhaarLast4, setAadhaarLast4] = useState('');
+  const [leaseConsentChecked, setLeaseConsentChecked] = useState(false);
+  const [isSigningLease, setIsSigningLease] = useState(false);
 
   // Stage 2: Move-In Key States
   const [moveInKey, setMoveInKey] = useState<string | null>(
@@ -92,22 +102,20 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const [isGeneratingMoveInKey, setIsGeneratingMoveInKey] = useState(false);
   const [copiedMoveInKey, setCopiedMoveInKey] = useState(false);
 
-  // Stage 2: Delay, Cancel, Ghosting Simulation & Discrepancy Dispute States
+  // Stage 2: Delay, Cancel & Discrepancy Dispute States
   const [showDelayForm, setShowDelayForm] = useState(false);
   const [delayDays, setDelayDays] = useState(3);
-  const [delayReason, setDelayReason] = useState('Train delayed / Travel schedule adjustment');
+  const [delayReason, setDelayReason] = useState('');
   const [isSubmittingDelay, setIsSubmittingDelay] = useState(false);
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [simulatedAdvanceDays, setSimulatedAdvanceDays] = useState<number>(35);
   const [isCancelling, setIsCancelling] = useState(false);
 
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [discrepancyType, setDiscrepancyType] = useState('Room has no AC (Listed as AC Room)');
   const [discrepancyDesc, setDiscrepancyDesc] = useState('');
   const [isFreezingEscrow, setIsFreezingEscrow] = useState(false);
-  const [isSimulatingGhost, setIsSimulatingGhost] = useState(false);
 
   const property = booking?.property || {};
   const room = booking?.bed?.room || {};
@@ -116,6 +124,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const landlordUser = landlord.user || {};
   const latestVisit = (booking?.visits || booking?.visitAppointments)?.[0];
   const agreement = booking?.agreement || booking?.agreements?.[0];
+  const isLeaseSigned = agreement?.status === 'SIGNED' || booking?.status === 'ACTIVE';
 
   const isLocationUnlocked = [
     'RESERVED',
@@ -164,7 +173,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
     },
     {
       key: 'ROOM_DECISION',
-      label: 'Credit ₹399 to Rent',
+      label: 'Credit Token to Rent',
       isDone:
         booking?.postVisitDecision === 'ACCEPTED' ||
         ['CONFIRMED', 'MOVE_IN_READY', 'ACTIVE'].includes(booking?.status),
@@ -175,13 +184,13 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       isDone: isEscrowFunded || ['MOVE_IN_READY', 'ACTIVE'].includes(booking?.status),
     },
     {
-      key: 'MOVEIN_KEY',
-      label: 'Stage 2: Move-In Key',
-      isDone: !!booking?.moveInVerifiedAt || booking?.status === 'ACTIVE',
+      key: 'DIGITAL_LEASE',
+      label: '11-Month Lease E-Signed',
+      isDone: isLeaseSigned,
     },
     {
       key: 'ACTIVE',
-      label: 'Escrow Released & Active',
+      label: 'Stage 2 Key & Active',
       isDone: booking?.status === 'ACTIVE',
     },
   ];
@@ -190,7 +199,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
 
   const handleVerifyVisitOtp = async () => {
     if (!visitOtpInput || visitOtpInput.length !== 4) {
-      alert('Please enter a 4-digit Visit OTP');
+      alert('Please enter the 4-digit Visit OTP provided by the Landlord at the property.');
       return;
     }
     setIsVerifyingVisit(true);
@@ -234,7 +243,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId: booking.id,
-          otp: visitOtpInput || booking.visitOtp || '8412',
+          otp: visitOtpInput || booking.visitOtp,
           decision,
           feedback: rejectFeedback || undefined,
         }),
@@ -311,7 +320,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         setShowEmergencyCancel(false);
         setActionBanner({
           type: 'info',
-          title: '🚑 1-Click Emergency Waiver Approved — 100% Refund (₹399)',
+          title: '🚑 Emergency Waiver Approved — 100% Refund (₹399)',
           message: data.message,
         });
       } else {
@@ -324,6 +333,18 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   };
 
   const handlePayEscrowBalance = async () => {
+    if (!escrowUtr || escrowUtr.length < 12) {
+      alert(
+        `Please enter your 12-digit UPI Reference / UTR Number after paying ₹${remainingEscrowBalanceINR.toLocaleString(
+          'en-IN'
+        )} to ${UPI_ID}.`
+      );
+      return;
+    }
+    if (!escrowTermsAccepted) {
+      alert('Please accept the UniNest Escrow Custody Terms before locking your rent.');
+      return;
+    }
     setIsPayingEscrow(true);
     try {
       const res = await fetch('/api/booking/pay-escrow', {
@@ -332,8 +353,8 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         body: JSON.stringify({
           bookingId: booking.id,
           agreedMoveInDate: agreedMoveInInput,
-          utr: escrowUtr || `ESC-${Date.now().toString().slice(-8)}`,
-          paymentMethod: escrowPayMethod,
+          utr: escrowUtr,
+          paymentMethod: 'DIRECT_UPI_ESCROW',
         }),
       });
       const data = await res.json();
@@ -361,7 +382,109 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
     }
   };
 
+  const handleSignTripartiteLease = async () => {
+    if (!signerName.trim()) {
+      alert('Please enter your full legal name as it appears on your Aadhaar Card.');
+      return;
+    }
+    if (!aadhaarLast4 || aadhaarLast4.length !== 4) {
+      alert('Please enter the last 4 digits of your Aadhaar number for KYC attestation.');
+      return;
+    }
+    if (!leaseConsentChecked) {
+      alert('Please check the statutory consent box to execute the 11-Month Tripartite Leave & License Agreement.');
+      return;
+    }
+
+    setIsSigningLease(true);
+    try {
+      const res = await fetch('/api/booking/sign-agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking.id,
+          signerName,
+          aadhaarLast4,
+        }),
+      });
+      const data = await res.json();
+      setIsSigningLease(false);
+      if (data.success) {
+        setBooking((prev: any) => ({
+          ...prev,
+          ...(data.booking || {}),
+          agreement: {
+            id: data.agreementRef,
+            status: 'SIGNED',
+            signedAt: data.signedAt,
+          },
+        }));
+
+        // Also store in localStorage documents vault so it appears in /student/documents
+        const leaseDoc: DocumentPDFData = {
+          id: `doc-lease-${Date.now()}`,
+          title: `11-Month Tripartite Leave & License Agreement (${property.name})`,
+          category: 'AGREEMENT',
+          referenceNo: data.agreementRef,
+          issueDate: new Date().toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+          fileSize: '1.4 MB',
+          status: 'SIGNED',
+          issuer: `${landlordUser.name || 'Vikram Singh'} & ${signerName} (Escrow: UniNest Housing)`,
+          tenantName: signerName,
+          roomDetails: `${property.name} — Room ${room.roomNumber || '204'}, Bed ${bed.label || 'A'}`,
+        };
+        try {
+          const stored = localStorage.getItem('uninest_documents_store');
+          const arr = stored ? JSON.parse(stored) : [];
+          arr.unshift(leaseDoc);
+          localStorage.setItem('uninest_documents_store', JSON.stringify(arr));
+        } catch (err) {
+          // Ignore storage error
+        }
+
+        setActionBanner({
+          type: 'success',
+          title: `✍️ Tripartite Leave & License Agreement Signed (${data.agreementRef})`,
+          message: data.message,
+        });
+      } else {
+        alert(data.error || 'Failed to sign lease');
+      }
+    } catch (e) {
+      setIsSigningLease(false);
+      alert('Error signing lease');
+    }
+  };
+
+  const handleDownloadSignedLease = () => {
+    const leaseDoc: DocumentPDFData = {
+      id: agreement?.id || 'UN-LLA-2026',
+      title: `11-Month Tripartite Leave & License Agreement (${property.name})`,
+      category: 'AGREEMENT',
+      referenceNo: agreement?.id || 'UN-LLA-2026-8801',
+      issueDate: new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      fileSize: '1.4 MB',
+      status: 'SIGNED',
+      issuer: `${landlordUser.name || 'Vikram Singh'} & ${booking?.user?.name || 'Rahul Sharma'}`,
+      tenantName: booking?.user?.name || 'Rahul Sharma',
+      roomDetails: `${property.name} — Room ${room.roomNumber || '204'}, Bed ${bed.label || 'A'}`,
+    };
+    downloadDocumentPDF(leaseDoc);
+  };
+
   const handleGenerateMoveInKey = async () => {
+    if (!isLeaseSigned) {
+      alert('Please digitally sign your 11-Month Tripartite Leave & License Agreement before generating your Move-In Key.');
+      return;
+    }
     setIsGeneratingMoveInKey(true);
     try {
       const res = await fetch('/api/booking/movein-otp', {
@@ -399,10 +522,12 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       moveInKey ||
       (booking?.moveInOtp
         ? `${booking.moveInOtp.slice(0, 3)}-${booking.moveInOtp.slice(3)}`
-        : '792-410');
-    navigator.clipboard.writeText(keyToCopy);
-    setCopiedMoveInKey(true);
-    setTimeout(() => setCopiedMoveInKey(false), 2000);
+        : '');
+    if (keyToCopy) {
+      navigator.clipboard.writeText(keyToCopy);
+      setCopiedMoveInKey(true);
+      setTimeout(() => setCopiedMoveInKey(false), 2000);
+    }
   };
 
   const handleDelayMoveIn = async () => {
@@ -411,7 +536,11 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       const res = await fetch('/api/booking/delay-movein', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id, delayDays, reason: delayReason }),
+        body: JSON.stringify({
+          bookingId: booking.id,
+          delayDays,
+          reason: delayReason || 'Travel schedule adjustment',
+        }),
       });
       const data = await res.json();
       setIsSubmittingDelay(false);
@@ -425,7 +554,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         setShowDelayForm(false);
         setActionBanner({
           type: 'warning',
-          title: '⏰ Late Arrival Declared — ₹0 Penalty (Room Held Safe)',
+          title: '⏰ Late Arrival Registered — ₹0 Penalty (Room Held Safe)',
           message: data.message,
         });
       } else {
@@ -437,7 +566,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
     }
   };
 
-  const handleCancelBooking = async (mode: 'STANDARD' | 'ADVANCE_TIERED' = 'STANDARD') => {
+  const handleCancelBooking = async () => {
     setIsCancelling(true);
     try {
       const res = await fetch('/api/booking/cancel', {
@@ -446,9 +575,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         body: JSON.stringify({
           bookingId: booking.id,
           reason: cancelReason || 'Student initiated cancellation',
-          mode,
-          simulatedDaysUntilMoveIn:
-            isAdvanceBooking || mode === 'ADVANCE_TIERED' ? simulatedAdvanceDays : undefined,
+          mode: isAdvanceBooking ? 'ADVANCE_TIERED' : 'STANDARD',
         }),
       });
       const data = await res.json();
@@ -471,34 +598,6 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
     } catch (e) {
       setIsCancelling(false);
       alert('Cancellation failed');
-    }
-  };
-
-  const handleSimulateDay7Ghosting = async () => {
-    setIsSimulatingGhost(true);
-    try {
-      const res = await fetch('/api/booking/grace-expire', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: booking.id }),
-      });
-      const data = await res.json();
-      setIsSimulatingGhost(false);
-      if (data.success) {
-        setBooking((prev: any) => ({
-          ...prev,
-          ...(data.booking || {}),
-          status: 'EXPIRED',
-          handshakeStatus: 'AUTO_RELEASED_GRACE',
-        }));
-        setActionBanner({
-          type: 'warning',
-          title: '⚖️ Day 7 Grace Protocol Auto-Split Executed (₹2,800 Landlord / ₹3,200 Student)',
-          message: data.message,
-        });
-      }
-    } catch (e) {
-      setIsSimulatingGhost(false);
     }
   };
 
@@ -646,6 +745,14 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
           <span>Back to All Bookings</span>
         </Link>
         <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/legal?doc=escrow"
+            target="_blank"
+            className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors"
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Legal &amp; Escrow Policy</span>
+          </Link>
           <span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
             REF: {booking.referenceNo || booking.id}
           </span>
@@ -768,7 +875,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
         <div className="flex items-center justify-between">
           <h2 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-indigo-600" />
-            <span>Dual-Stage OTP Escrow Lifecycle</span>
+            <span>Dual-Stage OTP Escrow &amp; Legal Lifecycle</span>
           </h2>
           <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
             Milestone {TIMELINE_STEPS.filter((s) => s.isDone).length} of {TIMELINE_STEPS.length}
@@ -816,7 +923,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   Stage 1: Physical Visit Proof Handshake (4-Digit OTP)
                 </h2>
                 <p className="text-xs text-slate-600">
-                  Bed locked as <strong className="text-emerald-700">RESERVED for 72 Hours</strong>. Arrive at the PG and enter the Landlord&apos;s 4-Digit Visit PIN.
+                  Bed locked as <strong className="text-emerald-700">RESERVED for 72 Hours</strong>. Visit the PG in person and collect the 4-digit Visit OTP from Landlord {landlordUser.name || 'Vikram Singh'}.
                 </p>
               </div>
             </div>
@@ -827,32 +934,11 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
 
           {!visitVerified && !booking.visitVerifiedAt ? (
             <div className="space-y-4">
-              {/* Helpful Demo OTP Hint Banner */}
-              <div className="bg-slate-900 text-white rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>
-                    <strong>How Stage 1 works:</strong> Landlord generates a 4-digit PIN on their dashboard when you arrive. (Active PIN for this booking:{' '}
-                    <code className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono font-extrabold">
-                      {booking.visitOtp || '8412'}
-                    </code>
-                    )
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setVisitOtpInput(booking.visitOtp || '8412')}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] shrink-0 transition-colors"
-                >
-                  Auto-Fill PIN ({booking.visitOtp || '8412'})
-                </button>
-              </div>
-
               {/* 4-Digit OTP Input + Verify Button */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
                 <div className="flex-1">
                   <label className="text-xs font-extrabold text-slate-700 block mb-1.5">
-                    Enter 4-Digit Visit OTP Shared by Landlord ({landlordUser.name || 'Vikram Singh'}):
+                    Enter 4-Digit Visit OTP Collected from Landlord at Property Reception:
                   </label>
                   <input
                     type="text"
@@ -860,7 +946,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                     value={visitOtpInput}
                     onChange={(e) => setVisitOtpInput(e.target.value.replace(/[^0-9]/g, ''))}
                     className="w-full bg-white border-2 border-emerald-300 rounded-xl px-4 py-3 text-2xl font-mono font-black text-center text-emerald-950 tracking-[0.5em] placeholder:text-slate-300 focus:border-emerald-600 focus:outline-none"
-                    placeholder="8 4 1 2"
+                    placeholder="• • • •"
                   />
                 </div>
                 <button
@@ -885,10 +971,10 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   className="text-rose-600 hover:text-rose-700 font-extrabold flex items-center gap-1.5 transition-colors"
                 >
                   <AlertCircle className="w-4 h-4" />
-                  <span>Cannot visit due to Medical / Family Emergency? Trigger 1-Click Emergency Waiver (100% Refund)</span>
+                  <span>Cannot visit due to Medical / Family Emergency? File Emergency Waiver (100% Refund)</span>
                 </button>
                 <span className="text-[11px] font-semibold text-slate-500">
-                  No-Show after 72h splits ₹399 (₹200 Landlord / ₹199 Platform)
+                  Unexplained 72h No-Show splits ₹399 (₹200 Landlord / ₹199 Platform)
                 </span>
               </div>
 
@@ -898,7 +984,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-extrabold text-rose-950 flex items-center gap-1.5">
                       <AlertTriangle className="w-4 h-4 text-rose-600" />
-                      1-Click Emergency Waiver (100% ₹399 Refund Within 2 Hours — No Visit Needed)
+                      Compassionate Emergency Waiver (100% ₹399 Refund Within 2 Hours — No Visit Needed)
                     </h4>
                     <span className="text-[10px] font-bold bg-white text-rose-700 px-2 py-0.5 rounded border border-rose-200">
                       {Math.max(0, 2 - (booking.emergencyWaiverCount || 0))}/2 Waivers Left
@@ -942,7 +1028,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                       ) : (
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       )}
-                      <span>Approve Emergency Waiver & Refund ₹399</span>
+                      <span>Submit Emergency Waiver &amp; Claim ₹399 Refund</span>
                     </button>
                   </div>
                 </div>
@@ -959,7 +1045,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                       Physical Visit Verified via 4-Digit Handshake OTP!
                     </h4>
                     <p className="text-xs text-emerald-800 mt-0.5">
-                      You have inspected {property.name}. Now choose whether to lock the room or get an instant 100% refund.
+                      You have inspected {property.name}. Choose whether to proceed with this room or receive an instant 100% refund.
                     </p>
                   </div>
                 </div>
@@ -996,7 +1082,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                         </span>
                       </div>
                       <p className="text-xs text-emerald-800">
-                        Apply your <strong>₹{tokenPaidINR} token as 1st Month Rent Credit</strong>. You only pay the remaining{' '}
+                        Apply your <strong>₹{tokenPaidINR} token as 1st Month Rent Credit</strong>. You only deposit the remaining{' '}
                         <strong>₹{remainingEscrowBalanceINR.toLocaleString('en-IN')}</strong> into UniNest Escrow!
                       </p>
                     </button>
@@ -1017,7 +1103,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                         </span>
                       </div>
                       <p className="text-xs text-slate-600">
-                        Get an <strong>instant 100% UPI refund of ₹399</strong>. Bed is released back to AVAILABLE immediately. (Up to 3 free visits/season)
+                        Receive an <strong>instant 100% UPI refund of ₹399</strong>. Bed is released back to AVAILABLE immediately. (Up to 3 free visits/semester)
                       </p>
                     </button>
                   </div>
@@ -1039,7 +1125,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                         onClick={() => handlePostVisitDecision('REJECTED')}
                         className="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold"
                       >
-                        Submit Feedback & Claim ₹399 Refund
+                        Submit Feedback &amp; Claim ₹399 Refund
                       </button>
                     </div>
                   )}
@@ -1051,7 +1137,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════════════
-          ESCROW RENT DEPOSIT VAULT (Pay Remaining ₹5,601 or 85% ₹5,100 into Escrow)
+          ESCROW RENT DEPOSIT VAULT (Pay Remaining ₹5,601 or 85% ₹5,100 via Real UPI)
       ═══════════════════════════════════════════════════════════════════════════ */}
       {!['CANCELLED', 'EXPIRED', 'ACTIVE'].includes(booking.status) &&
         (booking.postVisitDecision === 'ACCEPTED' || isAdvanceBooking) &&
@@ -1098,75 +1184,54 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </div>
             </div>
 
-            {/* Official Move-In Date Selection + Payment Method */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
-              <div className="space-y-2">
-                <label className="text-xs font-extrabold text-slate-800 block">
-                  Specify Official Scheduled Move-In Date:
-                </label>
-                <input
-                  type="date"
-                  value={agreedMoveInInput}
-                  onChange={(e) => setAgreedMoveInInput(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
-                />
-                <p className="text-[11px] text-slate-500">
-                  Your 7-Day Automated Grace Window starts on this Move-In Date at 12:00 PM.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEscrowPayMethod('instant_demo')}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border ${
-                      escrowPayMethod === 'instant_demo'
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    ⚡ Instant Escrow Lock
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEscrowPayMethod('upi_qr')}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border ${
-                      escrowPayMethod === 'upi_qr'
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-white text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    📱 Direct UPI QR ({UPI_ID})
-                  </button>
+            {/* Official Move-In Date Selection + Real Direct UPI QR Checkout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-center bg-slate-50 p-5 rounded-2xl border border-slate-200">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-extrabold text-slate-800 block mb-1">
+                    1. Specify Official Scheduled Move-In Date:
+                  </label>
+                  <input
+                    type="date"
+                    value={agreedMoveInInput}
+                    onChange={(e) => setAgreedMoveInInput(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-900"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Your 7-Day Automated Grace Window starts on this Move-In Date at 12:00 PM.
+                  </p>
                 </div>
 
-                {escrowPayMethod === 'upi_qr' && (
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={escrowQrUrl} alt="Escrow UPI QR" className="w-20 h-20 rounded-lg border" />
-                    <div className="space-y-1.5 flex-1 text-[11px]">
-                      <div className="font-bold text-slate-900">
-                        Pay ₹{remainingEscrowBalanceINR.toLocaleString('en-IN')} to {PAYEE_NAME}
-                      </div>
-                      <a
-                        href={escrowUpiUri}
-                        className="inline-flex items-center gap-1 text-emerald-700 font-extrabold underline"
-                      >
-                        <span>Open UPI App</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                      <input
-                        type="text"
-                        maxLength={12}
-                        value={escrowUtr}
-                        onChange={(e) => setEscrowUtr(e.target.value)}
-                        placeholder="Optional 12-digit UTR..."
-                        className="w-full border border-slate-200 rounded px-2 py-1 text-[11px] font-mono"
-                      />
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="text-xs font-extrabold text-slate-800 block mb-1">
+                    2. Enter 12-Digit UPI Reference / UTR Number <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={12}
+                    value={escrowUtr}
+                    onChange={(e) => setEscrowUtr(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="12-digit UTR from GPay / PhonePe / Paytm..."
+                    className="w-full bg-white border-2 border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-900 focus:border-indigo-600 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="escrowDepositConsent"
+                    checked={escrowTermsAccepted}
+                    onChange={(e) => setEscrowTermsAccepted(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-indigo-600"
+                  />
+                  <label htmlFor="escrowDepositConsent" className="text-[11px] text-slate-600 leading-snug">
+                    I authorize <strong>{PAYEE_NAME}</strong> (`{UPI_ID}`) to hold ₹6,000 in Escrow under the{' '}
+                    <Link href="/legal?doc=escrow" target="_blank" className="text-indigo-700 font-bold underline">
+                      Master Escrow Policy
+                    </Link>
+                    .
+                  </label>
+                </div>
 
                 <button
                   type="button"
@@ -1180,11 +1245,162 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                     <Lock className="w-4 h-4" />
                   )}
                   <span>
-                    Pay ₹{remainingEscrowBalanceINR.toLocaleString('en-IN')} Balance → Lock Full ₹6,000 in Escrow Vault
+                    Verify UTR &amp; Lock ₹{remainingEscrowBalanceINR.toLocaleString('en-IN')} in Escrow Vault
                   </span>
                 </button>
               </div>
+
+              {/* Direct NPCI UPI QR Card */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
+                <div className="text-xs font-extrabold text-slate-900">
+                  Scan to Pay ₹{remainingEscrowBalanceINR.toLocaleString('en-IN')}.00 via UPI
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={escrowQrUrl}
+                  alt="UniNest Escrow UPI QR"
+                  className="w-36 h-36 mx-auto rounded-xl border border-slate-100"
+                />
+                <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs">
+                  <span className="font-mono font-semibold text-slate-800 text-[11px]">{UPI_ID}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(UPI_ID);
+                      setCopiedUpi(true);
+                      setTimeout(() => setCopiedUpi(false), 2000);
+                    }}
+                    className="text-indigo-700 font-bold text-[11px] flex items-center gap-1"
+                  >
+                    {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <a
+                  href={escrowUpiUri}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Open UPI App on Mobile</span>
+                  <ExternalLink className="w-3 h-3 text-emerald-400" />
+                </a>
+              </div>
             </div>
+          </Card>
+        )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════════
+          LEGAL STEP: 11-MONTH TRIPARTITE LEAVE & LICENSE DIGITAL AGREEMENT E-SIGN
+      ═══════════════════════════════════════════════════════════════════════════ */}
+      {!['CANCELLED', 'EXPIRED'].includes(booking.status) &&
+        (isEscrowFunded || ['CONFIRMED', 'MOVE_IN_READY', 'ACTIVE'].includes(booking.status)) && (
+          <Card className="p-6 border-2 border-slate-300 bg-white space-y-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center">
+                  <FileCheck2 className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="font-extrabold text-base text-slate-900">
+                    11-Month Tripartite Leave &amp; License Agreement (Section 10A, IT Act 2000)
+                  </h2>
+                  <p className="text-xs text-slate-600">
+                    Legally binding tripartite deed between Landlord ({landlordUser.name || 'Vikram Singh'}), Student Tenant, and UniNest Housing Escrow.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/legal?doc=lease"
+                  target="_blank"
+                  className="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1"
+                >
+                  <span>Read Full Deed</span>
+                  <ExternalLink className="w-3 h-3" />
+                </Link>
+                <Badge variant={isLeaseSigned ? 'success' : 'warning'}>
+                  {isLeaseSigned ? '✓ Digitally Signed & Sealed' : 'Signature Required'}
+                </Badge>
+              </div>
+            </div>
+
+            {!isLeaseSigned ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-extrabold text-slate-800 block mb-1">
+                      Full Legal Name (As on Aadhaar Card) <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={signerName}
+                      onChange={(e) => setSignerName(e.target.value)}
+                      placeholder="Enter your full legal name..."
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-extrabold text-slate-800 block mb-1">
+                      Last 4 Digits of Aadhaar (KYC Attestation) <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={aadhaarLast4}
+                      onChange={(e) => setAadhaarLast4(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="e.g. 4821"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 font-mono font-bold text-slate-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    id="leaseSignConsent"
+                    checked={leaseConsentChecked}
+                    onChange={(e) => setLeaseConsentChecked(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-emerald-600"
+                  />
+                  <label htmlFor="leaseSignConsent" className="text-slate-700 leading-snug cursor-pointer">
+                    I hereby execute this <strong>11-Month Tripartite Leave &amp; License Agreement</strong> under Section 52 of the Indian Easements Act, 1882 and Section 10A of the Information Technology Act, 2000, and consent to statutory <strong>Punjab Police Form-11</strong> tenant verification.
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSignTripartiteLease}
+                  disabled={isSigningLease}
+                  className="py-3 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center gap-2 shadow-md"
+                >
+                  {isSigningLease ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileCheck2 className="w-4 h-4 text-emerald-400" />
+                  )}
+                  <span>Digitally Sign &amp; Seal 11-Month Tripartite Lease</span>
+                </button>
+              </div>
+            ) : (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="space-y-0.5">
+                  <div className="font-extrabold text-emerald-950">
+                    ✓ Executed under Section 10A, IT Act 2000 • Ref: {agreement?.id || 'UN-LLA-2026-8801'}
+                  </div>
+                  <p className="text-emerald-800">
+                    Signed copy archived in your Student Documents Vault. You may now generate and share your Stage 2 Move-In Key.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadSignedLease}
+                  className="py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-1.5 shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Signed Lease PDF</span>
+                </button>
+              </div>
+            )}
           </Card>
         )}
 
@@ -1201,7 +1417,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                 </div>
                 <div>
                   <h2 className="font-extrabold text-base text-slate-900">
-                    Stage 2: Move-In Key Handshake & ₹6,000 Escrow Vault Release
+                    Stage 2: Move-In Key Handshake &amp; ₹6,000 Escrow Vault Release
                   </h2>
                   <p className="text-xs text-slate-600">
                     ₹6,000 is locked safely in UniNest Escrow. Share your 6-digit Move-In Key with the landlord <strong>only after</strong> inspecting your room and receiving physical keys.
@@ -1224,21 +1440,19 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                 ) : (
                   <KeyRound className="w-5 h-5" />
                 )}
-                <span>Generate 6-Digit Move-In Handshake Key</span>
+                <span>Generate My 6-Digit Move-In Handshake Key</span>
               </button>
             ) : (
               <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-center text-white space-y-3 shadow-lg">
                 <div className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">
-                  Stage 2 Handshake PIN • Share With Landlord Upon Check-In
+                  Stage 2 Handshake PIN • Share With Landlord Upon Physical Check-In
                 </div>
                 <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-emerald-400">
                   {moveInKey ||
-                    `${(booking.moveInOtp || '792410').slice(0, 3)}-${(
-                      booking.moveInOtp || '792410'
-                    ).slice(3)}`}
+                    `${(booking.moveInOtp || '').slice(0, 3)}-${(booking.moveInOtp || '').slice(3)}`}
                 </div>
                 <p className="text-xs text-slate-300 max-w-md mx-auto">
-                  When Landlord {landlordUser.name || 'Vikram Singh'} enters this 6-digit PIN in the Landlord Portal, UniNest Escrow immediately releases <strong>₹6,000</strong> to their bank account and activates your Digital Lease.
+                  When Landlord {landlordUser.name || 'Vikram Singh'} enters this 6-digit PIN in the Landlord Portal, UniNest Escrow immediately releases <strong>₹6,000</strong> to their bank account and activates your stay.
                 </p>
                 <div className="flex items-center justify-center gap-3 pt-1">
                   <button
@@ -1272,7 +1486,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                   <Timer className="w-4 h-4 text-indigo-600" />
-                  7-Day Automated Grace Window & Anti-Ghosting Protection
+                  7-Day Automated Grace Window &amp; Statutory Pro-Rata Protection
                 </h4>
                 <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
                   Scheduled Move-In: {moveInDateStr}
@@ -1282,10 +1496,10 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-[11px]">
                 <div className="bg-white p-3 rounded-xl border border-slate-200">
                   <span className="font-extrabold text-indigo-700 block">Day 1 (Move-In + 24h)</span>
-                  <span className="text-slate-600">Automated SMS & App Check-In Verification</span>
+                  <span className="text-slate-600">Automated SMS &amp; App Check-In Verification</span>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-slate-200">
-                  <span className="font-extrabold text-amber-700 block">Day 3 & Day 5</span>
+                  <span className="font-extrabold text-amber-700 block">Day 3 &amp; Day 5</span>
                   <span className="text-slate-600">UniNest Support Outbound Phone Calls</span>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-slate-200">
@@ -1293,7 +1507,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   <span className="text-slate-600">₹0 Penalty! Room held safe for full paid month</span>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-rose-200">
-                  <span className="font-extrabold text-rose-700 block">Day 7 Total Ghosting</span>
+                  <span className="font-extrabold text-rose-700 block">Day 7 Unreachable</span>
                   <span className="text-slate-600">
                     <strong>₹2,800</strong> (14d Pro-Rata) to Landlord • <strong>₹3,200</strong> Refunded to You
                   </span>
@@ -1301,8 +1515,8 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </div>
             </div>
 
-            {/* Stage 2 Edge-Case Action Bar: Arriving Late | Discrepancy Dispute | Tiered Cancel | Simulate Day 7 Ghosting */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+            {/* Stage 2 Production Action Bar: Arriving Late | Room Discrepancy Freeze | Cancel Reservation */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -1310,10 +1524,10 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   setShowDisputeModal(false);
                   setShowCancelConfirm(false);
                 }}
-                className="py-3 px-3.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
+                className="py-3 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
               >
                 <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Arriving Late (₹0 Fee)</span>
+                <span>Declare Late Arrival (₹0 Fee)</span>
               </button>
 
               <button
@@ -1323,10 +1537,10 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   setShowDelayForm(false);
                   setShowCancelConfirm(false);
                 }}
-                className="py-3 px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
+                className="py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
               >
                 <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>Room Discrepancy Freeze</span>
+                <span>Report Room Discrepancy (Freeze Escrow)</span>
               </button>
 
               <button
@@ -1336,24 +1550,10 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   setShowDelayForm(false);
                   setShowDisputeModal(false);
                 }}
-                className="py-3 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
+                className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
               >
                 <XCircle className="w-4 h-4 text-slate-600 shrink-0" />
-                <span>Tiered Cancellation</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSimulateDay7Ghosting}
-                disabled={isSimulatingGhost}
-                className="py-3 px-3.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all"
-              >
-                {isSimulatingGhost ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Scale className="w-4 h-4 text-indigo-600 shrink-0" />
-                )}
-                <span>Test Day 7 Ghost Split</span>
+                <span>Cancel Reservation</span>
               </button>
             </div>
 
@@ -1362,7 +1562,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 space-y-3">
                 <h4 className="text-xs font-extrabold text-amber-950 flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-amber-600" />
-                  1-Click Late Arrival Declaration (Pauses 7-Day Ghosting Timer — ₹0 Deduction)
+                  Late Arrival Declaration (Pauses 7-Day Unreachable Timer — ₹0 Deduction)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -1409,7 +1609,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                     className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold flex items-center gap-1.5"
                   >
                     {isSubmittingDelay && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Notify Landlord & Hold My Bed Safe</span>
+                    <span>Notify Landlord &amp; Hold My Bed Safe</span>
                   </button>
                 </div>
               </div>
@@ -1428,7 +1628,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   </span>
                 </div>
                 <p className="text-[11px] text-rose-800">
-                  If the room has fake photos, no AC when listed with AC, broken washroom, or wrong sharing count, UniNest freezes 100% of your Escrow, pays ₹0 to the landlord, and issues a full refund.
+                  If the room has misleading photos, no AC when listed with AC, broken washroom, or wrong sharing count, UniNest freezes 100% of your Escrow, pays ₹0 to the landlord, and issues a full refund.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -1443,8 +1643,8 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                       <option value="Room has no AC (Listed as AC Room)">
                         Room has no AC (Listed as AC Room)
                       </option>
-                      <option value="Fake / Misleading Photos — Dirty or Uninhabitable">
-                        Fake / Misleading Photos — Dirty or Uninhabitable
+                      <option value="Misleading Photos — Dirty or Uninhabitable">
+                        Misleading Photos — Dirty or Uninhabitable
                       </option>
                       <option value="Wrong Sharing Count (Crowded Room)">
                         Wrong Sharing Count (Crowded Room)
@@ -1462,7 +1662,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                       type="text"
                       value={discrepancyDesc}
                       onChange={(e) => setDiscrepancyDesc(e.target.value)}
-                      placeholder="Describe what didn't match the listing..."
+                      placeholder="Describe what didn't match the verified listing..."
                       className="w-full bg-white border border-rose-300 rounded-xl p-2.5 text-xs text-slate-900"
                     />
                   </div>
@@ -1482,62 +1682,27 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                     className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center gap-1.5"
                   >
                     {isFreezingEscrow && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Freeze 100% Escrow & Claim Full ₹6,000 Refund</span>
+                    <span>Freeze 100% Escrow &amp; Claim Full ₹6,000 Refund</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* 3. TIERED ADVANCE CANCELLATION FORM */}
+            {/* 3. CANCELLATION CONFIRMATION FORM */}
             {showCancelConfirm && (
               <div className="bg-slate-100 border border-slate-300 rounded-2xl p-4 space-y-3">
                 <h4 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  Tiered Advance Reservation Cancellation (15–45 Days Policy)
+                  Confirm Reservation Cancellation (Governed by UniNest Tiered Refund Schedule)
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setSimulatedAdvanceDays(35)}
-                    className={`p-2.5 rounded-xl border text-left ${
-                      simulatedAdvanceDays > 30
-                        ? 'bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <div className="font-extrabold text-emerald-800">&gt;30 Days Remaining</div>
-                    <div className="text-[11px] text-slate-600">85% Refund to Student • 15% Buffer</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSimulatedAdvanceDays(20)}
-                    className={`p-2.5 rounded-xl border text-left ${
-                      simulatedAdvanceDays >= 15 && simulatedAdvanceDays <= 30
-                        ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <div className="font-extrabold text-amber-800">15–30 Days Remaining</div>
-                    <div className="text-[11px] text-slate-600">50% Refund • 50% to Landlord</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSimulatedAdvanceDays(4)}
-                    className={`p-2.5 rounded-xl border text-left ${
-                      simulatedAdvanceDays < 7
-                        ? 'bg-rose-50 border-rose-500 ring-1 ring-rose-500'
-                        : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <div className="font-extrabold text-rose-800">&lt;7 Days (Last Minute)</div>
-                    <div className="text-[11px] text-slate-600">0% Refund • 100% Token to Landlord</div>
-                  </button>
-                </div>
+                <p className="text-[11px] text-slate-600">
+                  Advance cancellations are refunded based on notice period (&gt;30 days: 85% refund, 15–30 days: 50% refund, &lt;7 days: 0% refund).
+                </p>
                 <input
                   type="text"
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="Optional reason for cancellation..."
+                  placeholder="Enter reason for cancellation..."
                   className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs"
                 />
                 <div className="flex justify-end gap-2">
@@ -1550,12 +1715,12 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleCancelBooking('ADVANCE_TIERED')}
+                    onClick={handleCancelBooking}
                     disabled={isCancelling}
                     className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold flex items-center gap-1.5"
                   >
                     {isCancelling && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Execute Tiered Cancellation ({simulatedAdvanceDays}d Before Move-In)</span>
+                    <span>Confirm Cancellation</span>
                   </button>
                 </div>
               </div>
@@ -1568,18 +1733,28 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       ═══════════════════════════════════════════════════════════════════════════ */}
       {booking.status === 'ACTIVE' && (
         <Card className="p-6 border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-white space-y-4 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg">
-              <Home className="w-6 h-6" />
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg">
+                <Home className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="font-extrabold text-lg text-emerald-950">
+                  🎉 Stage 2 Complete — Tenancy Active &amp; Digital Lease Issued!
+                </h2>
+                <p className="text-xs text-emerald-800">
+                  Your 6-digit Move-In Key was verified by the landlord. ₹6,000 has been released from UniNest Escrow. Welcome home to {property.name}!
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-extrabold text-lg text-emerald-950">
-                🎉 Stage 2 Complete — Tenancy Active & Digital Lease Issued!
-              </h2>
-              <p className="text-xs text-emerald-800">
-                Your 6-digit Move-In Key was verified by the landlord. ₹6,000 has been released from UniNest Escrow. Welcome home to {property.name}!
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={handleDownloadSignedLease}
+              className="py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download 11-Month Lease PDF</span>
+            </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-white p-3.5 rounded-xl border border-emerald-200 text-center">
@@ -1594,7 +1769,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
             </div>
             <div className="bg-white p-3.5 rounded-xl border border-emerald-200 text-center">
               <div className="text-[11px] font-bold text-emerald-600 uppercase">11-Month Digital Lease</div>
-              <div className="text-sm font-extrabold text-emerald-950">SIGNED & ACTIVE</div>
+              <div className="text-sm font-extrabold text-emerald-950">SIGNED &amp; ACTIVE</div>
             </div>
           </div>
         </Card>
@@ -1643,7 +1818,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
           <Card className="p-6 space-y-4 border-slate-200/80">
             <h2 className="font-extrabold text-base text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
               <BedDouble className="w-5 h-5 text-indigo-600" />
-              <span>Reserved Accommodation & Escrow Ledger</span>
+              <span>Reserved Accommodation &amp; Escrow Ledger</span>
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
@@ -1655,7 +1830,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </div>
               <div className="bg-indigo-50/70 p-4 rounded-2xl border border-indigo-100 space-y-1">
                 <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider block">
-                  Assigned Bed & Room
+                  Assigned Bed &amp; Room
                 </span>
                 <span className="font-extrabold text-indigo-950 text-sm">
                   Room {room.roomNumber || '204'} (Bed {bed.label || bed.bedNumber || 'A'})
@@ -1666,7 +1841,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </div>
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-1">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Monthly Rent & Deposit
+                  Monthly Rent &amp; Deposit
                 </span>
                 <span className="font-extrabold text-slate-900 text-sm">
                   {formatINR(room.rent || 600000)} / month
@@ -1677,7 +1852,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </div>
               <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-100 space-y-1">
                 <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">
-                  Escrow & Handshake Status
+                  Escrow &amp; Handshake Status
                 </span>
                 <span className="font-extrabold text-emerald-950 text-sm flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1704,7 +1879,7 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
                 <Unlock className="w-5 h-5 text-emerald-600" />
-                <span>Exact Property Location & Directions</span>
+                <span>Exact Property Location &amp; Directions</span>
               </h2>
               <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                 Unlocked via Escrow Token
