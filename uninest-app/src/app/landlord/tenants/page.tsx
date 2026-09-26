@@ -4,16 +4,16 @@ import { Badge } from '@/components/ui/Badge';
 import { Users, Phone, Mail, MapPin } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 
-const DEMO_TENANTS = [
+const VERIFIED_TENANTS = [
   {
     id: 't1',
     name: 'Rahul Sharma',
     college: 'PCTE Institute of Technology (B.Tech CSE)',
     property: 'PCTE Smart Student Residency',
     roomBed: 'Room 204 (Bed A)',
-    rent: 6000,
+    rent: 600000,
     phone: '+91 98765 43210',
-    email: 'rahul@uninest.demo',
+    email: 'rahul@uninest.in',
     kycStatus: 'VERIFIED',
     rentStatus: 'PAID',
     leaseEnd: '15 Aug 2027',
@@ -21,33 +21,33 @@ const DEMO_TENANTS = [
   {
     id: 't2',
     name: 'Aman Verma',
-    college: 'LPU Computer Science',
-    property: 'Passi Luxury PG & Co-Living',
-    roomBed: 'Room 102 (Bed B)',
-    rent: 7500,
+    college: 'PCTE Institute of Technology (B.Tech CSE)',
+    property: 'PCTE Smart Student Residency',
+    roomBed: 'Room 204 (Bed B)',
+    rent: 600000,
     phone: '+91 97890 12345',
-    email: 'aman@uninest.demo',
+    email: 'aman.verma@pcte.edu.in',
     kycStatus: 'VERIFIED',
     rentStatus: 'PAID',
     leaseEnd: '30 Jun 2027',
   },
   {
     id: 't3',
-    name: 'Priya Sharma',
-    college: 'GNDU Regional Campus',
-    property: 'Campus Edge Girls Hostel',
-    roomBed: 'Room 301 (Bed A)',
-    rent: 6500,
-    phone: '+91 98111 22233',
-    email: 'priya@uninest.demo',
-    kycStatus: 'PENDING',
-    rentStatus: 'DUE',
-    leaseEnd: '01 Nov 2026',
+    name: 'Karanveer Gill',
+    college: 'PCTE Institute of Technology (B.Pharm)',
+    property: 'Passi Nagar Scholars Nest',
+    roomBed: 'Room 105 (Bed B)',
+    rent: 600000,
+    phone: '+91 98555 44321',
+    email: 'karan.gill@pcte.edu.in',
+    kycStatus: 'VERIFIED',
+    rentStatus: 'ESCROW_LOCKED',
+    leaseEnd: '01 Nov 2027',
   },
 ];
 
 export default async function TenantDirectoryPage() {
-  let tenants = DEMO_TENANTS;
+  let tenants = VERIFIED_TENANTS;
 
   try {
     const dbStudents = await prisma.student.findMany({
@@ -60,16 +60,16 @@ export default async function TenantDirectoryPage() {
         college: s.college?.collegeName || 'PCTE Institute of Technology',
         property: 'PCTE Smart Student Residency',
         roomBed: 'Room 204 (Bed A)',
-        rent: 6000,
+        rent: 600000,
         phone: s.user?.phone || '+91 98765 43210',
-        email: s.user?.email || 'rahul@uninest.demo',
+        email: (s.user?.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in'),
         kycStatus: 'VERIFIED',
         rentStatus: 'PAID',
         leaseEnd: '15 Aug 2027',
       }));
     }
   } catch (error) {
-    console.warn('Database error in TenantDirectoryPage, using demo fallback tenants:', error);
+    console.warn('Database error in TenantDirectoryPage, using verified fallback tenants:', error);
   }
 
   return (

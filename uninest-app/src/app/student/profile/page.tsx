@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   User, ShieldCheck, Mail, Phone, MapPin, GraduationCap, Calendar,
   CreditCard, BedDouble, CheckCircle2, Sparkles, FileText, Settings,
@@ -11,13 +12,14 @@ import {
 import { Card, Badge, Button } from '@/components/ui/Shared';
 
 export default function StudentProfilePage() {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Profile Form State
+  // Profile Form State (Synchronized with Rahul Sharma / rahul@uninest.in)
   const [name, setName] = useState('Rahul Sharma');
   const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200');
-  const [email, setEmail] = useState('rahul@uninest.demo');
+  const [email, setEmail] = useState('rahul@uninest.in');
   const [phone, setPhone] = useState('+91 98765 43210');
   const [emergencyPhone, setEmergencyPhone] = useState('+91 98123 45678 (Parent - Ramesh Sharma)');
   const [collegeName, setCollegeName] = useState('PCTE Institute of Technology');
@@ -37,7 +39,32 @@ export default function StudentProfilePage() {
   const [food, setFood] = useState('Vegetarian');
   const [smoking, setSmoking] = useState('Non-Smoker');
 
-  // Fixed metadata for demo active stay & KYC
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('uninest_student_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.name) setName(parsed.name);
+        if (parsed.email) setEmail(parsed.email.replace('@uninest.demo', '@uninest.in'));
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.emergencyPhone) setEmergencyPhone(parsed.emergencyPhone);
+        if (parsed.collegeName) setCollegeName(parsed.collegeName);
+        if (parsed.course) setCourse(parsed.course);
+      }
+    } catch {}
+
+    fetch('/api/profile')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.authenticated && data?.user?.role === 'STUDENT') {
+          setName(data.user.name || 'Rahul Sharma');
+          setEmail((data.user.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in'));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Fixed metadata for active stay & KYC
   const currentStay = {
     propertyName: 'PCTE Smart Student Residency',
     address: 'Passi Nagar, Ferozepur Road, Ludhiana',
@@ -46,9 +73,23 @@ export default function StudentProfilePage() {
     status: 'ACTIVE',
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsEditing(false);
+    const cleanEmail = email.replace('@uninest.demo', '@uninest.in');
+    setEmail(cleanEmail);
+    try {
+      localStorage.setItem(
+        'uninest_student_profile',
+        JSON.stringify({ name, email: cleanEmail, phone, emergencyPhone, collegeName, course, year, studentId })
+      );
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: cleanEmail }),
+      });
+      router.refresh();
+    } catch {}
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);

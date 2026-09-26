@@ -173,7 +173,7 @@ function createInitialStore(): GlobalEscrowState {
         user: {
           id: 'usr-student-demo',
           name: 'Rahul Sharma',
-          email: 'rahul@uninest.demo',
+          email: 'rahul@uninest.in',
           phone: '+91 98765 43210',
         },
         property: {
@@ -193,7 +193,7 @@ function createInitialStore(): GlobalEscrowState {
             user: {
               id: 'usr-landlord-demo',
               name: 'Vikram Singh',
-              email: 'landlord@uninest.demo',
+              email: 'landlord@uninest.in',
               phone: '+91 98989 89801',
             },
           },
@@ -266,7 +266,7 @@ function createInitialStore(): GlobalEscrowState {
         user: {
           id: 'usr-student-demo',
           name: 'Rahul Sharma',
-          email: 'rahul@uninest.demo',
+          email: 'rahul@uninest.in',
           phone: '+91 98765 43210',
         },
         property: {
@@ -286,7 +286,7 @@ function createInitialStore(): GlobalEscrowState {
             user: {
               id: 'usr-landlord-demo',
               name: 'Vikram Singh',
-              email: 'landlord@uninest.demo',
+              email: 'landlord@uninest.in',
               phone: '+91 98989 89801',
             },
           },
@@ -325,7 +325,7 @@ function createInitialStore(): GlobalEscrowState {
         visitorCount: 1,
         notes: 'Physical room & AC inspection scheduled.',
         createdAt: now.toISOString(),
-        student: { name: 'Rahul Sharma', email: 'rahul@uninest.demo', phone: '+91 98765 43210' },
+        student: { name: 'Rahul Sharma', email: 'rahul@uninest.in', phone: '+91 98765 43210' },
         property: { name: 'PCTE Smart Student Residency', locality: 'Ferozepur Road', city: 'Ludhiana' },
       },
     ],
@@ -337,6 +337,10 @@ export function getEscrowStore(): GlobalEscrowState {
     globalForEscrow.__UNINEST_ESCROW_STORE__ = createInitialStore();
   }
   return globalForEscrow.__UNINEST_ESCROW_STORE__;
+}
+
+export function getStoreBookings(): EscrowBookingRecord[] {
+  return getEscrowStore().bookings;
 }
 
 export function findStoreBooking(bookingId: string): EscrowBookingRecord | undefined {

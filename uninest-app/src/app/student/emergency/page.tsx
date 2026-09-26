@@ -117,7 +117,7 @@ export default async function EmergencyPage() {
                 Property Landlord / Owner
               </span>
               <p className="text-sm font-extrabold text-slate-900">{propertyName}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Rajesh Kumar (Owner)</p>
+              <p className="text-xs text-slate-500 mt-0.5">Vikram Singh (Owner — Passi Residency)</p>
             </div>
             <a
               href={`tel:${landlordPhone}`}

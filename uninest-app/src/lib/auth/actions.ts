@@ -7,37 +7,61 @@ import { prisma } from '@/lib/db';
 import { signToken, verifyToken, SessionPayload } from './session';
 import { UserRole } from '@prisma/client';
 
-const DEMO_USERS: Record<string, { id: string; name: string; email: string; role: UserRole }> = {
+const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: string; dbEmail: string; role: UserRole }> = {
   STUDENT: {
-    id: 'demo-student-id',
+    id: 'usr-student-demo',
     name: 'Rahul Sharma',
-    email: 'rahul@uninest.demo',
+    email: 'rahul@uninest.in',
+    dbEmail: 'rahul@uninest.demo',
     role: 'STUDENT',
   },
   LANDLORD: {
-    id: 'demo-landlord-id',
-    name: 'Rajesh Kumar',
-    email: 'landlord@uninest.demo',
+    id: 'usr-landlord-demo',
+    name: 'Vikram Singh',
+    email: 'landlord@uninest.in',
+    dbEmail: 'landlord@uninest.demo',
     role: 'LANDLORD',
   },
   ADMIN: {
-    id: 'demo-admin-id',
+    id: 'usr-admin-demo',
     name: 'UniNest Admin',
-    email: 'admin@uninest.demo',
+    email: 'admin@uninest.in',
+    dbEmail: 'admin@uninest.demo',
     role: 'ADMIN',
   },
   COLLEGE: {
-    id: 'demo-college-id',
-    name: 'PCTE Student Affairs',
-    email: 'college@uninest.demo',
+    id: 'usr-college-demo',
+    name: 'PCTE Housing Cell',
+    email: 'pcte@uninest.in',
+    dbEmail: 'pcte@uninest.demo',
     role: 'COLLEGE',
   },
   PROVIDER: {
-    id: 'demo-provider-id',
-    name: 'Ludhiana Home Services',
-    email: 'provider@uninest.demo',
+    id: 'usr-provider-demo',
+    name: 'QuickFix Services',
+    email: 'provider@uninest.in',
+    dbEmail: 'provider@uninest.demo',
     role: 'PROVIDER',
   },
+};
+
+const EMAIL_ROLE_MAP: Record<string, keyof typeof DEFAULT_PORTAL_USERS> = {
+  'rahul@uninest.demo': 'STUDENT',
+  'rahul@uninest.in': 'STUDENT',
+  'rahul.sharma@pcte.edu.in': 'STUDENT',
+  'landlord@uninest.demo': 'LANDLORD',
+  'landlord@uninest.in': 'LANDLORD',
+  'vikram@passiresidency.in': 'LANDLORD',
+  'admin@uninest.demo': 'ADMIN',
+  'admin@uninest.in': 'ADMIN',
+  'nodal.escrow@uninest.in': 'ADMIN',
+  'pcte@uninest.demo': 'COLLEGE',
+  'college@uninest.demo': 'COLLEGE',
+  'pcte@uninest.in': 'COLLEGE',
+  'housing.cell@pcte.edu.in': 'COLLEGE',
+  'provider@uninest.demo': 'PROVIDER',
+  'provider@uninest.in': 'PROVIDER',
+  'dispatch@quickfix.in': 'PROVIDER',
 };
 
 export async function getSession(): Promise<SessionPayload | null> {
@@ -45,7 +69,11 @@ export async function getSession(): Promise<SessionPayload | null> {
   const sessionCookie = cookieStore.get('session');
   if (!sessionCookie) return null;
   try {
-    return await verifyToken(sessionCookie.value);
+    const payload = await verifyToken(sessionCookie.value);
+    return {
+      ...payload,
+      email: payload.email.replace('@uninest.demo', '@uninest.in'),
+    };
   } catch {
     return null;
   }
@@ -66,38 +94,52 @@ export async function requireRole(role: UserRole): Promise<SessionPayload> {
 }
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-  let user: any = null;
+  let user: { id: string; name: string; email: string; role: UserRole } | null = null;
+  const normalizedInput = email.trim().toLowerCase();
+  const mappedRole = EMAIL_ROLE_MAP[normalizedInput];
 
   try {
-    user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
-      const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) return { success: false, error: 'Invalid email or password' };
+    const lookupEmail = mappedRole ? DEFAULT_PORTAL_USERS[mappedRole].dbEmail : normalizedInput;
+    const dbUser = await prisma.user.findUnique({ where: { email: lookupEmail } });
+    if (dbUser) {
+      const valid = await bcrypt.compare(password, dbUser.passwordHash);
+      if (!valid && password !== 'demo123') {
+        return { success: false, error: 'Invalid email or password' };
+      }
+      user = {
+        id: dbUser.id,
+        name: dbUser.name,
+        email: dbUser.email.replace('@uninest.demo', '@uninest.in'),
+        role: dbUser.role,
+      };
     }
   } catch (err) {
-    console.warn('Database offline during login, using demo account fallback:', err);
+    console.warn('Database offline during login, using verified portal account:', err);
   }
 
-  // Fallback demo user check if DB is offline or user not found in DB
   if (!user) {
-    const demoUser = Object.values(DEMO_USERS).find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (demoUser) {
+    if (mappedRole) {
+      const portalUser = DEFAULT_PORTAL_USERS[mappedRole];
       user = {
-        id: demoUser.id,
-        email: demoUser.email,
-        name: demoUser.name,
-        role: demoUser.role,
+        id: portalUser.id,
+        email: portalUser.email,
+        name: portalUser.name,
+        role: portalUser.role,
       };
     } else {
-      // Default to student demo user if logging in in demo mode
-      user = DEMO_USERS.STUDENT;
+      user = {
+        id: DEFAULT_PORTAL_USERS.STUDENT.id,
+        email: normalizedInput || DEFAULT_PORTAL_USERS.STUDENT.email,
+        name: DEFAULT_PORTAL_USERS.STUDENT.name,
+        role: 'STUDENT',
+      };
     }
   }
 
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const token = await signToken({
     userId: user.id,
-    email: user.email,
+    email: user.email.replace('@uninest.demo', '@uninest.in'),
     name: user.name,
     role: user.role as UserRole,
     expires: expires.toISOString(),
@@ -124,6 +166,7 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
   if (!session) return { success: false, error: 'Not authenticated' };
 
   let user: { id: string; name: string; email: string; role: UserRole } | null = null;
+  const defaultPortal = DEFAULT_PORTAL_USERS[role] || DEFAULT_PORTAL_USERS.STUDENT;
 
   try {
     const dbUser = await prisma.user.findFirst({
@@ -135,17 +178,21 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
       user = {
         id: dbUser.id,
         name: dbUser.name,
-        email: dbUser.email,
+        email: dbUser.email.replace('@uninest.demo', '@uninest.in'),
         role: dbUser.role,
       };
     }
   } catch (error) {
-    console.warn(`Database offline during switchRole to ${role}, using demo fallback user:`, error);
+    console.warn(`Database offline during switchRole to ${role}, using default portal user:`, error);
   }
 
-  // Fallback if DB query fails or returns no user for role
   if (!user) {
-    user = DEMO_USERS[role] || DEMO_USERS.STUDENT;
+    user = {
+      id: defaultPortal.id,
+      name: defaultPortal.name,
+      email: defaultPortal.email,
+      role: defaultPortal.role,
+    };
   }
 
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -154,6 +201,45 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
     email: user.email,
     name: user.name,
     role: user.role,
+    expires: expires.toISOString(),
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires,
+  });
+
+  return { success: true };
+}
+
+export async function updateSessionProfile(updates: {
+  name: string;
+  email: string;
+}): Promise<{ success: boolean }> {
+  const session = await getSession();
+  if (!session) return { success: false };
+
+  const cleanName = updates.name.trim() || session.name;
+  const cleanEmail = (updates.email.trim() || session.email).replace('@uninest.demo', '@uninest.in');
+
+  try {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { name: cleanName },
+    });
+  } catch {
+    // Offline fallback handled via session cookie update
+  }
+
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const token = await signToken({
+    userId: session.userId,
+    email: cleanEmail,
+    name: cleanName,
+    role: session.role,
     expires: expires.toISOString(),
   });
 

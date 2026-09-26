@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   User, Building2, ShieldCheck, Mail, Phone, MapPin, CreditCard,
   CheckCircle2, Sparkles, FileText, Settings, Edit3, ExternalLink,
@@ -10,25 +11,50 @@ import {
 import { Card, Badge, Button } from '@/components/ui/Shared';
 
 export default function LandlordProfilePage() {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Landlord Profile State
-  const [name, setName] = useState('Rajesh Kumar');
+  // Landlord Profile State (Synchronized with Vikram Singh / landlord@uninest.in)
+  const [name, setName] = useState('Vikram Singh');
   const [company, setCompany] = useState('Passi Residency Properties Ltd.');
   const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200');
-  const [email, setEmail] = useState('rajesh@passiresidency.demo');
-  const [phone, setPhone] = useState('+91 98140 12345');
+  const [email, setEmail] = useState('landlord@uninest.in');
+  const [phone, setPhone] = useState('+91 98989 89801');
   const [city, setCity] = useState('Ludhiana');
-  const [address, setAddress] = useState('102 Ferozepur Road, Ludhiana, Punjab');
-  const [gstin, setGstin] = useState('03AAAAA0000A1Z5');
-  const [panNo, setPanNo] = useState('ABCDE1234F');
+  const [address, setAddress] = useState('Plot 42, Block B, Passi Nagar, Ferozepur Road, Ludhiana, Punjab');
+  const [gstin, setGstin] = useState('03AABCP4829K1Z5');
+  const [panNo, setPanNo] = useState('AABCP4829K');
 
   // Bank payout info state
-  const [bankName, setBankName] = useState('HDFC Bank Ltd.');
-  const [accountName, setAccountName] = useState('Passi Residency Properties');
-  const [accountNo, setAccountNo] = useState('987654321098');
+  const [bankName, setBankName] = useState('HDFC Bank Ltd. (Direct UPI Linked)');
+  const [accountName, setAccountName] = useState('Passi Residency Properties (Vikram Singh)');
+  const [accountNo, setAccountNo] = useState('50200084911098');
   const [ifsc, setIfsc] = useState('HDFC0000123');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('uninest_landlord_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.name) setName(parsed.name);
+        if (parsed.email) setEmail(parsed.email.replace('@uninest.demo', '@uninest.in'));
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.company) setCompany(parsed.company);
+        if (parsed.address) setAddress(parsed.address);
+      }
+    } catch {}
+
+    fetch('/api/profile')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.authenticated && data?.user?.role === 'LANDLORD') {
+          setName(data.user.name || 'Vikram Singh');
+          setEmail((data.user.email || 'landlord@uninest.in').replace('@uninest.demo', '@uninest.in'));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Portfolio Summary
   const portfolio = {
@@ -39,9 +65,23 @@ export default function LandlordProfilePage() {
     monthlyRevenue: 168000,
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsEditing(false);
+    const cleanEmail = email.replace('@uninest.demo', '@uninest.in');
+    setEmail(cleanEmail);
+    try {
+      localStorage.setItem(
+        'uninest_landlord_profile',
+        JSON.stringify({ name, email: cleanEmail, phone, company, address, bankName, accountName, accountNo, ifsc })
+      );
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: cleanEmail }),
+      });
+      router.refresh();
+    } catch {}
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -220,10 +260,10 @@ export default function LandlordProfilePage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-emerald-600" />
-                  Bank Account Details for Rent Payouts
+                  Bank & UPI Escrow Payout Settings
                 </h3>
                 <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-                  Automated Razorpay Payouts
+                  Direct UPI & IMPS Escrow Settlement
                 </span>
               </div>
 
