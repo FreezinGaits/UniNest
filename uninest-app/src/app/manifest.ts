@@ -16,21 +16,22 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ['lifestyle', 'finance', 'education', 'business'],
     icons: [
       {
-        src: '/icon?size=192',
+        src: '/icon-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icon?size=512',
+        src: '/icon-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icon-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
-      },
-      {
-        src: '/apple-icon',
-        sizes: '180x180',
-        type: 'image/png',
       },
     ],
     shortcuts: [
