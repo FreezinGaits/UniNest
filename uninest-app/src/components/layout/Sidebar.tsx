@@ -224,7 +224,7 @@ export function Sidebar({ role, userName, userEmail, notificationCount = 0, onRo
             <Avatar name={userName} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-text-primary truncate">{userName}</p>
-              <p className="text-[11px] text-text-tertiary truncate">{userEmail}</p>
+              <p className="text-[11px] text-text-tertiary truncate">{userEmail.replace('@uninest.demo', '@uninest.in')}</p>
             </div>
             {notificationCount > 0 && (
               <div className="relative">

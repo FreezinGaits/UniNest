@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   ShieldCheck,
   Scale,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 function LegalCenterContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialDoc = searchParams.get('doc') || 'escrow';
   const [activeTab, setActiveTab] = useState<'escrow' | 'lease' | 'privacy' | 'terms'>(
@@ -30,13 +31,14 @@ function LegalCenterContent() {
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
+            <button
+              type="button"
+              onClick={() => router.back()}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to UniNest</span>
-            </Link>
+              <span>Back to Workspace</span>
+            </button>
             <div className="h-4 w-px bg-slate-200" />
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 bg-emerald-700 rounded-lg flex items-center justify-center">
