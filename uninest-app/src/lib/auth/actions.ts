@@ -93,7 +93,35 @@ export async function requireRole(role: UserRole): Promise<SessionPayload> {
   return session;
 }
 
-export async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+async function setSessionCookie(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}) {
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const token = await signToken({
+    userId: user.id,
+    email: user.email.replace('@uninest.demo', '@uninest.in'),
+    name: user.name,
+    role: user.role,
+    expires: expires.toISOString(),
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set('session', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    expires,
+  });
+}
+
+export async function login(
+  email: string,
+  password: string
+): Promise<{ success: boolean; role?: UserRole; error?: string }> {
   let user: { id: string; name: string; email: string; role: UserRole } | null = null;
   const normalizedInput = email.trim().toLowerCase();
   const mappedRole = EMAIL_ROLE_MAP[normalizedInput];
@@ -127,33 +155,204 @@ export async function login(email: string, password: string): Promise<{ success:
         role: portalUser.role,
       };
     } else {
+      const inferredName = normalizedInput
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
       user = {
         id: DEFAULT_PORTAL_USERS.STUDENT.id,
         email: normalizedInput || DEFAULT_PORTAL_USERS.STUDENT.email,
-        name: DEFAULT_PORTAL_USERS.STUDENT.name,
+        name: inferredName || DEFAULT_PORTAL_USERS.STUDENT.name,
         role: 'STUDENT',
       };
     }
   }
 
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const token = await signToken({
-    userId: user.id,
-    email: user.email.replace('@uninest.demo', '@uninest.in'),
-    name: user.name,
-    role: user.role as UserRole,
-    expires: expires.toISOString(),
-  });
+  await setSessionCookie(user);
+  return { success: true, role: user.role };
+}
 
-  const cookieStore = await cookies();
-  cookieStore.set('session', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    expires,
-  });
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role: 'STUDENT' | 'LANDLORD';
+}): Promise<{ success: boolean; role?: UserRole; error?: string }> {
+  const cleanEmail = input.email.trim().toLowerCase();
+  const cleanName = input.name.trim() || 'UniNest Member';
+  const cleanPhone = (input.phone || '+91 98765 43210').trim();
+  const targetRole: UserRole = input.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT';
 
-  return { success: true };
+  if (!cleanEmail || !input.password) {
+    return { success: false, error: 'Name, email, and password are required.' };
+  }
+
+  let userRecord: { id: string; name: string; email: string; role: UserRole } = {
+    id: targetRole === 'LANDLORD' ? `usr-ll-${Date.now()}` : `usr-st-${Date.now()}`,
+    name: cleanName,
+    email: cleanEmail,
+    role: targetRole,
+  };
+
+  try {
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    const dbUser = await prisma.user.upsert({
+      where: { email: cleanEmail },
+      update: {
+        name: cleanName,
+        phone: cleanPhone,
+        role: targetRole,
+      },
+      create: {
+        email: cleanEmail,
+        name: cleanName,
+        phone: cleanPhone,
+        passwordHash,
+        role: targetRole,
+      },
+    });
+
+    if (targetRole === 'STUDENT') {
+      await prisma.student.upsert({
+        where: { userId: dbUser.id },
+        update: {},
+        create: {
+          userId: dbUser.id,
+          collegeName: 'PCTE Group of Institutes, Ludhiana',
+          course: 'B.Tech CSE',
+          year: 3,
+          profileComplete: 88,
+        },
+      });
+    } else if (targetRole === 'LANDLORD') {
+      await prisma.landlord.upsert({
+        where: { userId: dbUser.id },
+        update: {},
+        create: {
+          userId: dbUser.id,
+          businessName: `${cleanName} Residency Properties`,
+          phone: cleanPhone,
+          address: 'Ferozepur Road, Ludhiana, Punjab',
+          profileComplete: 92,
+        },
+      });
+    }
+
+    userRecord = {
+      id: dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+    };
+  } catch (err) {
+    console.warn('Database fallback used during registerUser:', err);
+  }
+
+  await setSessionCookie(userRecord);
+  return { success: true, role: userRecord.role };
+}
+
+export async function authenticateGoogleUser(input: {
+  email: string;
+  name: string;
+  avatarUrl?: string;
+  role?: 'STUDENT' | 'LANDLORD';
+}): Promise<{
+  success: boolean;
+  user: { id: string; name: string; email: string; role: UserRole };
+  isNewUser: boolean;
+}> {
+  const cleanEmail = input.email.trim().toLowerCase();
+  const cleanName =
+    input.name.trim() ||
+    cleanEmail
+      .split('@')[0]
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  const mappedDemoRole = EMAIL_ROLE_MAP[cleanEmail] as UserRole | undefined;
+  const preferredRole: UserRole =
+    mappedDemoRole || (input.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT');
+
+  let isNewUser = false;
+  let userRecord: { id: string; name: string; email: string; role: UserRole } = {
+    id:
+      preferredRole === 'LANDLORD'
+        ? DEFAULT_PORTAL_USERS.LANDLORD.id
+        : DEFAULT_PORTAL_USERS.STUDENT.id,
+    name: cleanName,
+    email: cleanEmail,
+    role: preferredRole,
+  };
+
+  try {
+    const existing = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    if (existing) {
+      const finalRole = input.role ? preferredRole : existing.role;
+      const updated = await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          name: cleanName || existing.name,
+          avatarUrl: input.avatarUrl || existing.avatarUrl,
+          role: finalRole,
+        },
+      });
+      userRecord = {
+        id: updated.id,
+        name: updated.name,
+        email: updated.email.replace('@uninest.demo', '@uninest.in'),
+        role: updated.role,
+      };
+    } else {
+      isNewUser = true;
+      const oauthPasswordHash = await bcrypt.hash(`google-oauth-${cleanEmail}`, 10);
+      const created = await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          name: cleanName,
+          passwordHash: oauthPasswordHash,
+          role: preferredRole,
+          avatarUrl: input.avatarUrl || null,
+        },
+      });
+
+      if (preferredRole === 'STUDENT') {
+        await prisma.student.create({
+          data: {
+            userId: created.id,
+            collegeName: 'PCTE Group of Institutes, Ludhiana',
+            course: 'B.Tech CSE',
+            year: 3,
+            profileComplete: 90,
+          },
+        });
+      } else if (preferredRole === 'LANDLORD') {
+        await prisma.landlord.create({
+          data: {
+            userId: created.id,
+            businessName: `${cleanName} Student Housing`,
+            address: 'Ferozepur Road, Ludhiana, Punjab',
+            profileComplete: 92,
+          },
+        });
+      }
+
+      userRecord = {
+        id: created.id,
+        name: created.name,
+        email: created.email,
+        role: created.role,
+      };
+    }
+  } catch (err) {
+    console.warn('Database fallback used during Google authentication:', err);
+  }
+
+  await setSessionCookie(userRecord);
+  return { success: true, user: userRecord, isNewUser };
 }
 
 export async function logout(): Promise<void> {
@@ -195,23 +394,7 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
     };
   }
 
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const token = await signToken({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    expires: expires.toISOString(),
-  });
-
-  const cookieStore = await cookies();
-  cookieStore.set('session', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    expires,
-  });
-
+  await setSessionCookie(user);
   return { success: true };
 }
 
@@ -234,21 +417,11 @@ export async function updateSessionProfile(updates: {
     // Offline fallback handled via session cookie update
   }
 
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const token = await signToken({
-    userId: session.userId,
+  await setSessionCookie({
+    id: session.userId,
     email: cleanEmail,
     name: cleanName,
     role: session.role,
-    expires: expires.toISOString(),
-  });
-
-  const cookieStore = await cookies();
-  cookieStore.set('session', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    expires,
   });
 
   return { success: true };
