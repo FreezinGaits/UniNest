@@ -21,7 +21,7 @@ export default function CompleteGoogleProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [role, setRole] = useState<'STUDENT' | 'LANDLORD'>('STUDENT');
   const [phone, setPhone] = useState('');
-  const [organization, setOrganization] = useState('PCTE Group of Institutes, Ludhiana');
+  const [organization, setOrganization] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -81,8 +81,8 @@ export default function CompleteGoogleProfilePage() {
           email,
           phone: cleanPhone,
           avatarUrl,
-          collegeName: role === 'STUDENT' ? organization : undefined,
-          company: role === 'LANDLORD' ? organization || `${name} Properties` : undefined,
+          collegeName: role === 'STUDENT' ? organization.trim() : undefined,
+          company: role === 'LANDLORD' ? organization.trim() : undefined,
         })
       );
 
@@ -150,10 +150,7 @@ export default function CompleteGoogleProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setRole('STUDENT');
-                  setOrganization('PCTE Group of Institutes, Ludhiana');
-                }}
+                onClick={() => setRole('STUDENT')}
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all space-y-1.5 ${
                   role === 'STUDENT'
                     ? 'border-brand-600 bg-brand-50/70 text-brand-950 shadow-sm'
@@ -171,10 +168,7 @@ export default function CompleteGoogleProfilePage() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setRole('LANDLORD');
-                  setOrganization(`${name || 'Partner'} Residency Properties`);
-                }}
+                onClick={() => setRole('LANDLORD')}
                 className={`p-3.5 rounded-2xl border-2 text-left transition-all space-y-1.5 ${
                   role === 'LANDLORD'
                     ? 'border-brand-600 bg-brand-50/70 text-brand-950 shadow-sm'
@@ -206,24 +200,29 @@ export default function CompleteGoogleProfilePage() {
             required
           />
 
-          {/* College or Business Name */}
+          {/* Optional College or Business Name */}
           <Input
             id="organization"
             label={
               role === 'STUDENT'
-                ? '3. Your College / University'
-                : '3. Your PG / Property Business Name'
+                ? '3. Your College / University (Optional)'
+                : '3. Your PG / Property Business Name (Optional)'
             }
             type="text"
             placeholder={
               role === 'STUDENT'
-                ? 'PCTE Group of Institutes, Ludhiana'
-                : 'e.g. Sharma Student Residency'
+                ? 'e.g. PCTE, PAU, GNDEC (can be added later)'
+                : 'e.g. Sharma Student Residency (can be added later)'
             }
             value={organization}
             onChange={(e) => setOrganization(e.target.value)}
-            icon={<User className="w-4 h-4" />}
-            required
+            icon={
+              role === 'STUDENT' ? (
+                <GraduationCap className="w-4 h-4" />
+              ) : (
+                <Building2 className="w-4 h-4" />
+              )
+            }
           />
 
           {error && (
