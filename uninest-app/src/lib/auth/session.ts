@@ -10,6 +10,8 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: UserRole;
+  phone?: string;
+  avatarUrl?: string;
   expires: string;
 }
 

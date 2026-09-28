@@ -308,6 +308,37 @@ function LoginContent() {
             </p>
           </div>
 
+          {/* Role Selector — Always visible before Google Sign-In / Sign-Up */}
+          <div className="mb-3">
+            <label className="block text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-1.5">
+              Select Portal Role:
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedRole('STUDENT')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  selectedRole === 'STUDENT'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
+                    : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                🎓 I am a Student
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedRole('LANDLORD')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                  selectedRole === 'LANDLORD'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
+                    : 'border-border bg-surface text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                🏢 I am a Landlord
+              </button>
+            </div>
+          </div>
+
           {/* Only render Google OAuth button when live GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET are configured */}
           {oauthConfigured && (
             <>
@@ -319,7 +350,9 @@ function LoginContent() {
               >
                 <GoogleLogoSVG className="w-5 h-5 shrink-0" />
                 <span>
-                  {authMode === 'SIGN_IN' ? 'Continue with Google' : 'Sign up with Google'}
+                  {authMode === 'SIGN_IN'
+                    ? `Continue with Google as ${selectedRole === 'LANDLORD' ? 'Landlord' : 'Student'}`
+                    : `Sign up with Google as ${selectedRole === 'LANDLORD' ? 'Landlord' : 'Student'}`}
                 </span>
               </button>
 
@@ -339,30 +372,6 @@ function LoginContent() {
           <form onSubmit={handleSubmit} className="space-y-3.5" autoComplete="on">
             {authMode === 'REGISTER' && (
               <>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('STUDENT')}
-                    className={`py-2.5 px-3 rounded-lg border text-xs font-bold transition-all ${
-                      selectedRole === 'STUDENT'
-                        ? 'border-brand-600 bg-brand-50 text-brand-700'
-                        : 'border-border bg-surface text-text-secondary'
-                    }`}
-                  >
-                    🎓 I am a Student
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRole('LANDLORD')}
-                    className={`py-2.5 px-3 rounded-lg border text-xs font-bold transition-all ${
-                      selectedRole === 'LANDLORD'
-                        ? 'border-brand-600 bg-brand-50 text-brand-700'
-                        : 'border-border bg-surface text-text-secondary'
-                    }`}
-                  >
-                    🏢 I am a PG Owner
-                  </button>
-                </div>
                 <Input
                   id="name"
                   name="name"

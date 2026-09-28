@@ -32,25 +32,55 @@ export default function LandlordProfilePage() {
   const [accountNo, setAccountNo] = useState('50200084911098');
   const [ifsc, setIfsc] = useState('HDFC0000123');
 
+  const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
+
   useEffect(() => {
+    let savedParsed: any = null;
     try {
       const saved = localStorage.getItem('uninest_landlord_profile');
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.name) setName(parsed.name);
-        if (parsed.email) setEmail(parsed.email.replace('@uninest.demo', '@uninest.in'));
-        if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.company) setCompany(parsed.company);
-        if (parsed.address) setAddress(parsed.address);
+        savedParsed = JSON.parse(saved);
+        if (savedParsed.name) setName(savedParsed.name);
+        if (savedParsed.email) setEmail(savedParsed.email.replace('@uninest.demo', '@uninest.in'));
+        if (savedParsed.phone) setPhone(savedParsed.phone);
+        if (savedParsed.company) setCompany(savedParsed.company);
+        if (savedParsed.address) setAddress(savedParsed.address);
       }
     } catch {}
 
     fetch('/api/profile')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.authenticated && data?.user?.role === 'LANDLORD') {
+        if (data?.authenticated && data?.user) {
+          const userEmail = (data.user.email || 'landlord@uninest.in').replace('@uninest.demo', '@uninest.in');
+          const isDemoLandlord = userEmail.toLowerCase() === 'landlord@uninest.in';
+
           setName(data.user.name || 'Vikram Singh');
-          setEmail((data.user.email || 'landlord@uninest.in').replace('@uninest.demo', '@uninest.in'));
+          setEmail(userEmail);
+          if (data.user.avatarUrl) {
+            setAvatarUrl(data.user.avatarUrl);
+          }
+
+          if (!isDemoLandlord) {
+            const isSameSavedUser =
+              savedParsed?.email &&
+              savedParsed.email.toLowerCase() === userEmail.toLowerCase();
+            const savedPhone =
+              isSameSavedUser &&
+              savedParsed.phone &&
+              savedParsed.phone !== '+91 98989 89801'
+                ? savedParsed.phone
+                : '';
+            const realPhone = data.user.phone || savedPhone || '';
+
+            if (realPhone) {
+              setPhone(realPhone);
+              setIsRealUserWithoutPhone(false);
+            } else {
+              setPhone('Not added yet — Tap Edit Profile to add');
+              setIsRealUserWithoutPhone(true);
+            }
+          }
         }
       })
       .catch(() => {});
@@ -69,16 +99,20 @@ export default function LandlordProfilePage() {
     e.preventDefault();
     setIsEditing(false);
     const cleanEmail = email.replace('@uninest.demo', '@uninest.in');
+    const cleanPhone = phone.startsWith('Not added yet') ? '' : phone.trim();
     setEmail(cleanEmail);
+    if (cleanPhone) {
+      setIsRealUserWithoutPhone(false);
+    }
     try {
       localStorage.setItem(
         'uninest_landlord_profile',
-        JSON.stringify({ name, email: cleanEmail, phone, company, address, bankName, accountName, accountNo, ifsc })
+        JSON.stringify({ name, email: cleanEmail, phone: cleanPhone || phone, company, address, bankName, accountName, accountNo, ifsc })
       );
       await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: cleanEmail }),
+        body: JSON.stringify({ name, email: cleanEmail, phone: cleanPhone, avatarUrl }),
       });
       router.refresh();
     } catch {}
@@ -92,6 +126,23 @@ export default function LandlordProfilePage() {
     <div className="space-y-6 animate-fade-in pb-12">
       <div className="max-w-5xl mx-auto space-y-6">
 
+        {isRealUserWithoutPhone && (
+          <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xs font-extrabold text-amber-950">Complete Your Google Landlord Setup</h3>
+              <p className="text-[11px] text-amber-800 mt-0.5">
+                Add your verified mobile number or switch your account role between <strong>Landlord</strong> and <strong>Student</strong>.
+              </p>
+            </div>
+            <Link
+              href="/auth/complete-profile"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-sm shrink-0 text-center transition-all"
+            >
+              Set Phone &amp; Role →
+            </Link>
+          </div>
+        )}
+
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -99,7 +150,14 @@ export default function LandlordProfilePage() {
             <p className="text-xs text-slate-500 mt-0.5">Manage your property business credentials, bank payout settings, and verification status.</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/auth/complete-profile"
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2.5 px-3.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              <Settings className="w-3.5 h-3.5 text-emerald-600" />
+              Switch Role / Set Phone
+            </Link>
             {isEditing ? (
               <Button
                 onClick={handleSave}
@@ -110,7 +168,10 @@ export default function LandlordProfilePage() {
               </Button>
             ) : (
               <Button
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  if (phone.startsWith('Not added yet')) setPhone('+91 ');
+                  setIsEditing(true);
+                }}
                 className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-sm flex items-center gap-1.5"
               >
                 <Edit3 className="w-4 h-4" />

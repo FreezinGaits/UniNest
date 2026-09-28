@@ -6,6 +6,7 @@ const publicRoutes = [
   '/',
   '/login',
   '/register',
+  '/auth',
   '/api',
   '/investor',
   '/demo',

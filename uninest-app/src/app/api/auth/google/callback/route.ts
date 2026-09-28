@@ -83,16 +83,19 @@ export async function GET(request: NextRequest) {
       role: selectedRole,
     });
 
-    const targetPath =
-      authResult.user.role === 'LANDLORD'
-        ? '/landlord/dashboard'
-        : authResult.user.role === 'ADMIN'
-        ? '/admin/dashboard'
-        : authResult.user.role === 'COLLEGE'
-        ? '/college/dashboard'
-        : authResult.user.role === 'PROVIDER'
-        ? '/provider/dashboard'
-        : '/student/dashboard';
+    // If the user has not saved their phone number yet, send them to /auth/complete-profile
+    // so they can confirm Student vs Landlord role and enter their real mobile number!
+    const targetPath = authResult.needsOnboarding
+      ? '/auth/complete-profile'
+      : authResult.user.role === 'LANDLORD'
+      ? '/landlord/dashboard'
+      : authResult.user.role === 'ADMIN'
+      ? '/admin/dashboard'
+      : authResult.user.role === 'COLLEGE'
+      ? '/college/dashboard'
+      : authResult.user.role === 'PROVIDER'
+      ? '/provider/dashboard'
+      : '/student/dashboard';
 
     const response = NextResponse.redirect(new URL(targetPath, origin).toString());
     response.cookies.set('session', authResult.token, {

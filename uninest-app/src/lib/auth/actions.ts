@@ -7,12 +7,13 @@ import { prisma } from '@/lib/db';
 import { signToken, verifyToken, SessionPayload } from './session';
 import { UserRole } from '@prisma/client';
 
-const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: string; dbEmail: string; role: UserRole }> = {
+const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: string; dbEmail: string; phone: string; role: UserRole }> = {
   STUDENT: {
     id: 'usr-student-demo',
     name: 'Rahul Sharma',
     email: 'rahul@uninest.in',
     dbEmail: 'rahul@uninest.demo',
+    phone: '+91 98765 43210',
     role: 'STUDENT',
   },
   LANDLORD: {
@@ -20,6 +21,7 @@ const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: st
     name: 'Vikram Singh',
     email: 'landlord@uninest.in',
     dbEmail: 'landlord@uninest.demo',
+    phone: '+91 98989 89801',
     role: 'LANDLORD',
   },
   ADMIN: {
@@ -27,6 +29,7 @@ const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: st
     name: 'UniNest Admin',
     email: 'admin@uninest.in',
     dbEmail: 'admin@uninest.demo',
+    phone: '+91 98000 11111',
     role: 'ADMIN',
   },
   COLLEGE: {
@@ -34,6 +37,7 @@ const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: st
     name: 'PCTE Housing Cell',
     email: 'pcte@uninest.in',
     dbEmail: 'pcte@uninest.demo',
+    phone: '+91 161 2888500',
     role: 'COLLEGE',
   },
   PROVIDER: {
@@ -41,6 +45,7 @@ const DEFAULT_PORTAL_USERS: Record<string, { id: string; name: string; email: st
     name: 'QuickFix Services',
     email: 'provider@uninest.in',
     dbEmail: 'provider@uninest.demo',
+    phone: '+91 98765 99999',
     role: 'PROVIDER',
   },
 };
@@ -98,6 +103,8 @@ async function setSessionCookie(user: {
   email: string;
   name: string;
   role: UserRole;
+  phone?: string;
+  avatarUrl?: string;
 }) {
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const token = await signToken({
@@ -105,6 +112,8 @@ async function setSessionCookie(user: {
     email: user.email.replace('@uninest.demo', '@uninest.in'),
     name: user.name,
     role: user.role,
+    phone: user.phone || '',
+    avatarUrl: user.avatarUrl || '',
     expires: expires.toISOString(),
   });
 
@@ -116,13 +125,15 @@ async function setSessionCookie(user: {
     path: '/',
     expires,
   });
+
+  return { token, expires: expires.toISOString() };
 }
 
 export async function login(
   email: string,
   password: string
 ): Promise<{ success: boolean; role?: UserRole; error?: string }> {
-  let user: { id: string; name: string; email: string; role: UserRole } | null = null;
+  let user: { id: string; name: string; email: string; role: UserRole; phone?: string; avatarUrl?: string } | null = null;
   const normalizedInput = email.trim().toLowerCase();
   const mappedRole = EMAIL_ROLE_MAP[normalizedInput];
 
@@ -139,6 +150,8 @@ export async function login(
         name: dbUser.name,
         email: dbUser.email.replace('@uninest.demo', '@uninest.in'),
         role: dbUser.role,
+        phone: dbUser.phone || undefined,
+        avatarUrl: dbUser.avatarUrl || undefined,
       };
     }
   } catch (err) {
@@ -153,6 +166,7 @@ export async function login(
         email: portalUser.email,
         name: portalUser.name,
         role: portalUser.role,
+        phone: portalUser.phone,
       };
     } else {
       const inferredName = normalizedInput
@@ -164,6 +178,7 @@ export async function login(
         email: normalizedInput || DEFAULT_PORTAL_USERS.STUDENT.email,
         name: inferredName || DEFAULT_PORTAL_USERS.STUDENT.name,
         role: 'STUDENT',
+        phone: '',
       };
     }
   }
@@ -181,18 +196,19 @@ export async function registerUser(input: {
 }): Promise<{ success: boolean; role?: UserRole; error?: string }> {
   const cleanEmail = input.email.trim().toLowerCase();
   const cleanName = input.name.trim() || 'UniNest Member';
-  const cleanPhone = (input.phone || '+91 98765 43210').trim();
+  const cleanPhone = (input.phone || '').trim();
   const targetRole: UserRole = input.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT';
 
   if (!cleanEmail || !input.password) {
     return { success: false, error: 'Name, email, and password are required.' };
   }
 
-  let userRecord: { id: string; name: string; email: string; role: UserRole } = {
+  let userRecord: { id: string; name: string; email: string; role: UserRole; phone?: string } = {
     id: targetRole === 'LANDLORD' ? `usr-ll-${Date.now()}` : `usr-st-${Date.now()}`,
     name: cleanName,
     email: cleanEmail,
     role: targetRole,
+    phone: cleanPhone,
   };
 
   try {
@@ -201,13 +217,13 @@ export async function registerUser(input: {
       where: { email: cleanEmail },
       update: {
         name: cleanName,
-        phone: cleanPhone,
+        phone: cleanPhone || null,
         role: targetRole,
       },
       create: {
         email: cleanEmail,
         name: cleanName,
-        phone: cleanPhone,
+        phone: cleanPhone || null,
         passwordHash,
         role: targetRole,
       },
@@ -232,7 +248,7 @@ export async function registerUser(input: {
         create: {
           userId: dbUser.id,
           businessName: `${cleanName} Residency Properties`,
-          phone: cleanPhone,
+          phone: cleanPhone || null,
           address: 'Ferozepur Road, Ludhiana, Punjab',
           profileComplete: 92,
         },
@@ -244,6 +260,7 @@ export async function registerUser(input: {
       name: dbUser.name,
       email: dbUser.email,
       role: dbUser.role,
+      phone: dbUser.phone || cleanPhone,
     };
   } catch (err) {
     console.warn('Database fallback used during registerUser:', err);
@@ -260,8 +277,9 @@ export async function authenticateGoogleUser(input: {
   role?: 'STUDENT' | 'LANDLORD';
 }): Promise<{
   success: boolean;
-  user: { id: string; name: string; email: string; role: UserRole };
+  user: { id: string; name: string; email: string; role: UserRole; phone?: string; avatarUrl?: string };
   isNewUser: boolean;
+  needsOnboarding: boolean;
   token: string;
   expires: string;
 }> {
@@ -277,7 +295,15 @@ export async function authenticateGoogleUser(input: {
     mappedDemoRole || (input.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT');
 
   let isNewUser = false;
-  let userRecord: { id: string; name: string; email: string; role: UserRole } = {
+  let existingPhone = '';
+  let userRecord: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    phone?: string;
+    avatarUrl?: string;
+  } = {
     id:
       preferredRole === 'LANDLORD'
         ? DEFAULT_PORTAL_USERS.LANDLORD.id
@@ -285,6 +311,8 @@ export async function authenticateGoogleUser(input: {
     name: cleanName,
     email: cleanEmail,
     role: preferredRole,
+    phone: '',
+    avatarUrl: input.avatarUrl || '',
   };
 
   try {
@@ -293,6 +321,7 @@ export async function authenticateGoogleUser(input: {
     });
 
     if (existing) {
+      existingPhone = existing.phone || '';
       const finalRole = input.role ? preferredRole : existing.role;
       const updated = await prisma.user.update({
         where: { id: existing.id },
@@ -307,6 +336,8 @@ export async function authenticateGoogleUser(input: {
         name: updated.name,
         email: updated.email.replace('@uninest.demo', '@uninest.in'),
         role: updated.role,
+        phone: updated.phone || '',
+        avatarUrl: updated.avatarUrl || input.avatarUrl || '',
       };
     } else {
       isNewUser = true;
@@ -315,6 +346,7 @@ export async function authenticateGoogleUser(input: {
         data: {
           email: cleanEmail,
           name: cleanName,
+          phone: null, // Never assign a fake random phone number!
           passwordHash: oauthPasswordHash,
           role: preferredRole,
           avatarUrl: input.avatarUrl || null,
@@ -347,28 +379,27 @@ export async function authenticateGoogleUser(input: {
         name: created.name,
         email: created.email,
         role: created.role,
+        phone: '',
+        avatarUrl: created.avatarUrl || input.avatarUrl || '',
       };
     }
   } catch (err) {
     console.warn('Database fallback used during Google authentication:', err);
   }
 
-  await setSessionCookie(userRecord);
-  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const token = await signToken({
-    userId: userRecord.id,
-    email: userRecord.email.replace('@uninest.demo', '@uninest.in'),
-    name: userRecord.name,
-    role: userRecord.role,
-    expires: expires.toISOString(),
-  });
+  const { token, expires } = await setSessionCookie(userRecord);
+
+  // If the user doesn't have a phone number saved yet (or is signing in via Google),
+  // let them confirm their role (Student vs Landlord) and enter their real phone number!
+  const needsOnboarding = !existingPhone && !mappedDemoRole;
 
   return {
     success: true,
     user: userRecord,
     isNewUser,
+    needsOnboarding,
     token,
-    expires: expires.toISOString(),
+    expires,
   };
 }
 
@@ -381,7 +412,7 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
   const session = await getSession();
   if (!session) return { success: false, error: 'Not authenticated' };
 
-  let user: { id: string; name: string; email: string; role: UserRole } | null = null;
+  let user: { id: string; name: string; email: string; role: UserRole; phone?: string; avatarUrl?: string } | null = null;
   const defaultPortal = DEFAULT_PORTAL_USERS[role] || DEFAULT_PORTAL_USERS.STUDENT;
 
   try {
@@ -396,6 +427,8 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
         name: dbUser.name,
         email: dbUser.email.replace('@uninest.demo', '@uninest.in'),
         role: dbUser.role,
+        phone: dbUser.phone || defaultPortal.phone,
+        avatarUrl: dbUser.avatarUrl || undefined,
       };
     }
   } catch (error) {
@@ -408,6 +441,7 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
       name: defaultPortal.name,
       email: defaultPortal.email,
       role: defaultPortal.role,
+      phone: defaultPortal.phone,
     };
   }
 
@@ -418,28 +452,54 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
 export async function updateSessionProfile(updates: {
   name: string;
   email: string;
-}): Promise<{ success: boolean }> {
+  phone?: string;
+  avatarUrl?: string;
+  role?: UserRole;
+}): Promise<{ success: boolean; role?: UserRole }> {
   const session = await getSession();
   if (!session) return { success: false };
 
   const cleanName = updates.name.trim() || session.name;
   const cleanEmail = (updates.email.trim() || session.email).replace('@uninest.demo', '@uninest.in');
+  const cleanPhone = updates.phone !== undefined ? updates.phone.trim() : session.phone || '';
+  const cleanAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : session.avatarUrl || '';
+  const targetRole: UserRole = updates.role || session.role;
 
   try {
     await prisma.user.update({
       where: { id: session.userId },
-      data: { name: cleanName },
+      data: {
+        name: cleanName,
+        phone: cleanPhone || null,
+        avatarUrl: cleanAvatar || null,
+        role: targetRole,
+      },
     });
   } catch {
-    // Offline fallback handled via session cookie update
+    // Also try updating by email if userId was a fallback ID
+    try {
+      await prisma.user.update({
+        where: { email: cleanEmail },
+        data: {
+          name: cleanName,
+          phone: cleanPhone || null,
+          avatarUrl: cleanAvatar || null,
+          role: targetRole,
+        },
+      });
+    } catch {
+      // Offline fallback handled via session cookie update
+    }
   }
 
   await setSessionCookie({
     id: session.userId,
     email: cleanEmail,
     name: cleanName,
-    role: session.role,
+    role: targetRole,
+    phone: cleanPhone,
+    avatarUrl: cleanAvatar,
   });
 
-  return { success: true };
+  return { success: true, role: targetRole };
 }

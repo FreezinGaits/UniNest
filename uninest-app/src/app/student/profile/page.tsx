@@ -39,26 +39,64 @@ export default function StudentProfilePage() {
   const [food, setFood] = useState('Vegetarian');
   const [smoking, setSmoking] = useState('Non-Smoker');
 
+  const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
+
   useEffect(() => {
+    let savedParsed: any = null;
     try {
       const saved = localStorage.getItem('uninest_student_profile');
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.name) setName(parsed.name);
-        if (parsed.email) setEmail(parsed.email.replace('@uninest.demo', '@uninest.in'));
-        if (parsed.phone) setPhone(parsed.phone);
-        if (parsed.emergencyPhone) setEmergencyPhone(parsed.emergencyPhone);
-        if (parsed.collegeName) setCollegeName(parsed.collegeName);
-        if (parsed.course) setCourse(parsed.course);
+        savedParsed = JSON.parse(saved);
+        if (savedParsed.name) setName(savedParsed.name);
+        if (savedParsed.email) setEmail(savedParsed.email.replace('@uninest.demo', '@uninest.in'));
+        if (savedParsed.phone) setPhone(savedParsed.phone);
+        if (savedParsed.emergencyPhone) setEmergencyPhone(savedParsed.emergencyPhone);
+        if (savedParsed.collegeName) setCollegeName(savedParsed.collegeName);
+        if (savedParsed.course) setCourse(savedParsed.course);
       }
     } catch {}
 
     fetch('/api/profile')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.authenticated && data?.user?.role === 'STUDENT') {
+        if (data?.authenticated && data?.user) {
+          const userEmail = (data.user.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in');
+          const isDemoStudent = userEmail.toLowerCase() === 'rahul@uninest.in';
+
           setName(data.user.name || 'Rahul Sharma');
-          setEmail((data.user.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in'));
+          setEmail(userEmail);
+          if (data.user.avatarUrl) {
+            setAvatarUrl(data.user.avatarUrl);
+          }
+
+          if (!isDemoStudent) {
+            const isSameSavedUser =
+              savedParsed?.email &&
+              savedParsed.email.toLowerCase() === userEmail.toLowerCase();
+            const savedPhone =
+              isSameSavedUser &&
+              savedParsed.phone &&
+              savedParsed.phone !== '+91 98765 43210'
+                ? savedParsed.phone
+                : '';
+            const realPhone = data.user.phone || savedPhone || '';
+
+            if (realPhone) {
+              setPhone(realPhone);
+              setIsRealUserWithoutPhone(false);
+            } else {
+              setPhone('Not added yet — Tap Edit Profile to add');
+              setIsRealUserWithoutPhone(true);
+            }
+
+            const savedEmergency =
+              isSameSavedUser &&
+              savedParsed.emergencyPhone &&
+              !String(savedParsed.emergencyPhone).includes('Ramesh Sharma')
+                ? savedParsed.emergencyPhone
+                : '';
+            setEmergencyPhone(savedEmergency || 'Not added yet — Tap Edit Profile to add');
+          }
         }
       })
       .catch(() => {});
@@ -77,16 +115,20 @@ export default function StudentProfilePage() {
     e.preventDefault();
     setIsEditing(false);
     const cleanEmail = email.replace('@uninest.demo', '@uninest.in');
+    const cleanPhone = phone.startsWith('Not added yet') ? '' : phone.trim();
     setEmail(cleanEmail);
+    if (cleanPhone) {
+      setIsRealUserWithoutPhone(false);
+    }
     try {
       localStorage.setItem(
         'uninest_student_profile',
-        JSON.stringify({ name, email: cleanEmail, phone, emergencyPhone, collegeName, course, year, studentId })
+        JSON.stringify({ name, email: cleanEmail, phone: cleanPhone || phone, emergencyPhone, collegeName, course, year, studentId })
       );
       await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: cleanEmail }),
+        body: JSON.stringify({ name, email: cleanEmail, phone: cleanPhone, avatarUrl }),
       });
       router.refresh();
     } catch {}
@@ -100,6 +142,27 @@ export default function StudentProfilePage() {
     <div className="space-y-6 animate-fade-in pb-12">
       <div className="max-w-5xl mx-auto space-y-6">
 
+        {/* Prompt Banner for Google Users who haven't set their phone or role yet */}
+        {isRealUserWithoutPhone && (
+          <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-xs font-extrabold text-amber-950">Complete Your Google Account Setup</h3>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Add your real mobile number or switch your account role between <strong>Student</strong> and <strong>Landlord</strong>.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/auth/complete-profile"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-sm shrink-0 text-center transition-all"
+            >
+              Set Phone &amp; Role →
+            </Link>
+          </div>
+        )}
+
         {/* Top Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -107,7 +170,14 @@ export default function StudentProfilePage() {
             <p className="text-xs text-slate-500 mt-0.5">Manage and edit your personal information, college credentials, and roommate preferences.</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              href="/auth/complete-profile"
+              className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs py-2.5 px-3.5 rounded-xl shadow-sm flex items-center gap-1.5 transition-all"
+            >
+              <Settings className="w-3.5 h-3.5 text-emerald-600" />
+              Switch Role / Set Phone
+            </Link>
             {isEditing ? (
               <Button
                 onClick={handleSave}
@@ -118,7 +188,11 @@ export default function StudentProfilePage() {
               </Button>
             ) : (
               <Button
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  if (phone.startsWith('Not added yet')) setPhone('+91 ');
+                  if (emergencyPhone.startsWith('Not added yet')) setEmergencyPhone('+91 ');
+                  setIsEditing(true);
+                }}
                 className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-sm flex items-center gap-1.5"
               >
                 <Edit3 className="w-4 h-4" />
