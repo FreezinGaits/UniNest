@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { login, registerUser, authenticateGoogleUser } from '@/lib/auth/actions';
+import { login, registerUser } from '@/lib/auth/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -15,10 +15,16 @@ import {
   Phone,
   ShieldCheck,
   Scale,
-  X,
-  CheckCircle2,
-  Sparkles,
+  History,
 } from 'lucide-react';
+
+const RECENT_LOGINS_KEY = 'uninest_recent_logins_v1';
+
+interface RecentAccount {
+  name: string;
+  email: string;
+  role: string;
+}
 
 const portalQuickAccess = [
   { email: 'rahul@uninest.demo', displayEmail: 'rahul.sharma@pcte.edu.in', password: 'demo123', role: 'Student', name: 'Rahul Sharma' },
@@ -26,21 +32,6 @@ const portalQuickAccess = [
   { email: 'admin@uninest.demo', displayEmail: 'nodal.escrow@uninest.in', password: 'demo123', role: 'Escrow Admin', name: 'UniNest Escrow Officer' },
   { email: 'pcte@uninest.demo', displayEmail: 'housing.cell@pcte.edu.in', password: 'demo123', role: 'College Partner', name: 'PCTE Housing Cell' },
   { email: 'provider@uninest.demo', displayEmail: 'dispatch@quickfix.in', password: 'demo123', role: 'Vendor Partner', name: 'QuickFix Maintenance' },
-];
-
-const suggestedGoogleAccounts = [
-  {
-    name: 'Rahul Sharma',
-    email: 'rahul.sharma@pcte.edu.in',
-    role: 'STUDENT' as const,
-    badge: 'PCTE Student Account',
-  },
-  {
-    name: 'Vikram Singh Passi',
-    email: 'vikram.passi@gmail.com',
-    role: 'LANDLORD' as const,
-    badge: 'Verified PG Owner',
-  },
 ];
 
 function GoogleLogoSVG({ className = 'w-5 h-5' }: { className?: string }) {
@@ -77,13 +68,9 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Google Auth state
+  // Only show the Google OAuth button when real Google Cloud OAuth credentials are configured
   const [oauthConfigured, setOauthConfigured] = useState(false);
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [useCustomGoogle, setUseCustomGoogle] = useState(false);
-  const [googleCustomName, setGoogleCustomName] = useState('');
-  const [googleCustomEmail, setGoogleCustomEmail] = useState('');
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [recentAccounts, setRecentAccounts] = useState<RecentAccount[]>([]);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,18 +85,36 @@ function LoginContent() {
       })
       .catch(() => {});
 
+    try {
+      const raw = localStorage.getItem(RECENT_LOGINS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setRecentAccounts(parsed);
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+
     const errParam = searchParams?.get('error');
     if (errParam) {
       setError(errParam);
     }
-    if (searchParams?.get('google_chooser') === '1') {
-      const r = searchParams?.get('role');
-      if (r === 'LANDLORD' || r === 'STUDENT') {
-        setSelectedRole(r);
-      }
-      setShowGoogleModal(true);
-    }
   }, [searchParams]);
+
+  function saveRecentAccount(acct: RecentAccount) {
+    try {
+      const updated = [
+        acct,
+        ...recentAccounts.filter((a) => a.email.toLowerCase() !== acct.email.toLowerCase()),
+      ].slice(0, 4);
+      setRecentAccounts(updated);
+      localStorage.setItem(RECENT_LOGINS_KEY, JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -130,6 +135,11 @@ function LoginContent() {
       });
       setLoading(false);
       if (regResult.success) {
+        saveRecentAccount({
+          name: name.trim() || email.split('@')[0],
+          email: email.trim(),
+          role: selectedRole === 'LANDLORD' ? 'Landlord' : 'Student',
+        });
         router.push(regResult.role === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
         router.refresh();
       } else {
@@ -141,6 +151,15 @@ function LoginContent() {
     const result = await login(email, password);
     setLoading(false);
     if (result.success) {
+      const inferredName = email
+        .split('@')[0]
+        .replace(/[._-]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      saveRecentAccount({
+        name: inferredName || 'UniNest User',
+        email: email.trim(),
+        role: result.role === 'LANDLORD' ? 'Landlord' : 'Student',
+      });
       router.push(result.role === 'LANDLORD' ? '/landlord/dashboard' : '/');
       router.refresh();
     } else {
@@ -154,50 +173,7 @@ function LoginContent() {
       return;
     }
     setError('');
-
-    // If GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET are set in .env / Vercel, use official Google OAuth redirect
-    if (oauthConfigured) {
-      window.location.href = `/api/auth/google?role=${selectedRole}&mode=${authMode}`;
-      return;
-    }
-
-    // Otherwise open the interactive Google Account Chooser modal
-    setShowGoogleModal(true);
-  }
-
-  async function handleSelectGoogleAccount(account: {
-    name: string;
-    email: string;
-    role: 'STUDENT' | 'LANDLORD';
-  }) {
-    setGoogleLoading(true);
-    setError('');
-    try {
-      const res = await authenticateGoogleUser({
-        email: account.email,
-        name: account.name,
-        role: account.role,
-      });
-      if (res.success) {
-        setShowGoogleModal(false);
-        router.push(res.user.role === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
-        router.refresh();
-      }
-    } catch {
-      setError('Google sign-in failed. Please try again.');
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
-
-  async function handleCustomGoogleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!googleCustomEmail.trim()) return;
-    await handleSelectGoogleAccount({
-      name: googleCustomName.trim() || googleCustomEmail.split('@')[0],
-      email: googleCustomEmail.trim(),
-      role: selectedRole,
-    });
+    window.location.href = `/api/auth/google?role=${selectedRole}&mode=${authMode}`;
   }
 
   async function handleQuickAccess(account: (typeof portalQuickAccess)[0]) {
@@ -208,10 +184,31 @@ function LoginContent() {
 
     const result = await login(account.email, account.password);
     if (result.success) {
+      saveRecentAccount({
+        name: account.name,
+        email: account.displayEmail,
+        role: account.role,
+      });
       router.push('/');
       router.refresh();
     } else {
       setError(result.error || 'Login failed');
+    }
+    setLoading(false);
+  }
+
+  async function handleRecentAccountClick(acct: RecentAccount) {
+    setEmail(acct.email);
+    setPassword('demo123');
+    setError('');
+    setLoading(true);
+
+    const result = await login(acct.email, 'demo123');
+    if (result.success) {
+      router.push(result.role === 'LANDLORD' ? '/landlord/dashboard' : '/');
+      router.refresh();
+    } else {
+      setError(result.error || 'Please enter your password to sign in.');
     }
     setLoading(false);
   }
@@ -300,73 +297,76 @@ function LoginContent() {
             </button>
           </div>
 
-          <div className="mb-4">
+          <div className="mb-5">
             <h2 className="text-2xl font-bold text-text-primary">
               {authMode === 'SIGN_IN' ? 'Sign in to UniNest' : 'Create your UniNest Account'}
             </h2>
             <p className="text-xs text-text-secondary mt-1">
               {authMode === 'SIGN_IN'
-                ? 'Sign in with Google or your registered email & password.'
-                : 'Sign up in 1 click with Google or register with your email below.'}
+                ? 'Access your verified student housing & escrow dashboard.'
+                : 'Register as a Student or Verified Property Owner in Ludhiana.'}
             </p>
           </div>
 
-          {/* Role Selector (Shown for Register OR before Google Signup) */}
-          <div className="grid grid-cols-2 gap-2 mb-3.5">
-            <button
-              type="button"
-              onClick={() => setSelectedRole('STUDENT')}
-              className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                selectedRole === 'STUDENT'
-                  ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
-                  : 'border-border bg-surface text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              🎓 Student Portal
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedRole('LANDLORD')}
-              className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
-                selectedRole === 'LANDLORD'
-                  ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
-                  : 'border-border bg-surface text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              🏢 PG Owner / Landlord
-            </button>
-          </div>
+          {/* Only render Google OAuth button when live GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET are configured */}
+          {oauthConfigured && (
+            <>
+              <button
+                type="button"
+                onClick={handleGoogleClick}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-bold text-sm border border-slate-300 shadow-sm hover:shadow transition-all disabled:opacity-50"
+              >
+                <GoogleLogoSVG className="w-5 h-5 shrink-0" />
+                <span>
+                  {authMode === 'SIGN_IN' ? 'Continue with Google' : 'Sign up with Google'}
+                </span>
+              </button>
 
-          {/* Direct Google Sign-In / Sign-Up Button */}
-          <button
-            type="button"
-            onClick={handleGoogleClick}
-            disabled={loading || googleLoading}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-bold text-sm border border-slate-300 shadow-sm hover:shadow transition-all disabled:opacity-50"
-          >
-            <GoogleLogoSVG className="w-5 h-5 shrink-0" />
-            <span>
-              {authMode === 'SIGN_IN'
-                ? 'Continue with Google'
-                : `Sign up with Google as ${selectedRole === 'LANDLORD' ? 'PG Owner' : 'Student'}`}
-            </span>
-          </button>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-[10px]">
+                  <span className="bg-surface-secondary px-3 text-text-tertiary font-bold uppercase tracking-wider">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-[10px]">
-              <span className="bg-surface-secondary px-3 text-text-tertiary font-bold uppercase tracking-wider">
-                Or continue with email
-              </span>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3.5" autoComplete="on">
             {authMode === 'REGISTER' && (
               <>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('STUDENT')}
+                    className={`py-2.5 px-3 rounded-lg border text-xs font-bold transition-all ${
+                      selectedRole === 'STUDENT'
+                        ? 'border-brand-600 bg-brand-50 text-brand-700'
+                        : 'border-border bg-surface text-text-secondary'
+                    }`}
+                  >
+                    🎓 I am a Student
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('LANDLORD')}
+                    className={`py-2.5 px-3 rounded-lg border text-xs font-bold transition-all ${
+                      selectedRole === 'LANDLORD'
+                        ? 'border-brand-600 bg-brand-50 text-brand-700'
+                        : 'border-border bg-surface text-text-secondary'
+                    }`}
+                  >
+                    🏢 I am a PG Owner
+                  </button>
+                </div>
                 <Input
+                  id="name"
+                  name="name"
+                  autoComplete="name"
                   label="Full Legal Name (As per Aadhaar)"
                   type="text"
                   placeholder="Rahul Sharma"
@@ -376,6 +376,9 @@ function LoginContent() {
                   required
                 />
                 <Input
+                  id="phone"
+                  name="tel"
+                  autoComplete="tel"
                   label="Mobile Number (UPI Linked)"
                   type="tel"
                   placeholder="+91 98765 43210"
@@ -388,15 +391,21 @@ function LoginContent() {
             )}
 
             <Input
+              id="email"
+              name="email"
+              autoComplete="email"
               label="Email Address"
               type="email"
-              placeholder="you@college.edu.in"
+              placeholder="you@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               icon={<Mail className="w-4 h-4" />}
               required
             />
             <Input
+              id="password"
+              name="password"
+              autoComplete={authMode === 'SIGN_IN' ? 'current-password' : 'new-password'}
               label="Password"
               type="password"
               placeholder="••••••••"
@@ -442,6 +451,38 @@ function LoginContent() {
             </Button>
           </form>
 
+          {/* Recently Used Emails on This Device */}
+          {recentAccounts.length > 0 && (
+            <div className="mt-5">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-2">
+                <History className="w-3.5 h-3.5 text-brand-600" />
+                <span>Your Recent Accounts on This Device</span>
+              </div>
+              <div className="space-y-1.5">
+                {recentAccounts.map((acct) => (
+                  <button
+                    key={acct.email}
+                    type="button"
+                    onClick={() => handleRecentAccountClick(acct)}
+                    disabled={loading}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg border border-brand-200 bg-brand-50/40 hover:bg-brand-50 transition-colors text-left disabled:opacity-50"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center text-white text-xs font-bold">
+                      {(acct.name || acct.email)[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-text-primary truncate">{acct.name}</p>
+                      <p className="text-[11px] text-text-secondary truncate">{acct.email}</p>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-brand-200 text-brand-700">
+                      {acct.role}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Verified Role Quick-Access */}
           <div className="mt-6">
             <div className="relative mb-3">
@@ -485,158 +526,6 @@ function LoginContent() {
           </div>
         </div>
       </div>
-
-      {/* Google Account Chooser Modal (Instant Zero-Config & Custom Gmail Sign-In/Sign-Up) */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 relative">
-            <button
-              type="button"
-              onClick={() => {
-                setShowGoogleModal(false);
-                setUseCustomGoogle(false);
-              }}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-500"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="text-center space-y-2 pt-1">
-              <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto shadow-sm">
-                <GoogleLogoSVG className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-extrabold text-slate-900">
-                Choose an account to continue to UniNest
-              </h3>
-              <p className="text-xs text-slate-500">
-                Direct Google OAuth 2.0 • Neon / PostgreSQL Synced
-              </p>
-            </div>
-
-            {/* Role Toggle inside Google Modal */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setSelectedRole('STUDENT')}
-                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  selectedRole === 'STUDENT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
-                }`}
-              >
-                🎓 Sign in as Student
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedRole('LANDLORD')}
-                className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  selectedRole === 'LANDLORD' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
-                }`}
-              >
-                🏢 Sign in as PG Owner
-              </button>
-            </div>
-
-            {!useCustomGoogle ? (
-              <div className="space-y-2">
-                {suggestedGoogleAccounts.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    disabled={googleLoading}
-                    onClick={() =>
-                      handleSelectGoogleAccount({
-                        name: acc.name,
-                        email: acc.email,
-                        role: acc.role,
-                      })
-                    }
-                    className="w-full flex items-center justify-between gap-3 p-3.5 rounded-2xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition-all text-left"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0">
-                        {acc.name[0]}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{acc.name}</p>
-                        <p className="text-xs text-slate-500 truncate">{acc.email}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                      {acc.badge}
-                    </span>
-                  </button>
-                ))}
-
-                <button
-                  type="button"
-                  onClick={() => setUseCustomGoogle(true)}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-2xl border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-all text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                    <User className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-extrabold text-slate-800">Use another Google account</p>
-                    <p className="text-[11px] text-slate-500">Enter your own Gmail or College Google Workspace ID</p>
-                  </div>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleCustomGoogleSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Your Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Kabir Bedi"
-                    value={googleCustomName}
-                    onChange={(e) => setGoogleCustomName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Google / Gmail Address</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="yourname@gmail.com"
-                    value={googleCustomEmail}
-                    onChange={(e) => setGoogleCustomEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setUseCustomGoogle(false)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={googleLoading}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>
-                      {googleLoading
-                        ? 'Signing in with Google...'
-                        : `Continue as ${selectedRole === 'LANDLORD' ? 'PG Owner' : 'Student'}`}
-                    </span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 text-center flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-              <span>
-                To continue, Google will share your name, email address, and profile picture with UniNest.
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
