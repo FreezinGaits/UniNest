@@ -10,8 +10,8 @@ const DEMO_RENT_RECORDS = [
     tenantName: 'Rahul Sharma',
     property: 'PCTE Smart Student Residency (Room 204)',
     dueDate: '05 Sep 2026',
-    amountDue: 6000,
-    amountPaid: 6000,
+    amountDue: 600000,
+    amountPaid: 600000,
     status: 'PAID',
     paymentMethod: 'UPI (Google Pay)',
     txnId: 'TXN-GPI-99201',
@@ -21,8 +21,8 @@ const DEMO_RENT_RECORDS = [
     tenantName: 'Aman Verma',
     property: 'Passi Luxury PG (Room 102)',
     dueDate: '05 Sep 2026',
-    amountDue: 7500,
-    amountPaid: 7500,
+    amountDue: 750000,
+    amountPaid: 750000,
     status: 'PAID',
     paymentMethod: 'NetBanking (HDFC)',
     txnId: 'TXN-HDF-88102',
@@ -32,7 +32,7 @@ const DEMO_RENT_RECORDS = [
     tenantName: 'Priya Sharma',
     property: 'Campus Edge Girls Hostel (Room 301)',
     dueDate: '01 Sep 2026',
-    amountDue: 6500,
+    amountDue: 650000,
     amountPaid: 0,
     status: 'OVERDUE',
     paymentMethod: 'Pending Payment',
@@ -56,17 +56,20 @@ export default async function RentCollectionPage() {
       include: { user: true },
     });
     if (dbPayments && dbPayments.length > 0) {
-      records = dbPayments.map((p: any) => ({
-        id: p.id,
-        tenantName: p.user?.name || 'Rahul Sharma',
-        property: 'PCTE Smart Student Residency',
-        dueDate: new Date(p.createdAt).toLocaleDateString('en-IN'),
-        amountDue: p.amount,
-        amountPaid: p.status === 'SUCCESS' ? p.amount : 0,
-        status: p.status === 'SUCCESS' ? 'PAID' : 'PENDING',
-        paymentMethod: p.paymentMethod || 'UPI',
-        txnId: p.transactionId || 'TXN-DEMO-100',
-      }));
+      records = dbPayments.map((p: any) => {
+        const amtPaise = p.amount < 100000 ? p.amount * 100 : p.amount;
+        return {
+          id: p.id,
+          tenantName: p.user?.name || 'Rahul Sharma',
+          property: 'PCTE Smart Student Residency',
+          dueDate: new Date(p.createdAt).toLocaleDateString('en-IN'),
+          amountDue: amtPaise,
+          amountPaid: p.status === 'SUCCESS' ? amtPaise : 0,
+          status: p.status === 'SUCCESS' ? 'PAID' : 'PENDING',
+          paymentMethod: (p as any).method || (p as any).paymentMethod || 'UPI',
+          txnId: p.transactionId || 'TXN-DEMO-100',
+        };
+      });
     }
   } catch (error) {
     console.warn('Database error in RentCollectionPage, using demo rent ledger:', error);

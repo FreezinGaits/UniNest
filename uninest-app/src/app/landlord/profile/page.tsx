@@ -37,13 +37,20 @@ export default function LandlordProfilePage() {
   useEffect(() => {
     let savedParsed: any = null;
     try {
-      const saved = localStorage.getItem('uninest_landlord_profile');
-      if (saved) {
-        savedParsed = JSON.parse(saved);
+      const savedLocal = localStorage.getItem('uninest_landlord_profile');
+      if (savedLocal) {
+        savedParsed = JSON.parse(savedLocal);
         if (savedParsed.name) setName(savedParsed.name);
         if (savedParsed.email) setEmail(savedParsed.email.replace('@uninest.demo', '@uninest.in'));
         if (savedParsed.phone) setPhone(savedParsed.phone);
-        if (savedParsed.company) setCompany(savedParsed.company);
+        if (savedParsed.companyName || savedParsed.company) setCompany(savedParsed.companyName || savedParsed.company);
+        if (savedParsed.gstin) setGstin(savedParsed.gstin);
+        if (savedParsed.panNo) setPanNo(savedParsed.panNo);
+        if (savedParsed.bankName) setBankName(savedParsed.bankName);
+        if (savedParsed.accountName) setAccountName(savedParsed.accountName);
+        if (savedParsed.accountNo) setAccountNo(savedParsed.accountNo);
+        if (savedParsed.ifsc) setIfsc(savedParsed.ifsc);
+        if (savedParsed.city) setCity(savedParsed.city);
         if (savedParsed.address) setAddress(savedParsed.address);
       }
     } catch {}
@@ -55,32 +62,30 @@ export default function LandlordProfilePage() {
           const userEmail = (data.user.email || 'landlord@uninest.in').replace('@uninest.demo', '@uninest.in');
           const isDemoLandlord = userEmail.toLowerCase() === 'landlord@uninest.in';
 
-          setName(data.user.name || 'Vikram Singh');
+          setName(savedParsed?.name || data.user.name || 'Vikram Singh');
           setEmail(userEmail);
           if (data.user.avatarUrl) {
             setAvatarUrl(data.user.avatarUrl);
           }
 
           if (!isDemoLandlord) {
-            setBankName('');
-            setAccountName('');
-            setAccountNo('');
-            setIfsc('');
-            setGstin('');
-            setPanNo('');
-            setCompany('');
-            setAddress('');
+            setBankName(savedParsed?.bankName || '');
+            setAccountName(savedParsed?.accountName || '');
+            setAccountNo(savedParsed?.accountNo || '');
+            setIfsc(savedParsed?.ifsc || '');
+            setGstin(savedParsed?.gstin || '');
+            setPanNo(savedParsed?.panNo || '');
+            setCompany(savedParsed?.companyName || savedParsed?.company || '');
+            setCity(savedParsed?.city || 'Ludhiana');
+            setAddress(savedParsed?.address || '');
 
-            const isSameSavedUser =
-              savedParsed?.email &&
-              savedParsed.email.toLowerCase() === userEmail.toLowerCase();
             const savedPhone =
-              isSameSavedUser &&
-              savedParsed.phone &&
-              savedParsed.phone !== '+91 98989 89801'
+              savedParsed?.phone &&
+              savedParsed.phone !== '+91 98989 89801' &&
+              !String(savedParsed.phone).startsWith('Not added yet')
                 ? savedParsed.phone
                 : '';
-            const realPhone = data.user.phone || savedPhone || '';
+            const realPhone = savedPhone || data.user.phone || '';
 
             if (realPhone) {
               setPhone(realPhone);
@@ -116,7 +121,21 @@ export default function LandlordProfilePage() {
     try {
       localStorage.setItem(
         'uninest_landlord_profile',
-        JSON.stringify({ name, email: cleanEmail, phone: cleanPhone || phone, company, address, bankName, accountName, accountNo, ifsc })
+        JSON.stringify({
+          name,
+          email: cleanEmail,
+          phone: cleanPhone || phone,
+          company,
+          companyName: company,
+          gstin,
+          panNo,
+          bankName,
+          accountName,
+          accountNo,
+          ifsc,
+          city,
+          address,
+        })
       );
       await fetch('/api/profile', {
         method: 'POST',

@@ -63,11 +63,6 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
     });
   }
 
-  const isDemoProperty = matched?.id?.startsWith('prop-pcte') || false;
-  if (!isDemoProperty) {
-    rooms.length = 0; // Clear generated dummy data for real properties
-  }
-
   const totalBeds = rooms.reduce((a, r) => a + r.beds.length, 0);
   const occupiedBeds = rooms.reduce(
     (a, r) => a + r.beds.filter((b) => b.status === 'OCCUPIED').length,

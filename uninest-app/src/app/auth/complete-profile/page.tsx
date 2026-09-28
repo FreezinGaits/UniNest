@@ -69,6 +69,9 @@ export default function CompleteGoogleProfilePage() {
           phone: cleanPhone,
           avatarUrl,
           role,
+          organization: organization.trim() || undefined,
+          college: role === 'STUDENT' ? organization.trim() : undefined,
+          companyName: role === 'LANDLORD' ? organization.trim() : undefined,
         }),
       });
 
@@ -82,7 +85,9 @@ export default function CompleteGoogleProfilePage() {
           phone: cleanPhone,
           avatarUrl,
           collegeName: role === 'STUDENT' ? organization.trim() : undefined,
+          college: role === 'STUDENT' ? organization.trim() : undefined,
           company: role === 'LANDLORD' ? organization.trim() : undefined,
+          companyName: role === 'LANDLORD' && organization.trim() ? organization.trim() : undefined,
         })
       );
 

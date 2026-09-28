@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     }
 
     // Compute compatibility for each request
-    let results = rawRequests.map((req: any) => {
+    let results = rawRequests.map((r: any) => {
       let comp = {
         totalScore: 88,
         breakdown: {
@@ -121,42 +121,50 @@ export async function GET(request: Request) {
         matchingPoints: ['Quiet study environment', 'Non-smoking preference', 'AC room preference'],
       };
 
-      if (currentStudentReq && req.sleepSchedule) {
-        comp = calculateCompatibility(currentStudentReq, req);
-      } else if (req.compatibility) {
-        comp = req.compatibility;
+      if (currentStudentReq && r.sleepSchedule) {
+        comp = calculateCompatibility(currentStudentReq, r);
+      } else if (r.compatibility) {
+        comp = r.compatibility;
       }
 
+      const fullName = r.student?.user?.name || r.name || 'Student Roommate';
+      const firstName = r.showFirstName !== false ? fullName.split(' ')[0] : 'Verified Student';
+      const displayName = r.showFirstName !== false ? (r.name || fullName) : 'Verified Student';
+      const college = r.showCollege !== false ? (r.student?.college || r.collegeName || r.student?.collegeName || 'PCTE Institute of Technology') : 'Campus Verified';
+      const course = r.showCourse !== false ? (r.student?.course || r.course || 'B.Tech CSE') : 'Hidden';
+
       return {
-        id: req.id,
-        studentId: req.studentId || 'demo-student-id',
-        name: req.name || req.student?.user?.name || 'Student Roommate',
-        avatarUrl: req.avatarUrl || req.student?.user?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-        gender: req.gender || req.student?.gender || 'Male',
-        collegeName: req.collegeName || req.student?.collegeName || 'PCTE Institute of Technology',
-        course: req.course || req.student?.course || 'B.Tech CSE',
-        year: req.year || req.student?.year || 2,
-        city: req.city || 'Ludhiana',
-        locality: req.locality || 'Ferozepur Road',
-        budgetMin: req.budgetMin || 5000,
-        budgetMax: req.budgetMax || 8000,
-        roomType: req.roomType || 'Double Sharing',
-        moveInDate: req.moveInDate || '2026-09-15',
-        sleepSchedule: req.sleepSchedule || 'Night Owl (12 AM - 8 AM)',
-        studySchedule: req.studySchedule || 'Evening & Night Focus',
-        noisePreference: req.noisePreference || 'Quiet & Focused',
-        cleanlinessPreference: req.cleanlinessPreference || 'High / Daily Clean',
-        smokingPreference: req.smokingPreference || 'Non-Smoker',
-        foodPreference: req.foodPreference || 'Vegetarian',
-        socialPreference: req.socialPreference || 'Moderate Socializing',
-        visitorPreference: req.visitorPreference || 'Weekend Guests Only',
-        petPreference: req.petPreference || 'No Pets',
-        acPreference: req.acPreference ?? true,
-        wifiPreference: req.wifiPreference ?? true,
-        attachedBathroomPreference: req.attachedBathroomPreference ?? true,
-        foodProvidedPreference: req.foodProvidedPreference ?? true,
-        description: req.description || 'Focused student looking for a clean, peaceful roommate near PCTE campus.',
-        isVerified: req.isVerified ?? true,
+        id: r.id,
+        studentId: r.studentId || 'demo-student-id',
+        firstName,
+        name: displayName,
+        avatarUrl: r.avatarUrl || r.student?.user?.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        gender: r.gender || r.student?.gender || 'Male',
+        college,
+        collegeName: college,
+        course,
+        year: r.year || r.student?.year || 2,
+        city: r.city || 'Ludhiana',
+        locality: r.locality || 'Ferozepur Road',
+        budgetMin: r.budgetMin || 5000,
+        budgetMax: r.budgetMax || 8000,
+        roomType: r.roomType || 'Double Sharing',
+        moveInDate: r.moveInDate || '2026-09-15',
+        sleepSchedule: r.sleepSchedule || 'Night Owl (12 AM - 8 AM)',
+        studySchedule: r.studySchedule || 'Evening & Night Focus',
+        noisePreference: r.noisePreference || 'Quiet & Focused',
+        cleanlinessPreference: r.cleanlinessPreference || 'High / Daily Clean',
+        smokingPreference: r.smokingPreference || 'Non-Smoker',
+        foodPreference: r.foodPreference || 'Vegetarian',
+        socialPreference: r.socialPreference || 'Moderate Socializing',
+        visitorPreference: r.visitorPreference || 'Weekend Guests Only',
+        petPreference: r.petPreference || 'No Pets',
+        acPreference: r.acPreference ?? true,
+        wifiPreference: r.wifiPreference ?? true,
+        attachedBathroomPreference: r.attachedBathroomPreference ?? true,
+        foodProvidedPreference: r.foodProvidedPreference ?? true,
+        description: r.description || 'Focused student looking for a clean, peaceful roommate near PCTE campus.',
+        isVerified: r.isVerified ?? true,
         compatibility: comp,
       };
     });

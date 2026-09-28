@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -12,7 +12,7 @@ import { Card, Badge, Button } from '@/components/ui/Shared';
 import { DemoPaymentModal } from '@/components/booking/DemoPaymentModal';
 import { VisitSchedulingModal } from '@/components/booking/VisitSchedulingModal';
 
-export default function MatchedRoommateRoomsPage() {
+function RoomShareListingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const matchId = searchParams.get('matchId') || '';
@@ -279,3 +279,12 @@ export default function MatchedRoommateRoomsPage() {
     </div>
   );
 }
+
+export default function RoomShareListingsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading room share listings...</div>}>
+      <RoomShareListingsContent />
+    </Suspense>
+  );
+}
+

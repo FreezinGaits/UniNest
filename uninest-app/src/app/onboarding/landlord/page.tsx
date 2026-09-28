@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -34,7 +34,7 @@ export default function LandlordOnboardingPage() {
     phone: '',
     email: '',
     address: '',
-    city: '',
+    city: 'Ludhiana',
     state: 'Punjab',
     panNo: '',
     gstNo: '',
@@ -53,6 +53,23 @@ export default function LandlordOnboardingPage() {
 
   const [fileName, setFileName] = useState('');
 
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          setFormData((prev) => ({
+            ...prev,
+            fullName: data.user.name || prev.fullName,
+            email: data.user.email || prev.email,
+            phone: data.user.phone || prev.phone,
+            businessName: data.user.companyName || prev.businessName,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const completionPercent = Math.round((step / totalSteps) * 100);
 
   const handleNext = async () => {
@@ -67,6 +84,7 @@ export default function LandlordOnboardingPage() {
           body: JSON.stringify({
             role: 'LANDLORD',
             email: formData.email,
+            propertyName: formData.propertyName,
             profileData: formData,
           }),
         });
@@ -138,7 +156,12 @@ export default function LandlordOnboardingPage() {
                 </div>
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">Email</label>
-                  <Input value={formData.email} disabled className="bg-slate-950/60 border-slate-800 text-slate-400" />
+                  <Input
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={Boolean(formData.email && formData.email.includes('@'))}
+                    className="bg-slate-950/60 border-slate-800 text-slate-400"
+                  />
                 </div>
               </div>
             </div>
@@ -166,6 +189,24 @@ export default function LandlordOnboardingPage() {
                 <div>
                   <label className="block text-slate-300 font-semibold mb-1">IFSC Code</label>
                   <Input value={formData.ifscCode} onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value })} className="bg-slate-950 border-slate-800" />
+                </div>
+                <div>
+                  <Input
+                    label="City"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="e.g. Ludhiana"
+                    className="bg-slate-950 border-slate-800"
+                  />
+                </div>
+                <div>
+                  <Input
+                    label="Full Street Address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Plot 42, Opp. PCTE Campus, Ferozepur Road"
+                    className="bg-slate-950 border-slate-800"
+                  />
                 </div>
               </div>
             </div>
@@ -202,8 +243,22 @@ export default function LandlordOnboardingPage() {
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">City & State</label>
-                  <Input value={`${formData.city}, ${formData.state}`} disabled className="bg-slate-950/60 border-slate-800 text-slate-400" />
+                  <Input
+                    label="City"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="e.g. Ludhiana"
+                    className="bg-slate-950 border-slate-800"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Input
+                    label="Full Street Address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Plot 42, Opp. PCTE Campus, Ferozepur Road"
+                    className="bg-slate-950 border-slate-800"
+                  />
                 </div>
               </div>
             </div>

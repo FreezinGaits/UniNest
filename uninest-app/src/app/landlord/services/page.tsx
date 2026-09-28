@@ -11,8 +11,10 @@ const DEMO_SERVICES = [
     provider: 'Ludhiana Home Services',
     property: 'PCTE Smart Student Residency',
     requestedBy: 'Passi PG Manager',
-    amount: 1500,
-    landlordCommission: 150,
+    amount: 150000,
+    totalAmount: 150000,
+    landlordCommission: 15000,
+    landlordShare: 15000,
     status: 'COMPLETED',
     date: '02 Sep 2026',
   },
@@ -22,8 +24,10 @@ const DEMO_SERVICES = [
     provider: 'Express PG DryCleaners',
     property: 'Passi Luxury PG',
     requestedBy: 'Aman Verma',
-    amount: 800,
-    landlordCommission: 80,
+    amount: 80000,
+    totalAmount: 80000,
+    landlordCommission: 8000,
+    landlordShare: 8000,
     status: 'IN_PROGRESS',
     date: '04 Sep 2026',
   },
@@ -44,17 +48,25 @@ export default async function PartnerServicesPage() {
       orderBy: { createdAt: 'desc' },
     });
     if (dbOrders && dbOrders.length > 0) {
-      services = dbOrders.map((o: any) => ({
-        id: o.id,
-        serviceName: o.serviceName || 'PG Maintenance',
-        provider: 'Ludhiana Home Services',
-        property: 'PCTE Smart Student Residency',
-        requestedBy: o.customerName || 'Rahul Sharma',
-        amount: o.amount,
-        landlordCommission: o.landlordShare || Math.round(o.amount * 0.1),
-        status: o.status || 'COMPLETED',
-        date: new Date(o.createdAt).toLocaleDateString('en-IN'),
-      }));
+      services = dbOrders.map((o: any) => {
+        const rawAmount = o.totalAmount || o.amount || 0;
+        const totalAmount = rawAmount < 10000 ? rawAmount * 100 : rawAmount;
+        const rawShare = o.landlordShare || o.landlordCommission || Math.round(totalAmount * 0.1);
+        const landlordShare = rawShare < 1000 && totalAmount >= 10000 ? rawShare * 100 : rawShare;
+        return {
+          id: o.id,
+          serviceName: o.serviceName || 'PG Maintenance',
+          provider: 'Ludhiana Home Services',
+          property: 'PCTE Smart Student Residency',
+          requestedBy: o.customerName || 'Rahul Sharma',
+          amount: totalAmount,
+          totalAmount,
+          landlordCommission: landlordShare,
+          landlordShare,
+          status: o.status || 'COMPLETED',
+          date: new Date(o.createdAt).toLocaleDateString('en-IN'),
+        };
+      });
     }
   } catch (error) {
     console.warn('Database error in PartnerServicesPage, using demo fallback services:', error);

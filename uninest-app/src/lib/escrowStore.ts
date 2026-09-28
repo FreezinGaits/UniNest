@@ -343,27 +343,22 @@ export function getStoreBookings(): EscrowBookingRecord[] {
   return getEscrowStore().bookings;
 }
 
-export function findStoreBooking(bookingId: string): EscrowBookingRecord | undefined {
+export function findStoreBooking(bookingId?: string): EscrowBookingRecord | undefined {
   const store = getEscrowStore();
-  return store.bookings.find((b) => b.id === bookingId) || store.bookings[0];
+  if (!bookingId) return store.bookings[0];
+  return store.bookings.find((b) => b.id === bookingId);
 }
 
 export function updateStoreBooking(
   bookingId: string,
-  updater: (b: EscrowBookingRecord) => Partial<EscrowBookingRecord>
-): EscrowBookingRecord | undefined {
+  patch: Partial<EscrowBookingRecord> | ((b: EscrowBookingRecord) => Partial<EscrowBookingRecord>)
+): EscrowBookingRecord | null {
   const store = getEscrowStore();
   const idx = store.bookings.findIndex((b) => b.id === bookingId);
-  const targetIdx = idx >= 0 ? idx : 0;
-  const current = store.bookings[targetIdx];
-  if (!current) return undefined;
-
-  const updates = updater(current);
-  const updated: EscrowBookingRecord = {
-    ...current,
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
-  store.bookings[targetIdx] = updated;
-  return updated;
+  if (idx !== -1) {
+    const resolvedPatch = typeof patch === 'function' ? patch(store.bookings[idx]) : patch;
+    store.bookings[idx] = { ...store.bookings[idx], ...resolvedPatch };
+    return store.bookings[idx];
+  }
+  return null;
 }

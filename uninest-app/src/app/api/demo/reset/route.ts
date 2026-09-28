@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth/actions';
 
 export async function POST() {
+  const session = await getSession();
+  if (!session || session.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
+  }
+
   try {
     // Use dynamic import to run the seed script
     const { execSync } = require('child_process');

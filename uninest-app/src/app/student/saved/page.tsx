@@ -8,6 +8,7 @@ const DEMO_SAVED_ITEMS = [
     userId: 'user-student-demo',
     propertyId: 'prop-demo-01',
     createdAt: new Date().toISOString(),
+    savedAt: new Date().toISOString(),
     property: {
       id: 'prop-demo-01',
       name: 'PCTE Smart Student Residency',
@@ -54,6 +55,7 @@ const DEMO_SAVED_ITEMS = [
     userId: 'user-student-demo',
     propertyId: 'prop-demo-02',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
+    savedAt: new Date(Date.now() - 86400000).toISOString(),
     property: {
       id: 'prop-demo-02',
       name: 'Passi Luxury PG & Co-Living',
@@ -110,13 +112,13 @@ export default async function SavedPropertiesPage() {
     });
 
     if (!studentUser && session.email) {
-      studentUser = await prisma.user.findUnique({
-        where: { email: session.email },
+      studentUser = await prisma.user.findFirst({
+        where: { email: { in: [session.email, session.email.replace('@uninest.in', '@uninest.demo')] } },
       });
     }
 
     if (studentUser) {
-      savedItems = await prisma.savedProperty.findMany({
+      const dbSaved = await prisma.savedProperty.findMany({
         where: { userId: studentUser.id },
         orderBy: { createdAt: 'desc' },
         include: {
@@ -130,6 +132,11 @@ export default async function SavedPropertiesPage() {
           },
         },
       });
+      savedItems = dbSaved.map((s) => ({
+        ...s,
+        createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
+        savedAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : s.createdAt,
+      }));
     }
   } catch (err) {
     console.warn('DB lookup failed on saved properties page, using demo fallback:', err);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -13,6 +13,7 @@ export default function CreateRoommateRequestPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [userName, setUserName] = useState('Rahul Sharma');
 
   const [formData, setFormData] = useState({
     name: 'Rahul Sharma',
@@ -52,7 +53,21 @@ export default function CreateRoommateRequestPage() {
     showLifestyle: true,
   });
 
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        const fetchedName = data?.user?.name || data?.profile?.name || data?.name;
+        if (fetchedName) {
+          setUserName(fetchedName);
+          setFormData((prev) => ({ ...prev, name: fetchedName }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleChange = (field: string, value: any) => {
+    if (field === 'name') setUserName(value);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -109,10 +124,10 @@ export default function CreateRoommateRequestPage() {
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 p-6 md:p-8 rounded-2xl text-white shadow-md">
           <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-            Create Your Roommate Profile
+            Create Your Roommate Profile ({userName})
           </h1>
           <p className="text-xs md:text-sm text-emerald-100 mt-1">
-            Answer a few quick questions to match with verified students near PCTE & GNDEC with similar study habits and budget.
+            Answer a few quick questions to match with verified students near PCTE &amp; GNDEC with similar study habits and budget.
           </p>
 
           {/* Stepper Progress Bar */}
@@ -129,7 +144,7 @@ export default function CreateRoommateRequestPage() {
               <span className={step >= 3 ? 'text-white font-bold' : ''}>3. Budget</span>
               <span className={step >= 4 ? 'text-white font-bold' : ''}>4. Lifestyle</span>
               <span className={step >= 5 ? 'text-white font-bold' : ''}>5. Amenities</span>
-              <span className={step >= 6 ? 'text-white font-bold' : ''}>6. Bio & Privacy</span>
+              <span className={step >= 6 ? 'text-white font-bold' : ''}>6. Bio &amp; Privacy</span>
             </div>
           </div>
         </div>
@@ -142,7 +157,7 @@ export default function CreateRoommateRequestPage() {
               <div className="space-y-5 animate-in fade-in">
                 <h2 className="text-base font-extrabold text-slate-900 flex items-center">
                   <User className="w-5 h-5 text-emerald-600 mr-2" />
-                  Personal & Academic Details
+                  Personal &amp; Academic Details
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -150,7 +165,7 @@ export default function CreateRoommateRequestPage() {
                     <label className="text-xs font-semibold text-slate-700 block mb-1">Display Name</label>
                     <input
                       type="text"
-                      value={formData.name}
+                      value={formData.name || userName}
                       onChange={(e) => handleChange('name', e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-900 focus:bg-white focus:border-emerald-500 focus:outline-none"
                       required

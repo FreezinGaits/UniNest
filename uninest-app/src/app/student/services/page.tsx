@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -19,6 +19,40 @@ interface ServiceItem {
   description: string;
   icon: any;
 }
+
+interface ActiveServiceOrder {
+  id: string;
+  serviceId: string;
+  name: string;
+  category: string;
+  price: number;
+  provider: string;
+  status: 'ACTIVE' | 'SCHEDULED';
+  orderedAt: string;
+}
+
+const ACTIVE_ORDERS: ActiveServiceOrder[] = [
+  {
+    id: 'ord-demo-1',
+    serviceId: 'srv-1',
+    name: 'High-Speed Wi-Fi Boost (100 Mbps)',
+    category: 'Utilities',
+    price: 30000,
+    provider: 'Airtel Broadband (Verified)',
+    status: 'ACTIVE',
+    orderedAt: '15 Aug 2026',
+  },
+  {
+    id: 'ord-demo-2',
+    serviceId: 'srv-2',
+    name: 'Daily Tiffin & Meal Plan (2 Meals/day)',
+    category: 'Food',
+    price: 350000,
+    provider: 'Grandma Kitchens (DEMO PARTNER)',
+    status: 'ACTIVE',
+    orderedAt: '01 Sep 2026',
+  },
+];
 
 const SERVICES: ServiceItem[] = [
   { id: 'srv-1', name: 'High-Speed Wi-Fi Boost (100 Mbps)', category: 'Utilities', price: 30000, provider: 'Airtel Broadband (Verified)', description: 'Unlimited campus Wi-Fi with guaranteed 99.9% uptime.', icon: Wifi },
@@ -43,22 +77,79 @@ const SERVICES: ServiceItem[] = [
 
 export default function OnDemandServicesPage() {
   const [purchasedId, setPurchasedId] = useState<string | null>(null);
-  const [isDemo, setIsDemo] = useState(false);
+  const [isDemo, setIsDemo] = useState(true);
+  const [userEmail, setUserEmail] = useState('rahul@uninest.in');
+  const [activeOrders, setActiveOrders] = useState<ActiveServiceOrder[]>(ACTIVE_ORDERS);
 
-  import('react').then(React => {
-    React.useEffect(() => {
-      fetch('/api/profile')
-        .then(res => res.json())
-        .then(data => {
-          const email = data?.user?.email || '';
-          setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
-        })
-        .catch(() => {});
-    }, []);
-  });
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        const email = data?.email || data?.user?.email || '';
+        const demo =
+          !email ||
+          email === 'rahul@uninest.in' ||
+          email === 'rahul@uninest.demo' ||
+          email.includes('@uninest.demo');
+        setIsDemo(demo);
+        setUserEmail(email || 'demo');
 
-  async function handleOrderService(service: ServiceItem) {
+        const storageKey = 'uninest_service_orders_' + (email || 'demo');
+        let savedOrders: ActiveServiceOrder[] = [];
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              savedOrders = parsed;
+            }
+          }
+        } catch {}
+
+        if (demo) {
+          const existingIds = new Set(savedOrders.map((o) => o.serviceId));
+          const merged = [
+            ...savedOrders,
+            ...ACTIVE_ORDERS.filter((o) => !existingIds.has(o.serviceId)),
+          ];
+          setActiveOrders(merged);
+        } else {
+          setActiveOrders(savedOrders);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleOrderSuccess(service: ServiceItem) {
     setPurchasedId(service.id);
+    const newOrder: ActiveServiceOrder = {
+      id: `ord-${Date.now()}`,
+      serviceId: service.id,
+      name: service.name,
+      category: service.category,
+      price: service.price,
+      provider: service.provider,
+      status: 'ACTIVE',
+      orderedAt: new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+    };
+
+    const updatedOrders = [
+      newOrder,
+      ...activeOrders.filter((o) => o.serviceId !== service.id),
+    ];
+    setActiveOrders(updatedOrders);
+
+    try {
+      localStorage.setItem(
+        'uninest_service_orders_' + (userEmail || 'demo'),
+        JSON.stringify(updatedOrders)
+      );
+    } catch {}
+
     try {
       await fetch('/api/demo/service', { method: 'POST' });
       await fetch('/api/demo/commission', { method: 'POST' });
@@ -94,11 +185,38 @@ export default function OnDemandServicesPage() {
         </div>
       </Card>
 
+      {/* Active Subscriptions / Orders */}
+      {activeOrders.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+            Active Service Subscriptions ({activeOrders.length})
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {activeOrders.map((ord) => (
+              <Card key={ord.id} className="border-emerald-200 bg-emerald-50/30 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="success" size="sm">
+                    {ord.status}
+                  </Badge>
+                  <span className="text-[11px] text-text-tertiary">Since {ord.orderedAt}</span>
+                </div>
+                <h3 className="font-bold text-xs text-text-primary">{ord.name}</h3>
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-emerald-200/60">
+                  <span className="text-text-secondary truncate max-w-[160px]">{ord.provider}</span>
+                  <span className="font-extrabold text-emerald-700">{formatINR(ord.price)}</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Grid of Services */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {SERVICES.map((srv) => {
           const Icon = srv.icon;
-          const isOrdered = purchasedId === srv.id;
+          const isOrdered =
+            purchasedId === srv.id || activeOrders.some((o) => o.serviceId === srv.id);
 
           return (
             <Card key={srv.id} className="flex flex-col justify-between hover:shadow-md transition-all">
@@ -130,13 +248,9 @@ export default function OnDemandServicesPage() {
                   <div className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg font-semibold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Booked!
                   </div>
-                ) : isDemo ? (
-                  <Button variant="primary" size="sm" onClick={() => handleOrderService(srv)}>
-                    <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Order Now
-                  </Button>
                 ) : (
-                  <Button variant="outline" size="sm" disabled>
-                    Available soon
+                  <Button variant="primary" size="sm" onClick={() => handleOrderSuccess(srv)}>
+                    <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Order Now
                   </Button>
                 )}
               </div>

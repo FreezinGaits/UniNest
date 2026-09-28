@@ -24,6 +24,9 @@ export async function POST(request: Request) {
     });
 
     if (!senderReq || !receiverReq) {
+      if (action === 'DECLINE') {
+        return NextResponse.json({ status: 'DECLINED', message: 'Interest declined.' });
+      }
       const isMutualFallback = action === 'ACCEPT';
       return NextResponse.json({
         success: true,
@@ -63,6 +66,16 @@ export async function POST(request: Request) {
       },
     });
 
+    if (action === 'DECLINE') {
+      if (reverseInterest) {
+        await prisma.roommateInterest.update({
+          where: { id: reverseInterest.id },
+          data: { status: 'DECLINED' },
+        });
+      }
+      return NextResponse.json({ status: 'DECLINED', message: 'Interest declined.' });
+    }
+
     if (!existingInterest) {
       existingInterest = await prisma.roommateInterest.create({
         data: {
@@ -77,7 +90,7 @@ export async function POST(request: Request) {
     let createdMatch = null;
 
     // Check if reverse interest exists OR if action is 'ACCEPT'
-    if (reverseInterest || action === 'ACCEPT') {
+    if (action === 'ACCEPT' || reverseInterest) {
       isMutual = true;
 
       // Update interest status

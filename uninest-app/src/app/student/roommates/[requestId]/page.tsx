@@ -21,6 +21,7 @@ export default function RoommateProfileDetailsPage({
 
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
+  const [myRequestId, setMyRequestId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [interestSent, setInterestSent] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -34,6 +35,9 @@ export default function RoommateProfileDetailsPage({
     try {
       const res = await fetch(`/api/student/roommates?id=${requestId}`);
       const data = await res.json();
+      if (data.success && data.currentStudentRequest?.id) {
+        setMyRequestId(data.currentStudentRequest.id);
+      }
       let found = null;
       if (data.success && data.requests) {
         found = data.requests.find((r: any) => r.id === requestId);
@@ -176,13 +180,26 @@ export default function RoommateProfileDetailsPage({
     return demoProfiles[id] || demoProfiles['req-aman-id'];
   };
 
-  const handleExpressInterest = async () => {
+  const handleSendInterest = async () => {
     try {
+      let senderReqId = myRequestId;
+      if (!senderReqId) {
+        try {
+          const myRes = await fetch('/api/student/roommates');
+          const myData = await myRes.json();
+          if (myData?.currentStudentRequest?.id) {
+            senderReqId = myData.currentStudentRequest.id;
+            setMyRequestId(senderReqId);
+          }
+        } catch {
+          // ignore
+        }
+      }
       const res = await fetch('/api/student/roommates/interest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          senderRequestId: 'req-rahul-id',
+          senderRequestId: senderReqId || 'req-rahul-id',
           receiverRequestId: profile.id,
         }),
       });
@@ -198,6 +215,7 @@ export default function RoommateProfileDetailsPage({
       console.error('Error sending interest:', err);
     }
   };
+  const handleExpressInterest = handleSendInterest;
 
   if (loading) {
     return (

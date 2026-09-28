@@ -169,13 +169,13 @@ export function PwaManager() {
     const iosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIos(iosDevice);
 
-    // Purge any stale v2.x Service Worker caches immediately on client mount
+    // Purge any stale pre-v4.0 Service Worker caches immediately on client mount
     if ('caches' in window) {
       caches
         .keys()
         .then((keys) => {
           keys.forEach((key) => {
-            if (key !== 'uninest-pwa-v3.0') {
+            if (key !== 'uninest-pwa-v4.0') {
               caches.delete(key).catch(() => {});
             }
           });

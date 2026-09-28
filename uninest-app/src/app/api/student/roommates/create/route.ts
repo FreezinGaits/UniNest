@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth/actions';
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
     const body = await request.json();
     const {
       studentId,
@@ -47,6 +49,18 @@ export async function POST(request: Request) {
     try {
       if (studentId) {
         targetStudent = await prisma.student.findUnique({ where: { id: studentId } });
+      }
+      if (!targetStudent && session?.email) {
+        targetStudent = await prisma.student.findFirst({
+          where: {
+            user: {
+              email: {
+                in: [session.email, session.email.replace('@uninest.in', '@uninest.demo')],
+              },
+            },
+          },
+          include: { user: true },
+        });
       }
       if (!targetStudent) {
         targetStudent = await prisma.student.findFirst({

@@ -171,6 +171,8 @@ export default function StudentSearchPage() {
         if (filters.type) params.set('type', filters.type);
         if (filters.gender) params.set('gender', filters.gender);
         if (filters.verifiedOnly) params.set('verified', 'true');
+        if (filters.amenities.length > 0) params.set('amenities', filters.amenities.join(','));
+        if (filters.rules.length > 0) params.set('rules', filters.rules.join(','));
 
         if (sortBy) params.set('sort', sortBy);
 

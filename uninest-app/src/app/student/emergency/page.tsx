@@ -1,10 +1,11 @@
-import { getSession } from '@/lib/auth/actions';
-import { prisma } from '@/lib/db';
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import {
   Phone, AlertTriangle, Flame, HeartPulse, ShieldAlert, Wrench,
-  Droplets, Zap, KeyRound, Wind, Building2, ExternalLink
+  Droplets, Zap, KeyRound, Wind, Building2, CheckCircle2
 } from 'lucide-react';
 
 const officialEmergencies = [
@@ -16,40 +17,54 @@ const officialEmergencies = [
 ];
 
 const propertyEmergencies = [
-  { label: 'Plumber', category: 'Plumbing', icon: Droplets, desc: 'Burst pipe, tap leak, drainage block', color: 'bg-blue-100 text-blue-700' },
-  { label: 'Electrician', category: 'Electrical', icon: Zap, desc: 'Power outage, failure, circuit trip', color: 'bg-amber-100 text-amber-700' },
-  { label: 'Locksmith', category: 'Lockout', icon: KeyRound, desc: 'Locked out of room, broken lock', color: 'bg-slate-100 text-slate-700' },
-  { label: 'Water Supply', category: 'Water', icon: Droplets, desc: 'No water, tank overflow, pump issue', color: 'bg-cyan-100 text-cyan-700' },
-  { label: 'AC / Cooler', category: 'HVAC', icon: Wind, desc: 'AC breakdown, cooling failure', color: 'bg-emerald-100 text-emerald-700' },
+  { title: 'Main Fuse / Power Outage', category: 'Electrical', icon: Zap, desc: 'Power outage, failure, circuit trip', color: 'bg-amber-100 text-amber-700' },
+  { title: 'Water Pipe Burst / Tank Empty', category: 'Plumbing', icon: Droplets, desc: 'Burst pipe, tap leak, tank empty', color: 'bg-blue-100 text-blue-700' },
+  { title: 'Electronic Door Lock Jammed', category: 'Lockout', icon: KeyRound, desc: 'Locked out of room, broken lock', color: 'bg-slate-100 text-slate-700' },
+  { title: 'Severe Water Logging', category: 'Water', icon: Droplets, desc: 'Drainage overflow, severe logging, pump issue', color: 'bg-cyan-100 text-cyan-700' },
+  { title: 'Gas / Kitchen Leak', category: 'Hazard', icon: Flame, desc: 'Pantry gas leak, smoke, or urgent hazard', color: 'bg-rose-100 text-rose-700' },
 ];
 
-export default async function EmergencyPage() {
-  let landlordPhone = '+91 98140 12345';
-  let propertyName = 'PCTE Smart Student Residency';
-  let wardenPhone = '+91 98765 11223';
+export default function EmergencyPage() {
+  const [isDemo, setIsDemo] = useState(true);
+  const [dispatchedIssue, setDispatchedIssue] = useState<string | null>(null);
+  const [isDispatching, setIsDispatching] = useState(false);
 
-  try {
-    const session = await getSession();
-    if (session?.userId) {
-      const student = await prisma.student.findUnique({
-        where: { userId: session.userId },
-        include: {
-          tenancies: {
-            where: { isActive: true },
-            include: { bed: { include: { room: { include: { property: { include: { landlord: { include: { user: true } } } } } } } } },
-            take: 1,
-          },
-        },
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        const email = data?.email || data?.user?.email || '';
+        const demo =
+          !email ||
+          email === 'rahul@uninest.in' ||
+          email === 'rahul@uninest.demo' ||
+          email.includes('@uninest.demo');
+        setIsDemo(demo);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleQuickDispatch(title: string) {
+    setIsDispatching(true);
+    setDispatchedIssue(title);
+    try {
+      await fetch('/api/demo/emergency', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: title }),
       });
-      const tenancy = student?.tenancies?.[0];
-      if (tenancy?.bed?.room?.property) {
-        propertyName = tenancy.bed.room.property.name;
-        landlordPhone = tenancy.bed.room.property.landlord?.user?.phone || '+91 98140 12345';
-      }
+    } catch {
+      // ignore fallback errors
+    } finally {
+      setIsDispatching(false);
     }
-  } catch (e) {
-    console.warn('Prisma DB query fallback in Emergency Page:', e);
   }
+
+  const landlordPhone = '+91 98140 12345';
+  const propertyName = isDemo
+    ? 'PCTE Smart Student Residency (Room 204, Bed A)'
+    : 'UniNest Student Safety Support Desk';
+  const wardenPhone = '+91 98765 11223';
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
@@ -110,14 +125,15 @@ export default async function EmergencyPage() {
           Your Accommodation SOS Contacts
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
           <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
             <div>
               <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md mb-1 inline-block">
                 Property Landlord / Owner
               </span>
               <p className="text-sm font-extrabold text-slate-900">{propertyName}</p>
-              <p className="text-xs text-slate-500 mt-0.5">Vikram Singh (Owner — Passi Residency)</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isDemo ? 'Vikram Singh (Owner — Passi Residency)' : 'On-Call Property Caretaker Desk'}
+              </p>
             </div>
             <a
               href={`tel:${landlordPhone}`}
@@ -142,7 +158,6 @@ export default async function EmergencyPage() {
               Call {wardenPhone}
             </a>
           </div>
-
         </div>
       </section>
 
@@ -152,26 +167,63 @@ export default async function EmergencyPage() {
           <Wrench className="w-5 h-5 text-amber-600" />
           Urgent 15-Min Property Emergency Dispatch
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {propertyEmergencies.map((e) => (
-            <div key={e.label} className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`w-9 h-9 ${e.color} rounded-xl flex items-center justify-center shrink-0`}>
-                  <e.icon className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-extrabold text-slate-900">{e.label}</p>
-                  <p className="text-[11px] text-slate-500">{e.desc}</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-                <span className="text-slate-500 font-medium">ETA: ~15-30 Mins</span>
-                <span className="bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-md border border-amber-200">
-                  Auto Dispatch
-                </span>
+
+        {dispatchedIssue && (
+          <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-xs sm:text-sm font-extrabold text-emerald-900">
+                  Emergency Response Dispatched for: {dispatchedIssue} — Caretaker notified (15-min SLA active)
+                </p>
+                <p className="text-[11px] text-emerald-700 mt-0.5">
+                  {isDispatching ? 'Syncing alert with property caretaker...' : 'Duty technician & property manager alerted via SMS/Call.'}
+                </p>
               </div>
             </div>
-          ))}
+            <Badge variant="success" size="sm">
+              15-MIN SLA ACTIVE
+            </Badge>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {propertyEmergencies.map((item) => {
+            const isSelected = dispatchedIssue === item.title;
+            return (
+              <div
+                key={item.title}
+                onClick={() => handleQuickDispatch(item.title)}
+                className={`bg-white border p-4 rounded-2xl shadow-sm flex flex-col justify-between cursor-pointer transition-all hover:shadow-md active:scale-[0.99] ${
+                  isSelected
+                    ? 'border-emerald-600 ring-2 ring-emerald-500/20 bg-emerald-50/20'
+                    : 'border-slate-200 hover:border-amber-400'
+                }`}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-9 h-9 ${item.color} rounded-xl flex items-center justify-center shrink-0`}>
+                    <item.icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
+                    <p className="text-[11px] text-slate-500">{item.desc}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
+                  <span className="text-slate-500 font-medium">ETA: ~15-30 Mins</span>
+                  <span
+                    className={`font-bold px-2 py-0.5 rounded-md border ${
+                      isSelected
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}
+                  >
+                    {isSelected ? '✓ Dispatched' : 'Tap to Dispatch'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>

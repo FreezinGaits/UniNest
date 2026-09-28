@@ -15,14 +15,15 @@ interface SavedPropertiesClientProps {
 }
 
 export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClientProps) {
-  const [items, setItems] = useState<any[]>(initialSavedItems);
+  const [savedList, setSavedList] = useState<any[]>(initialSavedItems);
+  const items = savedList;
   const [selectedPropertyForPayment, setSelectedPropertyForPayment] = useState<any | null>(null);
   const [selectedPropertyForVisit, setSelectedPropertyForVisit] = useState<any | null>(null);
 
-  const handleRemove = (propertyId: string) => {
-    fetch('/api/student/saved', { method: 'DELETE', body: JSON.stringify({ propertyId }) }).catch(() => {});
-    setItems((prev) => prev.filter((item) => item.property.id !== propertyId));
+  const handleUnsave = (propertyId: string) => {
+    setSavedList((prev) => prev.filter((item) => item.property.id !== propertyId));
   };
+  const handleRemove = handleUnsave;
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
@@ -49,7 +50,8 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
 
       {items.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {items.map(({ id: savedId, savedAt, property }) => {
+          {items.map((item) => {
+            const { id: savedId, property } = item;
             const rooms = property.rooms || [];
             const minRent = rooms.length > 0 ? Math.min(...rooms.map((r: any) => r.rent)) : 600000;
             const minDeposit = rooms.length > 0 ? Math.min(...rooms.map((r: any) => r.deposit)) : 1000000;
@@ -61,9 +63,9 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
             const availBedsCount = allBeds.filter((b: any) => b.status === 'AVAILABLE').length;
             const isAvailable = availBedsCount > 0;
             const collegeLink = property.collegeLinks?.[0];
-            const distanceText = collegeLink ? `${collegeLink.distance} km from ${collegeLink.college?.name || 'PCTE'}` : (property.commuteTime || 'Near PCTE Campus');
+            const distanceText = collegeLink ? `${collegeLink.distance} km from ${collegeLink.college?.name || collegeLink.college?.collegeName || 'PCTE'}` : (property.commuteTime || 'Near PCTE Campus');
 
-            const savedDateStr = new Date(savedAt).toLocaleDateString('en-IN', {
+            const savedDateStr = new Date(item.savedAt || item.createdAt || Date.now()).toLocaleDateString('en-IN', {
               day: 'numeric',
               month: 'short',
               year: 'numeric',
@@ -83,7 +85,7 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
                       propertyId={property.id}
                       initialSaved={true}
                       onToggle={(saved) => {
-                        if (!saved) handleRemove(property.id);
+                        if (!saved) handleUnsave(property.id);
                       }}
                     />
                   </div>

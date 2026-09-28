@@ -20,8 +20,8 @@ export default async function MyBookingsPage() {
     });
 
     if (!studentUser && session.email) {
-      studentUser = await prisma.user.findUnique({
-        where: { email: session.email },
+      studentUser = await prisma.user.findFirst({
+        where: { email: { in: [session.email, session.email.replace('@uninest.in', '@uninest.demo')] } },
       });
     }
 
@@ -53,11 +53,15 @@ export default async function MyBookingsPage() {
     // Database offline — use synchronized globalThis Escrow Store
   }
 
-  if (!bookings || bookings.length === 0) {
-    const isDemoUser = session.email?.includes('@uninest.demo') || session.email?.includes('@uninest.in');
-    if (isDemoUser) {
-      bookings = store.bookings;
-    }
+  const isDemoUser = session.email?.includes('@uninest.demo') || session.email?.includes('@uninest.in');
+  const existingIds = new Set((bookings || []).map((b: any) => b.id));
+  const storeMatches = (store.bookings || []).filter(
+    (sb: any) =>
+      (isDemoUser || sb.studentEmail === session.email || sb.studentId === session.userId) &&
+      !existingIds.has(sb.id)
+  );
+  if (storeMatches.length > 0) {
+    bookings = [...storeMatches, ...(bookings || [])];
   }
 
   return <StudentBookingsClient initialBookings={bookings} />;

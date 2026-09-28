@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -73,6 +73,23 @@ export default function StudentOnboardingPage() {
   });
 
   const [fileName, setFileName] = useState('');
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          setFormData((prev) => ({
+            ...prev,
+            fullName: data.user.name || prev.fullName,
+            email: data.user.email || prev.email,
+            phone: data.user.phone || prev.phone,
+            collegeName: data.user.college || data.user.collegeName || prev.collegeName,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const completionPercent = Math.round((step / totalSteps) * 100);
 
@@ -172,7 +189,8 @@ export default function StudentOnboardingPage() {
                   <label className="block text-slate-300 font-semibold mb-1">Email Address</label>
                   <Input
                     value={formData.email}
-                    disabled
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    disabled={Boolean(formData.email && formData.email.includes('@'))}
                     className="bg-slate-950/60 border-slate-800 text-slate-400"
                   />
                 </div>

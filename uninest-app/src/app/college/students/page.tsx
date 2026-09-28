@@ -110,7 +110,7 @@ const INITIAL_STUDENTS: EnrolledStudent[] = [
     department: 'BBA',
     programLabel: 'BBA (Yr 1)',
     pgAllocation: 'BRS Nagar Student Villa — Room 301, Bed A',
-    landlord: 'Harजिंदर Sidhu',
+    landlord: 'Harjinder Sidhu',
     monthlyRentPaise: 620000,
     parentContact: '+91 94170 33211 (Rajesh Arora)',
     status: 'PENDING_PARENT_CONSENT',

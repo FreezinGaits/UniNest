@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,19 +12,24 @@ import {
 
 export default function MyStayDetailsPage() {
   const [claimScenario, setClaimScenario] = useState<string | null>(null);
-  const [isDemo, setIsDemo] = useState(false);
+  const [isDemo, setIsDemo] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  import('react').then(React => {
-    React.useEffect(() => {
-      fetch('/api/profile')
-        .then(res => res.json())
-        .then(data => {
-          const email = data?.user?.email || '';
-          setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
-        })
-        .catch(() => {});
-    }, []);
-  });
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        const email = data?.email || data?.user?.email || '';
+        if (email && email !== 'rahul@uninest.in' && email !== 'rahul@uninest.demo' && !email.includes('@uninest.demo')) {
+          const activeStay = localStorage.getItem(`uninest_active_stay_${email}`);
+          if (!activeStay) {
+            setIsDemo(false);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   if (!isDemo) {
     return (

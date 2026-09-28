@@ -31,14 +31,19 @@ export default async function TenantDisputesPage() {
   try {
     const dbDisputes = await prisma.dispute.findMany({
       orderBy: { createdAt: 'desc' },
+      include: { reporter: true },
     });
     if (dbDisputes && dbDisputes.length > 0) {
       disputes = dbDisputes.map((d: any) => ({
         id: d.id,
-        caseId: `DSP-${d.id.slice(-4)}`,
-        tenantName: d.reportedBy || 'Rahul Sharma',
+        caseId: d.caseId || `DSP-${d.id.slice(-4)}`,
+        tenantName:
+          (d as any).reporter?.name ||
+          (d as any).reportedBy?.name ||
+          (typeof (d as any).reportedBy === 'string' ? (d as any).reportedBy : null) ||
+          'Rahul Sharma',
         property: 'PCTE Smart Student Residency',
-        category: d.type || 'TENANT_ISSUE',
+        category: (d as any).category || (d as any).type || 'SLA_BREACH',
         subject: d.title || d.description || 'Tenant Complaint',
         status: d.status || 'OPEN',
         date: new Date(d.createdAt).toLocaleDateString('en-IN'),

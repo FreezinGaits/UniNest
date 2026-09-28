@@ -24,8 +24,11 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const router = useRouter();
+  const userRole = role;
+  const canSwitchRole = userRole === 'STUDENT' || userRole === 'LANDLORD';
 
   async function handleRoleSwitch(newRole: string) {
+    if (!canSwitchRole) return;
     setSwitching(newRole);
     try {
       const result = await switchRole(newRole as 'STUDENT' | 'LANDLORD' | 'ADMIN' | 'COLLEGE' | 'PROVIDER');
@@ -60,50 +63,70 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
         role={role}
         userName={userName}
         userEmail={userEmail}
-        onRoleSwitch={() => setShowRoleModal(true)}
+        onRoleSwitch={canSwitchRole ? () => setShowRoleModal(true) : undefined}
         onLogout={handleLogout}
       />
 
       <main className="md:ml-64 min-h-screen pt-16 pb-24 md:pt-0 md:pb-0">
+        {canSwitchRole && (
+          <div className="hidden md:flex items-center justify-end px-6 lg:px-8 pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              loading={switching !== null}
+              onClick={() => handleRoleSwitch(userRole === 'STUDENT' ? 'LANDLORD' : 'STUDENT')}
+              className="text-xs font-semibold"
+            >
+              {userRole === 'STUDENT' ? (
+                <Building2 className="w-3.5 h-3.5 mr-1.5" />
+              ) : (
+                <GraduationCap className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {userRole === 'STUDENT' ? 'Switch to Landlord' : 'Switch to Student'}
+            </Button>
+          </div>
+        )}
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
 
-      <Modal
-        isOpen={showRoleModal}
-        onClose={() => setShowRoleModal(false)}
-        title="Switch Workspace Portal"
-        description="Switch between your authorized UniNest portals."
-        size="md"
-      >
-        <div className="space-y-2">
-          {roleOptions.map(opt => (
-            <button
-              key={opt.role}
-              onClick={() => handleRoleSwitch(opt.role)}
-              disabled={switching !== null}
-              className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-150 ${
-                role === opt.role
-                  ? 'border-brand-300 bg-brand-50'
-                  : 'border-border hover:border-brand-200 hover:bg-surface-secondary'
-              } ${switching === opt.role ? 'opacity-60' : ''}`}
-            >
-              <div className={`p-2.5 rounded-lg ${opt.color}`}>{opt.icon}</div>
-              <div className="text-left flex-1">
-                <p className="font-semibold text-text-primary text-sm">{opt.label}</p>
-                <p className="text-xs text-text-secondary">{opt.desc}</p>
-              </div>
-              {role === opt.role && (
-                <span className="text-xs font-semibold text-brand-600 bg-brand-100 px-2 py-0.5 rounded-full">Active</span>
-              )}
-              {switching === opt.role && (
-                <span className="text-xs text-text-tertiary">Switching…</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </Modal>
+      {canSwitchRole && (
+        <Modal
+          isOpen={showRoleModal}
+          onClose={() => setShowRoleModal(false)}
+          title="Switch Workspace Portal"
+          description="Switch between your authorized UniNest portals."
+          size="md"
+        >
+          <div className="space-y-2">
+            {roleOptions.map(opt => (
+              <button
+                key={opt.role}
+                onClick={() => handleRoleSwitch(opt.role)}
+                disabled={switching !== null}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-150 ${
+                  role === opt.role
+                    ? 'border-brand-300 bg-brand-50'
+                    : 'border-border hover:border-brand-200 hover:bg-surface-secondary'
+                } ${switching === opt.role ? 'opacity-60' : ''}`}
+              >
+                <div className={`p-2.5 rounded-lg ${opt.color}`}>{opt.icon}</div>
+                <div className="text-left flex-1">
+                  <p className="font-semibold text-text-primary text-sm">{opt.label}</p>
+                  <p className="text-xs text-text-secondary">{opt.desc}</p>
+                </div>
+                {role === opt.role && (
+                  <span className="text-xs font-semibold text-brand-600 bg-brand-100 px-2 py-0.5 rounded-full">Active</span>
+                )}
+                {switching === opt.role && (
+                  <span className="text-xs text-text-tertiary">Switching…</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

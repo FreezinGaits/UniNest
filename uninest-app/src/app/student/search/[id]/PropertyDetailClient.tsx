@@ -31,19 +31,26 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
   // State machine
   const [booking, setBooking] = useState(initialBooking);
   const [visit, setVisit] = useState(initialVisit);
+  const [bookedId, setBookedId] = useState<string>(initialBooking?.id || 'bkg-pcte-2026-demo');
 
   const isReserved = !!booking && ['RESERVED', 'VISIT_REQUESTED', 'VISIT_CONFIRMED', 'VISITED', 'CONFIRMED'].includes(booking.status);
 
   // Modals state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [showVisitModal, setShowVisitModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
 
   // Selected Room/Bed for reservation
-  const [selectedRoom, setSelectedRoom] = useState<any>(property.rooms?.[0] || { roomNumber: '204', rent: 600000, deposit: 1000000 });
-  const [selectedBedLabel, setSelectedBedLabel] = useState<string>('A');
+  const defaultRoom = property.rooms?.[0] || { id: 'room-demo-102', roomNumber: '204', floor: 1, rent: 600000, deposit: 1000000, beds: [] };
+  const defaultBed =
+    defaultRoom.beds?.find((b: any) => b.status === 'AVAILABLE') ||
+    defaultRoom.beds?.[0] ||
+    { id: 'bed-102-b', label: 'A', bedNumber: 'Bed A' };
+  const [selectedRoom, setSelectedRoom] = useState<any>(defaultRoom);
+  const [selectedBed, setSelectedBed] = useState<any>(defaultBed);
+  const [selectedBedLabel, setSelectedBedLabel] = useState<string>(defaultBed?.label || defaultBed?.bedNumber || 'A');
 
   const minRent = property.rooms?.length > 0 ? Math.min(...property.rooms.map((r: any) => r.rent)) / 100 : 6000;
   const minDeposit = property.rooms?.length > 0 ? Math.min(...property.rooms.map((r: any) => r.deposit)) / 100 : 10000;
@@ -64,17 +71,15 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
     : '🔒 Unlocked after ₹399 reservation';
 
   // Handle successful ₹399 payment
-  const handlePaymentSuccess = (data: {
-    transactionId: string;
-    address: string;
-    landlordPhone: string;
-    bookingId?: string;
-    reservationType?: string;
-  }) => {
+  const handlePaymentSuccess = (data: any) => {
+    const resolvedBookingId = data?.booking?.id || data?.bookingId || 'bkg-pcte-2026-demo';
+    if (data?.booking?.id || data?.bookingId) {
+      setBookedId(data.booking?.id || data.bookingId);
+    }
     setBooking({
-      id: data.bookingId || `bk-${Date.now()}`,
+      id: resolvedBookingId,
       status: 'RESERVED',
-      reservationType: data.reservationType || 'IMMEDIATE_VISIT',
+      reservationType: data?.reservationType || 'IMMEDIATE_VISIT',
       reservationFee: 39900,
     });
   };
@@ -99,17 +104,24 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-sm uppercase tracking-wide bg-white/25 px-2.5 py-0.5 rounded-full text-white text-[10px]">
-                  ✓ Bed Reserved & Location Unlocked
+                  ✓ Bed Reserved &amp; Location Unlocked
                 </span>
                 <span className="text-xs text-emerald-100 font-semibold">Hold Expiry: 72 Hours</span>
               </div>
-              <h3 className="font-bold text-base mt-0.5">Exact Property Address & Landlord Visit Activated</h3>
+              <h3 className="font-bold text-base mt-0.5">Exact Property Address &amp; Landlord Visit Activated</h3>
             </div>
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+          <div className="flex items-center gap-2 w-full md:w-auto shrink-0 flex-wrap">
+            <button
+              onClick={() => router.push('/student/bookings/' + bookedId)}
+              className="flex-1 md:flex-none py-2 px-3.5 bg-white text-emerald-800 font-extrabold text-xs rounded-xl hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <CalendarCheck className="w-4 h-4" />
+              Open Escrow Workspace &amp; Visit Schedule
+            </button>
             <button
               onClick={() => setShowVisitModal(true)}
-              className="flex-1 md:flex-none py-2 px-3.5 bg-white text-emerald-800 font-extrabold text-xs rounded-xl hover:bg-emerald-50 transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+              className="flex-1 md:flex-none py-2 px-3.5 bg-emerald-950/40 border border-emerald-300/40 text-white font-extrabold text-xs rounded-xl hover:bg-emerald-900/60 transition-colors flex items-center justify-center gap-1.5"
             >
               <CalendarCheck className="w-4 h-4" />
               {visit ? `Visit: ${visit.status}` : 'Schedule Visit'}
@@ -309,7 +321,7 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
             </div>
 
             <div className="space-y-4">
-              {property.rooms?.map((room: any) => (
+              {property.rooms?.map((room: any, rIdx: number) => (
                 <div key={room.id} className="border border-slate-200 rounded-xl p-4 space-y-3 bg-slate-50/50">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div>
@@ -317,9 +329,9 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
                         <span className="font-extrabold text-sm text-slate-900">Room {room.roomNumber}</span>
                         <Badge variant="outline" size="sm">{room.sharing}-Sharing</Badge>
                         {room.hasAC && <Badge variant="info" size="sm">AC</Badge>}
-                        {room.hasAttBath && <Badge variant="success" size="sm">Attached Bath</Badge>}
+                        {(room.hasAttBath || room.hasAttachedBath) && <Badge variant="success" size="sm">Attached Bath</Badge>}
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">Floor {room.floor}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Floor {room.floor ?? rIdx + 1}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-base font-extrabold text-slate-900">{formatINR(room.rent / 100)}</span>
@@ -331,15 +343,17 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
                   <div className="pt-2">
                     <p className="text-xs font-bold text-slate-700 mb-2">Beds in this Room:</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {room.beds.map((bed: any) => {
+                      {room.beds.map((bed: any, bIdx: number) => {
                         const isAvailable = bed.status === 'AVAILABLE';
+                        const bedLbl = bed.label || bed.bedNumber || String.fromCharCode(65 + bIdx);
                         return (
                           <div
                             key={bed.id}
                             onClick={() => {
                               if (isAvailable && !isReserved) {
                                 setSelectedRoom(room);
-                                setSelectedBedLabel(bed.label);
+                                setSelectedBed(bed);
+                                setSelectedBedLabel(bedLbl);
                                 setShowConfirmModal(true);
                               }
                             }}
@@ -349,7 +363,9 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
                                 : 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed'
                             }`}
                           >
-                            <span className="text-xs font-bold text-slate-900 block">Bed {bed.label}</span>
+                            <span className="text-xs font-bold text-slate-900 block">
+                              {String(bedLbl).startsWith('Bed') ? bedLbl : `Bed ${bedLbl}`}
+                            </span>
                             <span className={`text-[10px] font-extrabold uppercase mt-1 inline-block px-2 py-0.5 rounded-md ${
                               isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
                             }`}>
@@ -376,7 +392,7 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
                   ₹399 Token
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-1">Holds bed for 72 hours & unlocks exact visit coordinates.</p>
+              <p className="text-xs text-slate-500 mt-1">Holds bed for 72 hours &amp; unlocks exact visit coordinates.</p>
             </div>
 
             <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
@@ -405,6 +421,14 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
               </button>
             ) : (
               <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/student/bookings/' + bookedId)}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md flex items-center justify-center gap-2 transition-all"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>Open Escrow Workspace &amp; Visit Schedule</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setShowVisitModal(true)}
@@ -464,7 +488,7 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
         onClose={() => setShowConfirmModal(false)}
         onConfirmPayment={() => {
           setShowConfirmModal(false);
-          setShowPaymentModal(true);
+          setIsPaymentModalOpen(true);
         }}
         onOpenTerms={() => setShowTermsModal(true)}
         property={{
@@ -488,13 +512,16 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
       />
 
       <DemoPaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
         onSuccess={handlePaymentSuccess}
         property={{
           id: property.id,
           name: property.name,
+          monthlyRent: selectedRoom?.rent ? (selectedRoom.rent > 50000 ? Math.round(selectedRoom.rent / 100) : selectedRoom.rent) : 6000,
         }}
+        roomId={selectedRoom?.id}
+        bedId={selectedBed?.id}
       />
 
       <VisitSchedulingModal

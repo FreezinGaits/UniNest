@@ -14,12 +14,26 @@ export interface DocumentPDFData {
   transactionId?: string;
 }
 
+function escapeHtml(str: unknown): string {
+  if (typeof str !== 'string') return String(str || '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export function generateDocumentHTML(doc: DocumentPDFData): string {
-  const tenant = doc.tenantName || 'Rahul Sharma';
-  const room = doc.roomDetails || 'PCTE Smart Residency (Room 204, Bed A)';
-  const amount = doc.amount || '₹6,000.00';
-  const paymentMethod = doc.paymentMethod || 'Razorpay UPI (HDFC Bank XXXX-8921)';
-  const txnId = doc.transactionId || `PAY-${Math.floor(100000000 + Math.random() * 900000000)}`;
+  const tenant = escapeHtml(doc.tenantName || 'Rahul Sharma');
+  const room = escapeHtml(doc.roomDetails || 'PCTE Smart Residency (Room 204, Bed A)');
+  const amount = escapeHtml(doc.amount || '₹6,000.00');
+  const paymentMethod = escapeHtml(doc.paymentMethod || 'Razorpay UPI (HDFC Bank XXXX-8921)');
+  const txnId = escapeHtml(doc.transactionId || `PAY-${Math.floor(100000000 + Math.random() * 900000000)}`);
+  const referenceNo = escapeHtml(doc.referenceNo);
+  const title = escapeHtml(doc.title);
+  const issuer = escapeHtml(doc.issuer);
+  const issueDate = escapeHtml(doc.issueDate);
 
   let bodyContent = '';
 

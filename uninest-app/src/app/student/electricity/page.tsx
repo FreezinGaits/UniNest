@@ -8,17 +8,26 @@ import {
 import { Card, Badge, Button } from '@/components/ui/Shared';
 
 export default function ElectricityDuesPage() {
+  const [billStatus, setBillStatus] = useState<'PENDING' | 'PAID'>('PENDING');
   const [paid, setPaid] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const [isDemo, setIsDemo] = useState(false);
+  const [isDemo, setIsDemo] = useState(true);
 
   React.useEffect(() => {
+    try {
+      const savedStatus = localStorage.getItem('uninest_electricity_paid');
+      if (savedStatus === 'PAID' || savedStatus === 'true') {
+        setBillStatus('PAID');
+        setPaid(true);
+      }
+    } catch {}
+
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
-        const email = data?.user?.email || '';
-        setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
+        const email = data?.email || data?.user?.email || '';
+        setIsDemo(!email || email.includes('@uninest.demo') || email === 'rahul@uninest.in');
       })
       .catch(() => {});
   }, []);
@@ -45,13 +54,20 @@ export default function ElectricityDuesPage() {
     { month: 'Jul 2026', units: 73, prevReading: 1105, currReading: 1178, totalBill: 693.50, share: 346.75, status: 'PAID', datePaid: '05 Aug 2026' },
   ] : [];
 
-  const handlePayBill = () => {
+  const handlePayShare = () => {
     setPaying(true);
+    fetch('/api/demo/electricity', { method: 'POST' }).catch(() => {});
     setTimeout(() => {
       setPaying(false);
+      setBillStatus('PAID');
       setPaid(true);
-    }, 1200);
+      try {
+        localStorage.setItem('uninest_electricity_paid', 'PAID');
+      } catch {}
+    }, 800);
   };
+
+  const handlePayBill = handlePayShare;
 
   if (!isDemo || !currentBill) {
     return (

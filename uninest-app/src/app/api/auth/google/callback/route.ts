@@ -31,21 +31,23 @@ export async function GET(request: NextRequest) {
   if (stateParam) {
     try {
       const [payloadB64, sig] = stateParam.split('.');
-      if (payloadB64 && sig) {
-        const expectedSig = crypto
-          .createHmac('sha256', STATE_SECRET)
-          .update(payloadB64)
-          .digest('base64url');
-        const cookieNonce = request.cookies.get('oauth_state')?.value;
-        if (sig === expectedSig) {
-          const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'));
-          if ((!cookieNonce || parsed.nonce === cookieNonce) && (parsed.role === 'LANDLORD' || parsed.role === 'STUDENT')) {
-            selectedRole = parsed.role;
-          }
-        }
+      if (!payloadB64 || !sig) {
+        return NextResponse.redirect(new URL('/login?error=Invalid+OAuth+state', request.url));
+      }
+      const expectedSig = crypto
+        .createHmac('sha256', STATE_SECRET)
+        .update(payloadB64)
+        .digest('base64url');
+      if (sig !== expectedSig) {
+        return NextResponse.redirect(new URL('/login?error=Invalid+OAuth+state', request.url));
+      }
+      const cookieNonce = request.cookies.get('oauth_state')?.value;
+      const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'));
+      if ((!cookieNonce || parsed.nonce === cookieNonce) && (parsed.role === 'LANDLORD' || parsed.role === 'STUDENT')) {
+        selectedRole = parsed.role;
       }
     } catch {
-      // Ignore malformed state
+      return NextResponse.redirect(new URL('/login?error=Invalid+OAuth+state', request.url));
     }
   }
 

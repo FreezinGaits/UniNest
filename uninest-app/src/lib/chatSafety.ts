@@ -15,7 +15,7 @@ const PHONE_REGEX = /(\+?\d{1,4}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}|
 const WORD_DIGITS_REGEX = /(nine|eight|seven|six|five|four|three|two|one|zero){4,}/i;
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i;
 const LINK_REGEX = /(https?:\/\/|www\.)\S+|[a-zA-Z0-9-]+\.(com|in|org|net|io|me|app)\b/i;
-const SOCIAL_REGEX = /(whatsapp|telegram|insta|instagram|snapchat|gpay|paytm|phonepe|call me at|text me at)/i;
+const SOCIAL_REGEX = /\b(whatsapp|telegram|insta|instagram|snapchat|gpay|paytm|phonepe|call me at|text me at|call me|text me|dm me)\b/i;
 
 export function moderateChatMessage(content: string): ModerateMessageResult {
   if (!content) {

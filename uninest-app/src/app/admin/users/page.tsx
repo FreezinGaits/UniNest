@@ -87,23 +87,41 @@ const PLATFORM_USERS = [
 ];
 
 function normalizeAccountIdentity(u: any) {
-  const suffixPattern = new RegExp('@uninest\\.[a-z]+$', 'i');
-  const rawEmail = String(u.email || '').replace(suffixPattern, '@uninest.in');
+  const rawEmailOrig = String(u.email || '').trim();
+  const isDemoDomain = rawEmailOrig.toLowerCase().endsWith('@uninest.demo');
+  const rawEmail = isDemoDomain
+    ? rawEmailOrig.replace(/@uninest\.demo$/i, '@uninest.in')
+    : rawEmailOrig;
+  const lowerEmail = rawEmail.toLowerCase();
+
   let name = u.name;
   let email = rawEmail;
 
-  if (u.role === 'LANDLORD' && (name?.includes('Rajesh') || email.startsWith('landlord@'))) {
-    name = 'Vikram Singh (Passi Residency)';
-    email = 'landlord@uninest.in';
-  } else if (u.role === 'PROVIDER') {
-    name = 'QuickFix Services';
-    email = 'provider@uninest.in';
-  } else if (u.role === 'COLLEGE') {
-    name = 'PCTE Housing Cell';
-    email = 'pcte@uninest.in';
-  } else if (u.role === 'ADMIN') {
-    name = 'UniNest Escrow Admin';
-    email = 'admin@uninest.in';
+  const isSpecificDemoEmail = [
+    'provider@uninest.in',
+    'pcte@uninest.in',
+    'admin@uninest.in',
+    'landlord@uninest.in',
+    'rahul@uninest.in',
+  ].includes(lowerEmail);
+
+  if (isDemoDomain || isSpecificDemoEmail) {
+    if (lowerEmail === 'landlord@uninest.in' || (isDemoDomain && u.role === 'LANDLORD')) {
+      name = 'Vikram Singh (Passi Residency)';
+      email = 'landlord@uninest.in';
+    } else if (lowerEmail === 'provider@uninest.in' || (isDemoDomain && u.role === 'PROVIDER')) {
+      name = 'QuickFix Services';
+      email = 'provider@uninest.in';
+    } else if (lowerEmail === 'pcte@uninest.in' || (isDemoDomain && u.role === 'COLLEGE')) {
+      name = 'PCTE Housing Cell';
+      email = 'pcte@uninest.in';
+    } else if (lowerEmail === 'admin@uninest.in' || (isDemoDomain && u.role === 'ADMIN')) {
+      name = 'UniNest Escrow Admin';
+      email = 'admin@uninest.in';
+    } else if (lowerEmail === 'rahul@uninest.in') {
+      name = 'Rahul Sharma';
+      email = 'rahul@uninest.in';
+    }
   }
 
   return {
@@ -134,9 +152,16 @@ export default async function AdminUsersPage() {
     const dbUsers = await prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 50 });
     if (dbUsers && dbUsers.length > 0) {
       const normalized = dbUsers.map(normalizeAccountIdentity);
-      const existingEmails = new Set(normalized.map((item) => item.email.toLowerCase()));
-      const supplemental = PLATFORM_USERS.filter((item) => !existingEmails.has(item.email.toLowerCase()));
-      users = [...normalized, ...supplemental];
+      const seenEmails = new Set<string>();
+      const merged: typeof PLATFORM_USERS = [];
+      for (const item of [...normalized, ...PLATFORM_USERS]) {
+        const key = item.email.toLowerCase();
+        if (!seenEmails.has(key)) {
+          seenEmails.add(key);
+          merged.push(item);
+        }
+      }
+      users = merged;
     }
   } catch (error) {
     console.warn('Database query fallback in AdminUsersPage:', error);

@@ -21,6 +21,14 @@ import {
 
 const RECENT_LOGINS_KEY = 'uninest_recent_logins_v1';
 
+const ROLE_DASHBOARD_MAP: Record<string, string> = {
+  STUDENT: '/student/dashboard',
+  LANDLORD: '/landlord/dashboard',
+  ADMIN: '/admin/dashboard',
+  COLLEGE: '/college/dashboard',
+  PROVIDER: '/provider/dashboard',
+};
+
 interface RecentAccount {
   name: string;
   email: string;
@@ -28,11 +36,11 @@ interface RecentAccount {
 }
 
 const portalQuickAccess = [
-  { email: 'rahul@uninest.demo', displayEmail: 'rahul.sharma@pcte.edu.in', password: 'demo123', role: 'Student', name: 'Rahul Sharma' },
-  { email: 'landlord@uninest.demo', displayEmail: 'vikram@passiresidency.in', password: 'demo123', role: 'Landlord', name: 'Vikram Singh' },
-  { email: 'admin@uninest.demo', displayEmail: 'nodal.escrow@uninest.in', password: 'demo123', role: 'Escrow Admin', name: 'UniNest Escrow Officer' },
-  { email: 'pcte@uninest.demo', displayEmail: 'housing.cell@pcte.edu.in', password: 'demo123', role: 'College Partner', name: 'PCTE Housing Cell' },
-  { email: 'provider@uninest.demo', displayEmail: 'dispatch@quickfix.in', password: 'demo123', role: 'Vendor Partner', name: 'QuickFix Maintenance' },
+  { email: 'rahul@uninest.demo', displayEmail: 'rahul.sharma@pcte.edu.in', password: 'demo123', role: 'Student', roleCode: 'STUDENT', name: 'Rahul Sharma' },
+  { email: 'landlord@uninest.demo', displayEmail: 'vikram@passiresidency.in', password: 'demo123', role: 'Landlord', roleCode: 'LANDLORD', name: 'Vikram Singh' },
+  { email: 'admin@uninest.demo', displayEmail: 'nodal.escrow@uninest.in', password: 'demo123', role: 'Escrow Admin', roleCode: 'ADMIN', name: 'UniNest Escrow Officer' },
+  { email: 'pcte@uninest.demo', displayEmail: 'housing.cell@pcte.edu.in', password: 'demo123', role: 'College Partner', roleCode: 'COLLEGE', name: 'PCTE Housing Cell' },
+  { email: 'provider@uninest.demo', displayEmail: 'dispatch@quickfix.in', password: 'demo123', role: 'Vendor Partner', roleCode: 'PROVIDER', name: 'QuickFix Maintenance' },
 ];
 
 function GoogleLogoSVG({ className = 'w-5 h-5' }: { className?: string }) {
@@ -76,6 +84,7 @@ function LoginContent() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect') || searchParams?.get('callbackUrl') || '';
 
   useEffect(() => {
     fetch('/api/auth/google?check=1')
@@ -105,7 +114,7 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  function saveRecentAccount(acct: RecentAccount) {
+  function saveRecentAccount(acct: { name: string; email: string; role: string }) {
     try {
       const updated = [
         acct,
@@ -142,7 +151,7 @@ function LoginContent() {
           email: email.trim(),
           role: selectedRole === 'LANDLORD' ? 'Landlord' : 'Student',
         });
-        router.push(regResult.role === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
+        router.push(redirectTo || ROLE_DASHBOARD_MAP[regResult.role || 'STUDENT'] || '/student/dashboard');
         router.refresh();
       } else {
         setError(regResult.error || 'Registration failed. Please check your details.');
@@ -160,9 +169,18 @@ function LoginContent() {
       saveRecentAccount({
         name: inferredName || 'UniNest User',
         email: email.trim(),
-        role: result.role === 'LANDLORD' ? 'Landlord' : 'Student',
+        role:
+          result.role === 'LANDLORD'
+            ? 'Landlord'
+            : result.role === 'ADMIN'
+            ? 'Admin'
+            : result.role === 'COLLEGE'
+            ? 'College'
+            : result.role === 'PROVIDER'
+            ? 'Provider'
+            : 'Student',
       });
-      router.push(result.role === 'LANDLORD' ? '/landlord/dashboard' : '/');
+      router.push(redirectTo || ROLE_DASHBOARD_MAP[result.role || 'STUDENT'] || '/student/dashboard');
       router.refresh();
     } else {
       setError(result.error || 'Authentication failed. Please check your credentials.');
@@ -191,7 +209,8 @@ function LoginContent() {
         email: account.displayEmail,
         role: account.role,
       });
-      router.push('/');
+      const role = result.role || account.roleCode || 'STUDENT';
+      router.push(redirectTo || ROLE_DASHBOARD_MAP[role] || '/student/dashboard');
       router.refresh();
     } else {
       setError(result.error || 'Login failed');

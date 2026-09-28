@@ -24,9 +24,11 @@ export default function StudentProfilePage() {
   const [emergencyPhone, setEmergencyPhone] = useState('+91 98123 45678 (Parent - Ramesh Sharma)');
   const [collegeName, setCollegeName] = useState('PCTE Institute of Technology');
   const [course, setCourse] = useState('B.Tech Computer Science & Engineering');
-  const [year, setYear] = useState(2);
+  const [year, setYear] = useState<number | string>(2);
   const [studentId, setStudentId] = useState('PCTE-CSE-2024-089');
   const [city, setCity] = useState('Ludhiana');
+  const [hometown, setHometown] = useState('Ludhiana, Punjab');
+  const [bio, setBio] = useState('Focused engineering student looking for a clean, quiet study environment.');
 
   // Roommate Preferences State
   const [locality, setLocality] = useState('Ferozepur Road (Near PCTE)');
@@ -38,50 +40,55 @@ export default function StudentProfilePage() {
   const [cleanliness, setCleanliness] = useState('High / Daily Clean');
   const [food, setFood] = useState('Vegetarian');
   const [smoking, setSmoking] = useState('Non-Smoker');
+  const [guests, setGuests] = useState('Occasional Daytime');
 
   const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
   const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
-    let savedParsed: any = null;
-    try {
-      const saved = localStorage.getItem('uninest_student_profile');
-      if (saved) {
-        savedParsed = JSON.parse(saved);
-        if (savedParsed.name) setName(savedParsed.name);
-        if (savedParsed.email) setEmail(savedParsed.email.replace('@uninest.demo', '@uninest.in'));
-        if (savedParsed.phone) setPhone(savedParsed.phone);
-        if (savedParsed.emergencyPhone) setEmergencyPhone(savedParsed.emergencyPhone);
-        if (savedParsed.collegeName) setCollegeName(savedParsed.collegeName);
-        if (savedParsed.course) setCourse(savedParsed.course);
-      }
-    } catch {}
-
     fetch('/api/profile')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.authenticated && data?.user) {
-          const userEmail = (data.user.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in');
-          const isDemoStudent = userEmail.toLowerCase() === 'rahul@uninest.in' || userEmail.toLowerCase().includes('@uninest.demo');
+        const userObj = data?.user || data;
+        if (data?.authenticated || userObj?.email) {
+          const rawEmail = userObj?.email || 'rahul@uninest.in';
+          const userEmail = rawEmail.replace('@uninest.demo', '@uninest.in');
+          const isDemoStudent =
+            userEmail.toLowerCase() === 'rahul@uninest.in' ||
+            rawEmail.toLowerCase() === 'rahul@uninest.demo' ||
+            userEmail.toLowerCase().includes('@uninest.demo');
           setIsDemoUser(isDemoStudent);
 
-          setName(data.user.name || 'Rahul Sharma');
+          let savedParsed: any = null;
+          try {
+            const perUserSaved =
+              localStorage.getItem('uninest_student_profile_' + userEmail) ||
+              localStorage.getItem('uninest_student_profile_' + rawEmail);
+            if (perUserSaved) {
+              savedParsed = JSON.parse(perUserSaved);
+            } else {
+              const legacySaved = localStorage.getItem('uninest_student_profile');
+              if (legacySaved) {
+                const parsed = JSON.parse(legacySaved);
+                if (parsed?.email && parsed.email.toLowerCase() === userEmail.toLowerCase()) {
+                  savedParsed = parsed;
+                }
+              }
+            }
+          } catch {}
+
+          setName(savedParsed?.name || userObj.name || (isDemoStudent ? 'Rahul Sharma' : 'Student'));
           setEmail(userEmail);
-          if (data.user.avatarUrl) {
-            setAvatarUrl(data.user.avatarUrl);
+          if (savedParsed?.avatarUrl || userObj.avatarUrl) {
+            setAvatarUrl(savedParsed?.avatarUrl || userObj.avatarUrl);
           }
 
           if (!isDemoStudent) {
-            const isSameSavedUser =
-              savedParsed?.email &&
-              savedParsed.email.toLowerCase() === userEmail.toLowerCase();
             const savedPhone =
-              isSameSavedUser &&
-              savedParsed.phone &&
-              savedParsed.phone !== '+91 98765 43210'
+              savedParsed?.phone && savedParsed.phone !== '+91 98765 43210'
                 ? savedParsed.phone
                 : '';
-            const realPhone = data.user.phone || savedPhone || '';
+            const realPhone = userObj.phone || savedPhone || '';
 
             if (realPhone) {
               setPhone(realPhone);
@@ -92,12 +99,45 @@ export default function StudentProfilePage() {
             }
 
             const savedEmergency =
-              isSameSavedUser &&
-              savedParsed.emergencyPhone &&
+              savedParsed?.emergencyPhone &&
               !String(savedParsed.emergencyPhone).includes('Ramesh Sharma')
                 ? savedParsed.emergencyPhone
                 : '';
             setEmergencyPhone(savedEmergency || 'Not added yet — Tap Edit Profile to add');
+
+            // Do NOT keep Rahul Sharma's default rollNo, course, year, or college for non-demo users
+            setCollegeName(savedParsed?.collegeName || savedParsed?.college || userObj.college || 'Not specified');
+            setCourse(savedParsed?.course || userObj.course || 'Not specified');
+            setYear(savedParsed?.year || userObj.year || 1);
+            setStudentId(savedParsed?.studentId || savedParsed?.rollNo || userObj.rollNo || 'Not assigned');
+            setHometown(savedParsed?.hometown || userObj.hometown || '');
+            setBio(savedParsed?.bio || userObj.bio || '');
+          } else if (savedParsed) {
+            if (savedParsed.phone) setPhone(savedParsed.phone);
+            if (savedParsed.emergencyPhone) setEmergencyPhone(savedParsed.emergencyPhone);
+            if (savedParsed.collegeName || savedParsed.college) setCollegeName(savedParsed.collegeName || savedParsed.college);
+            if (savedParsed.course) setCourse(savedParsed.course);
+            if (savedParsed.year) setYear(savedParsed.year);
+            if (savedParsed.studentId || savedParsed.rollNo) setStudentId(savedParsed.studentId || savedParsed.rollNo);
+            if (savedParsed.hometown) setHometown(savedParsed.hometown);
+            if (savedParsed.bio) setBio(savedParsed.bio);
+          }
+
+          // Restore roommate & housing preferences if saved
+          if (savedParsed) {
+            if (savedParsed.city) setCity(savedParsed.city);
+            if (savedParsed.locality) setLocality(savedParsed.locality);
+            if (savedParsed.budgetMin) setBudgetMin(Number(savedParsed.budgetMin));
+            if (savedParsed.budgetMax) setBudgetMax(Number(savedParsed.budgetMax));
+            if (savedParsed.roomType) setRoomType(savedParsed.roomType);
+            if (savedParsed.sleepSchedule) setSleepSchedule(savedParsed.sleepSchedule);
+            if (savedParsed.studySchedule || savedParsed.studyHabit) {
+              setStudySchedule(savedParsed.studySchedule || savedParsed.studyHabit);
+            }
+            if (savedParsed.cleanliness) setCleanliness(savedParsed.cleanliness);
+            if (savedParsed.food) setFood(savedParsed.food);
+            if (savedParsed.smoking) setSmoking(savedParsed.smoking);
+            if (savedParsed.guests) setGuests(savedParsed.guests);
           }
         }
       })
@@ -122,10 +162,41 @@ export default function StudentProfilePage() {
     if (cleanPhone) {
       setIsRealUserWithoutPhone(false);
     }
+    const profilePayload = {
+      name,
+      email: cleanEmail,
+      avatarUrl,
+      phone: cleanPhone || phone,
+      emergencyPhone,
+      collegeName,
+      college: collegeName,
+      course,
+      year,
+      studentId,
+      rollNo: studentId,
+      city,
+      hometown,
+      bio,
+      locality,
+      budgetMin,
+      budgetMax,
+      roomType,
+      sleepSchedule,
+      studySchedule,
+      studyHabit: studySchedule,
+      cleanliness,
+      food,
+      smoking,
+      guests,
+    };
     try {
       localStorage.setItem(
+        'uninest_student_profile_' + cleanEmail,
+        JSON.stringify(profilePayload)
+      );
+      localStorage.setItem(
         'uninest_student_profile',
-        JSON.stringify({ name, email: cleanEmail, phone: cleanPhone || phone, emergencyPhone, collegeName, course, year, studentId })
+        JSON.stringify(profilePayload)
       );
       await fetch('/api/profile', {
         method: 'POST',

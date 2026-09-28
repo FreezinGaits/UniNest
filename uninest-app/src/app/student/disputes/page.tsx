@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +22,7 @@ interface DisputeItem {
   reporter: string;
   respondent: string;
   description: string;
+  priority?: string;
   evidence: string[];
   timeline: { date: string; event: string }[];
   otherPartyResponse: string;
@@ -90,30 +91,63 @@ const DEMO_DISPUTES: DisputeItem[] = [
 ];
 
 export default function DisputesComplaintsPage() {
-  const [isDemo, setIsDemo] = useState(false);
-  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
+  const [isDemo, setIsDemo] = useState(true);
+  const [userEmail, setUserEmail] = useState('rahul@uninest.in');
+  const [userName, setUserName] = useState('Rahul Sharma');
+  const [disputes, setDisputes] = useState<DisputeItem[]>(DEMO_DISPUTES);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(DEMO_DISPUTES[0]);
 
-  import('react').then(React => {
-    React.useEffect(() => {
-      fetch('/api/profile')
-        .then(res => res.json())
-        .then(data => {
-          const email = data?.user?.email || '';
-          const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
-          setIsDemo(demo);
-          if (demo) {
-            setDisputes(DEMO_DISPUTES);
-            setSelectedDispute(DEMO_DISPUTES[0]);
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        const email = data?.email || data?.user?.email || '';
+        const name = data?.name || data?.user?.name || 'Student';
+        const demo =
+          !email ||
+          email === 'rahul@uninest.in' ||
+          email === 'rahul@uninest.demo' ||
+          email.includes('@uninest.demo');
+        setIsDemo(demo);
+        setUserEmail(email || 'demo');
+        setUserName(demo ? 'Rahul Sharma' : name);
+
+        const storageKey = 'uninest_student_disputes_' + (email || 'demo');
+        let savedDisputes: DisputeItem[] = [];
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              savedDisputes = parsed;
+            }
           }
-        })
-        .catch(() => {});
-    }, []);
-  });
+        } catch {}
+
+        if (demo) {
+          const existingIds = new Set(savedDisputes.map((d) => d.id));
+          const merged = [
+            ...savedDisputes,
+            ...DEMO_DISPUTES.filter((d) => !existingIds.has(d.id)),
+          ];
+          setDisputes(merged);
+          setSelectedDispute(merged[0] || null);
+        } else {
+          setDisputes(savedDisputes);
+          setSelectedDispute(savedDisputes[0] || null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [newCategory, setNewCategory] = useState('DEPOSIT');
-  const [newTitle, setNewTitle] = useState('');
+  const [newDispute, setNewDispute] = useState({
+    category: 'DEPOSIT',
+    title: '',
+    description: '',
+    priority: 'HIGH',
+  });
 
   const categories = ['ALL', 'PAYMENT', 'DEPOSIT', 'DAMAGE', 'ELECTRICITY', 'MAINTENANCE', 'LISTING', 'BOOKING', 'AGREEMENT', 'RULES', 'SAFETY', 'SERVICE'];
 
@@ -121,28 +155,63 @@ export default function DisputesComplaintsPage() {
     ? disputes
     : disputes.filter(d => d.category === selectedCategory);
 
-  function handleFileDispute() {
-    if (!newTitle) return;
+  async function handleCreateDispute() {
+    if (!newDispute.title) return;
+    const descriptionText =
+      newDispute.description.trim() ||
+      `New dispute logged under ${newDispute.category} category for review by UniNest tribunal.`;
+
     const newCase: DisputeItem = {
       id: `dsp-${Date.now()}`,
-      caseId: `UN-${newCategory.slice(0, 3)}-${Math.floor(10000 + Math.random() * 90000)}`,
-      category: newCategory,
-      title: newTitle,
+      caseId: `UN-${newDispute.category.slice(0, 3)}-${Math.floor(10000 + Math.random() * 90000)}`,
+      category: newDispute.category,
+      title: newDispute.title,
       amount: 50000,
       status: 'OPEN',
-      reporter: 'Rahul Sharma (Student)',
+      reporter: `${userName} (Student)`,
       respondent: 'Landlord / Service Vendor',
-      description: `New dispute logged under ${newCategory} category for review by UniNest tribunal.`,
+      description: descriptionText,
+      priority: newDispute.priority,
       evidence: ['Student_Evidence_Statement.pdf'],
-      timeline: [{ date: 'Today', event: 'Dispute submitted by Tenant' }],
+      timeline: [{ date: 'Today', event: `Dispute submitted by Tenant (${userName})` }],
       otherPartyResponse: 'Pending response from respondent (24 hr SLA)',
       resolution: null,
     };
 
-    setDisputes([newCase, ...disputes]);
+    const updatedList = [newCase, ...disputes];
+    setDisputes(updatedList);
     setSelectedDispute(newCase);
     setModalOpen(false);
-    setNewTitle('');
+
+    // Persist in localStorage
+    try {
+      const storageKey = 'uninest_student_disputes_' + (userEmail || 'demo');
+      const existingRaw = localStorage.getItem(storageKey);
+      const existingSaved = existingRaw ? JSON.parse(existingRaw) : [];
+      existingSaved.unshift(newCase);
+      localStorage.setItem(storageKey, JSON.stringify(existingSaved));
+    } catch {}
+
+    // Send POST /api/demo/dispute
+    try {
+      await fetch('/api/demo/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: newDispute.category,
+          title: newDispute.title,
+          description: descriptionText,
+          priority: newDispute.priority,
+        }),
+      });
+    } catch {}
+
+    setNewDispute({
+      category: 'DEPOSIT',
+      title: '',
+      description: '',
+      priority: 'HIGH',
+    });
   }
 
   function handleEscalate(caseId: string) {
@@ -336,16 +405,35 @@ export default function DisputesComplaintsPage() {
         <div className="space-y-4">
           <Select
             label="Dispute Category"
-            value={newCategory}
-            onChange={(e) => setNewCategory(e.target.value)}
+            value={newDispute.category}
+            onChange={(e) => setNewDispute({ ...newDispute, category: e.target.value })}
             options={categories.filter(c => c !== 'ALL').map(c => ({ value: c, label: c }))}
           />
 
           <Input
             label="Dispute Subject / Title *"
             placeholder="e.g. Unjustified deposit deduction for room painting"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
+            value={newDispute.title}
+            onChange={(e) => setNewDispute({ ...newDispute, title: e.target.value })}
+          />
+
+          <Input
+            label="Case Description / Details"
+            placeholder="Provide brief context about the issue..."
+            value={newDispute.description}
+            onChange={(e) => setNewDispute({ ...newDispute, description: e.target.value })}
+          />
+
+          <Select
+            label="Priority"
+            value={newDispute.priority}
+            onChange={(e) => setNewDispute({ ...newDispute, priority: e.target.value })}
+            options={[
+              { value: 'URGENT', label: 'URGENT' },
+              { value: 'HIGH', label: 'HIGH' },
+              { value: 'MEDIUM', label: 'MEDIUM' },
+              { value: 'LOW', label: 'LOW' },
+            ]}
           />
 
           <div className="p-3 bg-brand-50 border border-brand-100 rounded-xl flex items-center gap-2 text-xs text-brand-900">
@@ -355,7 +443,7 @@ export default function DisputesComplaintsPage() {
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
             <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button disabled={!newTitle} onClick={handleFileDispute} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
+            <Button disabled={!newDispute.title} onClick={handleCreateDispute} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
               Submit to Arbitrator
             </Button>
           </div>

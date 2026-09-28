@@ -5,7 +5,7 @@ import { verifyToken, signToken } from '@/lib/auth/session';
 const publicRoutes = [
   '/',
   '/login',
-  '/register',
+  '/unauthorized',
   '/auth',
   '/api',
   '/investor',
@@ -28,6 +28,10 @@ const roleRoutes: Record<string, string> = {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname === '/register') {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
   const sessionCookie = request.cookies.get('session');
 
   const isPublic = publicRoutes.some(r => pathname === r || pathname.startsWith(r + '/'));
@@ -45,7 +49,12 @@ export async function middleware(request: NextRequest) {
       const expiresInOneDay = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
       // Role-based route protection
-      if (isProtected) {
+      const isSharedAuthRoute =
+        pathname.startsWith('/onboarding') ||
+        pathname.startsWith('/auth/complete-profile') ||
+        pathname.startsWith('/unauthorized');
+
+      if (isProtected && !isSharedAuthRoute) {
         const allowedPrefix = roleRoutes[parsed.role];
         const isRoleMismatch = allowedPrefix && !pathname.startsWith(allowedPrefix) && parsed.role !== 'ADMIN';
         if (isRoleMismatch) {
@@ -64,6 +73,7 @@ export async function middleware(request: NextRequest) {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
+          path: '/',
           expires: expiresInOneDay,
         });
       }

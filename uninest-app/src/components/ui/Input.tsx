@@ -10,10 +10,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export function Input({ label, error, hint, icon, className, id, ...props }: InputProps) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const isDark = Boolean(className && (className.includes('bg-slate-9') || className.includes('text-white')));
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-text-primary">
+        <label htmlFor={inputId} className={cn('block text-sm font-medium', isDark ? 'text-slate-200' : 'text-text-primary')}>
           {label}
         </label>
       )}
@@ -27,7 +28,7 @@ export function Input({ label, error, hint, icon, className, id, ...props }: Inp
           id={inputId}
           className={cn(
             'w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-surface',
-            'text-text-primary placeholder:text-text-tertiary',
+            isDark ? 'text-white placeholder:text-slate-500' : 'text-text-primary placeholder:text-text-tertiary',
             'focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500',
             'transition-colors duration-150',
             icon && 'pl-10',
@@ -52,10 +53,11 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export function Select({ label, error, options, children, className, id, ...props }: SelectProps) {
   const selectId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const isDark = Boolean(className && (className.includes('bg-slate-9') || className.includes('text-white')));
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={selectId} className="block text-sm font-medium text-text-primary">
+        <label htmlFor={selectId} className={cn('block text-sm font-medium', isDark ? 'text-slate-200' : 'text-text-primary')}>
           {label}
         </label>
       )}
@@ -63,7 +65,7 @@ export function Select({ label, error, options, children, className, id, ...prop
         id={selectId}
         className={cn(
           'w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-surface',
-          'text-text-primary',
+          isDark ? 'text-white' : 'text-text-primary',
           'focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500',
           'transition-colors duration-150',
           error && 'border-red-400',
@@ -87,10 +89,11 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export function Textarea({ label, error, className, id, ...props }: TextareaProps) {
   const textareaId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const isDark = Boolean(className && (className.includes('bg-slate-9') || className.includes('text-white')));
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={textareaId} className="block text-sm font-medium text-text-primary">
+        <label htmlFor={textareaId} className={cn('block text-sm font-medium', isDark ? 'text-slate-200' : 'text-text-primary')}>
           {label}
         </label>
       )}
@@ -98,7 +101,7 @@ export function Textarea({ label, error, className, id, ...props }: TextareaProp
         id={textareaId}
         className={cn(
           'w-full px-3.5 py-2.5 text-sm rounded-lg border border-border bg-surface',
-          'text-text-primary placeholder:text-text-tertiary',
+          isDark ? 'text-white placeholder:text-slate-500' : 'text-text-primary placeholder:text-text-tertiary',
           'focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500',
           'transition-colors duration-150 resize-y min-h-[80px]',
           error && 'border-red-400',

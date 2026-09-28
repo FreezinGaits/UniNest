@@ -45,27 +45,32 @@ const DEMO_FALLBACK_PROPERTY = {
     {
       id: 'room-demo-102',
       roomNumber: '102',
+      floor: 1,
       sharing: 2,
       rent: 600000,
       deposit: 1200000,
       hasAC: true,
+      hasAttBath: true,
       hasAttachedBath: true,
       beds: [
-        { id: 'bed-102-a', bedNumber: 'Bed A (Window View)', status: 'OCCUPIED' },
-        { id: 'bed-102-b', bedNumber: 'Bed B (Desk Side)', status: 'AVAILABLE' },
+        { id: 'bed-102-a', label: 'A', bedNumber: 'Bed A (Window View)', status: 'OCCUPIED' },
+        { id: 'bed-102-b', label: 'B', bedNumber: 'Bed B (Desk Side)', status: 'AVAILABLE' },
       ],
     },
     {
       id: 'room-demo-204',
       roomNumber: '204',
+      floor: 2,
       sharing: 2,
       rent: 600000,
       deposit: 1200000,
       hasAC: true,
-      hasAttachedBath: true,
+      hasAttBath: false,
+      hasAttachedBath: false,
       beds: [
-        { id: 'bed-204-a', bedNumber: 'Bed 204-A', status: 'AVAILABLE' },
-        { id: 'bed-204-b', bedNumber: 'Bed 204-B', status: 'AVAILABLE' },
+        { id: 'bed-204-a', label: 'A', bedNumber: 'Bed 204-A', status: 'AVAILABLE' },
+        { id: 'bed-204-b', label: 'B', bedNumber: 'Bed 204-B', status: 'AVAILABLE' },
+        { id: 'bed-204-c', label: 'C', bedNumber: 'Bed 204-C', status: 'AVAILABLE' },
       ],
     },
   ],
@@ -101,8 +106,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         where: { id: session.userId },
       });
       if (!student && session.email) {
-        student = await prisma.user.findUnique({
-          where: { email: session.email },
+        student = await prisma.user.findFirst({
+          where: { email: { in: [session.email, session.email.replace('@uninest.in', '@uninest.demo')] } },
         });
       }
 

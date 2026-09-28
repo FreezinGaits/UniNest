@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +20,7 @@ export default function ProviderOnboardingPage() {
   const totalSteps = 4;
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['Tiffin / Mess Service']);
 
   const [formData, setFormData] = useState({
     businessName: 'QuickFix Services',
@@ -29,8 +30,32 @@ export default function ProviderOnboardingPage() {
     coverageArea: 'Ludhiana City & Vicinity (Ferozepur Rd, BRS Nagar)',
     coverageRadius: '12.0',
     rateCard: 'Plumbing visit: ₹299, AC Servicing: ₹499, Deep Cleaning: ₹999',
-    categories: ['Plumbing', 'AC Repair', 'Deep Cleaning', 'Electrician', 'RO Service'],
+    categories: ['Tiffin / Mess Service'],
   });
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) {
+          setFormData((prev) => ({
+            ...prev,
+            ownerName: data.user.name || prev.ownerName,
+            email: data.user.email || prev.email,
+            phone: data.user.phone || prev.phone,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories((prev) => {
+      const next = prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat];
+      setFormData((f) => ({ ...f, categories: next }));
+      return next;
+    });
+  };
 
   const completionPercent = Math.round((step / totalSteps) * 100);
 
@@ -46,7 +71,10 @@ export default function ProviderOnboardingPage() {
           body: JSON.stringify({
             role: 'PROVIDER',
             email: formData.email,
-            profileData: formData,
+            profileData: {
+              ...formData,
+              categories: selectedCategories,
+            },
           }),
         });
         setSubmitted(true);
@@ -125,12 +153,24 @@ export default function ProviderOnboardingPage() {
                 Step 2: Select Service Categories
               </h2>
               <div className="grid grid-cols-2 gap-3 text-xs">
-                {['Plumbing', 'AC Repair', 'Deep Cleaning', 'Electrician', 'RO Service', 'Pest Control'].map((cat) => (
-                  <div key={cat} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center gap-2 font-bold text-slate-200">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    {cat}
-                  </div>
-                ))}
+                {['Tiffin / Mess Service', 'Plumbing', 'AC Repair', 'Deep Cleaning', 'Electrician', 'RO Service'].map((cat) => {
+                  const isSelected = selectedCategories.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => toggleCategory(cat)}
+                      className={`p-3 rounded-xl border flex items-center gap-2 font-bold text-left transition-all ${
+                        isSelected
+                          ? 'border-purple-500 bg-purple-500/10 text-white'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <CheckCircle2 className={`w-4 h-4 shrink-0 ${isSelected ? 'text-purple-400' : 'text-slate-600'}`} />
+                      {cat}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

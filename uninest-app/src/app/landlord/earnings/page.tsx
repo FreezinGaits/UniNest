@@ -9,16 +9,16 @@ import {
 } from 'lucide-react';
 
 const DEMO_REWARDS = [
-  { id: 'r1', source: 'wifi', description: 'Monthly Wi-Fi Provider Revenue Share (15 tenants)', amount: 2250, month: 9, year: 2026 },
-  { id: 'r2', source: 'food', description: 'Tiffin & Meal Box Ancillary Affiliate (PCTE Students)', amount: 3800, month: 9, year: 2026 },
-  { id: 'r3', source: 'laundry', description: 'On-Demand PG Laundry Service Revenue Share', amount: 1450, month: 9, year: 2026 },
-  { id: 'r4', source: 'referral', description: 'UniNest Landlord Partner Referral Bonus', amount: 1000, month: 8, year: 2026 },
+  { id: 'r1', source: 'wifi', description: 'Monthly Wi-Fi Provider Revenue Share (15 tenants)', amount: 225000, month: 9, year: 2026 },
+  { id: 'r2', source: 'food', description: 'Tiffin & Meal Box Ancillary Affiliate (PCTE Students)', amount: 375000, month: 9, year: 2026 },
+  { id: 'r3', source: 'laundry', description: 'On-Demand PG Laundry Service Revenue Share', amount: 150000, month: 9, year: 2026 },
+  { id: 'r4', source: 'referral', description: 'UniNest Landlord Partner Referral Bonus', amount: 100000, month: 8, year: 2026 },
 ];
 
 const DEMO_SERVICE_ORDERS = [
-  { id: 'so1', serviceName: 'Deep Cleaning & Sanitization', customerName: 'Rahul Sharma (Room 204)', amount: 1200, landlordShare: 120, status: 'COMPLETED' },
-  { id: 'so2', serviceName: 'High-Speed Wi-Fi Router Setup', customerName: 'Aman Verma (Room 102)', amount: 800, landlordShare: 80, status: 'COMPLETED' },
-  { id: 'so3', serviceName: 'Bathroom Tap Leak Repair', customerName: 'Passi PG Manager', amount: 650, landlordShare: 65, status: 'IN_PROGRESS' },
+  { id: 'so1', serviceName: 'Deep Cleaning & Sanitization', customerName: 'Rahul Sharma (Room 204)', amount: 120000, landlordShare: 12000, status: 'COMPLETED' },
+  { id: 'so2', serviceName: 'High-Speed Wi-Fi Router Setup', customerName: 'Aman Verma (Room 102)', amount: 80000, landlordShare: 8000, status: 'COMPLETED' },
+  { id: 'so3', serviceName: 'Bathroom Tap Leak Repair', customerName: 'Passi PG Manager', amount: 70000, landlordShare: 7000, status: 'IN_PROGRESS' },
 ];
 
 export default async function LandlordEarningsPage() {
@@ -30,8 +30,8 @@ export default async function LandlordEarningsPage() {
 
   let rewards = isDemoUser ? DEMO_REWARDS : [];
   let serviceOrders = isDemoUser ? DEMO_SERVICE_ORDERS : [];
-  let totalRentCollected = 168000;
-  let totalRentDue = 180000;
+  let totalRentCollected = 16800000;
+  let totalRentDue = 18000000;
 
   try {
     const landlord = await prisma.landlord.findUnique({ where: { userId: session.userId } });
@@ -41,7 +41,10 @@ export default async function LandlordEarningsPage() {
         orderBy: { createdAt: 'desc' },
       });
       if (dbRewards && dbRewards.length > 0) {
-        rewards = dbRewards as any[];
+        rewards = dbRewards.map((r: any) => ({
+          ...r,
+          amount: r.amount < 10000 ? r.amount * 100 : r.amount,
+        }));
       }
 
       const properties = await prisma.property.findMany({
@@ -56,14 +59,22 @@ export default async function LandlordEarningsPage() {
         orderBy: { createdAt: 'desc' },
       });
       if (dbOrders && dbOrders.length > 0) {
-        serviceOrders = dbOrders as any[];
+        serviceOrders = dbOrders.map((o: any) => {
+          const amt = o.amount < 10000 ? o.amount * 100 : o.amount;
+          const share = (o.landlordShare || 0) < 1000 && amt >= 10000 ? (o.landlordShare || 0) * 100 : (o.landlordShare || Math.round(amt * 0.1));
+          return {
+            ...o,
+            amount: amt,
+            landlordShare: share,
+          };
+        });
       }
 
       let dbCollected = 0;
       let dbDue = 0;
       properties.forEach(p => p.rooms.forEach(r => r.beds.forEach(b => b.tenancies.forEach(t => t.rentRecords.forEach(rr => {
-        dbCollected += rr.amountPaid;
-        dbDue += rr.amountDue;
+        dbCollected += rr.amountPaid < 100000 && rr.amountPaid > 0 ? rr.amountPaid * 100 : rr.amountPaid;
+        dbDue += rr.amountDue < 100000 ? rr.amountDue * 100 : rr.amountDue;
       })))));
 
       if (dbDue > 0) {

@@ -13,7 +13,7 @@ export default async function PropertyAnalyticsPage() {
                      session?.email?.toLowerCase() === 'vikram@passiresidency.in';
 
   let occupancyRate = isDemoUser ? 82 : 0;
-  let totalRevenueMonth = isDemoUser ? 168000 : 0;
+  let totalRevenueMonth = isDemoUser ? 16800000 : 0;
   let yieldPercentage = isDemoUser ? 9.4 : 0;
 
   try {
@@ -100,21 +100,21 @@ export default async function PropertyAnalyticsPage() {
                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                 <span className="text-sm font-semibold text-slate-800">Fixed Monthly Room Rent</span>
               </div>
-              <span className="font-extrabold text-slate-900">{formatINR(159500)}</span>
+              <span className="font-extrabold text-slate-900">{formatINR(15950000)}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                 <span className="text-sm font-semibold text-slate-800">Ancillary WiFi & Meal Share</span>
               </div>
-              <span className="font-extrabold text-purple-700">{formatINR(8500)}</span>
+              <span className="font-extrabold text-purple-700">{formatINR(850000)}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                 <span className="text-sm font-semibold text-slate-800">Vendor Service Commission</span>
               </div>
-              <span className="font-extrabold text-amber-700">{formatINR(2500)}</span>
+              <span className="font-extrabold text-amber-700">{formatINR(250000)}</span>
             </div>
           </div>
         </Card>

@@ -156,6 +156,21 @@ export default function HostelOverflowPage() {
   const handleBatchAllocate = () => {
     if (selectedStudentIds.length === 0) return;
 
+    const partner = partnerPools.find((p) => p.name === targetPgName);
+    const selectedStudents = waitlist.filter((s) => selectedStudentIds.includes(s.id));
+
+    if (partner) {
+      const isBoysPg = partner.gender === 'Boys' || (partner.gender as string) === 'Boys PG';
+      const isGirlsPg = partner.gender === 'Girls' || (partner.gender as string) === 'Girls PG';
+      const hasGenderMismatch = selectedStudents.some(
+        (s) => (isBoysPg && s.gender === 'Female') || (isGirlsPg && s.gender === 'Male')
+      );
+      if (hasGenderMismatch) {
+        alert('Gender mismatch: Cannot allocate Male students to a Girls PG or Female students to a Boys PG.');
+        return;
+      }
+    }
+
     const count = selectedStudentIds.length;
     setWaitlist((prev) =>
       prev.map((student) =>

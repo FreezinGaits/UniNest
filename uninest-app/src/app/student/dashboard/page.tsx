@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth/actions';
 import { prisma } from '@/lib/db';
+import { getEscrowStore } from '@/lib/escrowStore';
 import { formatINR, timeAgo } from '@/lib/utils';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -62,26 +63,39 @@ export default async function StudentDashboard() {
     console.warn('Database error in StudentDashboard, using fallback demo data:', error);
   }
 
-  const isDemo = session?.email?.includes('@uninest.demo') || session?.email === 'rahul@uninest.in';
+  const isDemoUser =
+    session?.email?.includes('@uninest.demo') || session?.email === 'rahul@uninest.in';
 
-  // Fallback demo bookings if DB query returned nothing
-  if ((!bookings || bookings.length === 0) && isDemo) {
-    bookings = [
-      {
-        id: 'bkg-pcte-2026-demo',
-        referenceNo: 'RES-PCTE-88902',
-        status: 'RESERVED',
-        monthlyRent: 6000,
-        createdAt: new Date().toISOString(),
-        property: { name: 'PCTE Smart Student Residency', locality: 'Ferozepur Road', city: 'Ludhiana' },
-        bed: { bedNumber: 'A', room: { roomNumber: '204' } },
-      },
-    ];
+  // Check escrowStore bookings for matching user email
+  const escrowBookings = getEscrowStore().bookings.filter(
+    (b: any) =>
+      b.studentEmail === session?.email ||
+      b.user?.email === session?.email ||
+      (isDemoUser && (b.user?.email === 'rahul@uninest.in' || b.userId === 'usr-student-demo'))
+  );
+
+  if (!bookings || bookings.length === 0) {
+    if (escrowBookings.length > 0) {
+      bookings = escrowBookings;
+    } else if (isDemoUser) {
+      bookings = [
+        {
+          id: 'bkg-pcte-2026-demo',
+          referenceNo: 'RES-PCTE-88902',
+          status: 'RESERVED',
+          monthlyRent: 6000,
+          createdAt: new Date().toISOString(),
+          property: { name: 'PCTE Smart Student Residency', locality: 'Ferozepur Road', city: 'Ludhiana' },
+          bed: { bedNumber: 'A', room: { roomNumber: '204' } },
+        },
+      ];
+    }
   }
 
   const activeTenancy = student?.tenancies?.[0];
   const currentProperty = activeTenancy?.bed?.room?.property;
-  const pendingRent = activeTenancy?.rentRecords?.find((r: any) => r.status === 'DUE' || r.status === 'OVERDUE');
+  const primaryBooking = bookings?.[0] || null;
+  const hasTenancyOrDemo = isDemoUser || Boolean(activeTenancy);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -89,7 +103,7 @@ export default async function StudentDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">
-            Welcome back, {session.name || 'Rahul'}!
+            Welcome back, {session.name || (isDemoUser ? 'Rahul' : 'Student')}!
           </h1>
           <p className="text-text-secondary mt-1">
             {activeTenancy ? `Living at ${currentProperty?.name}` : 'Explore verified PGs & find your perfect roommate.'}
@@ -109,7 +123,7 @@ export default async function StudentDashboard() {
         </div>
       </div>
 
-      {/* Active Stay Card (If any) */}
+      {/* Active Stay / Reservation Card */}
       {activeTenancy ? (
         <Card className="bg-gradient-to-r from-brand-900 via-brand-800 to-slate-900 text-white p-6 rounded-2xl border-none shadow-xl">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
@@ -123,8 +137,12 @@ export default async function StudentDashboard() {
                 {currentProperty?.locality || 'Ferozepur Road'}, {currentProperty?.city || 'Ludhiana'}
               </p>
               <div className="flex items-center gap-4 text-xs pt-2">
-                <span className="bg-white/10 px-3 py-1 rounded-lg">Room 204 (Bed A)</span>
-                <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30 font-bold">₹6,000 / month</span>
+                <span className="bg-white/10 px-3 py-1 rounded-lg">
+                  Room {activeTenancy?.bed?.room?.roomNumber || '204'} (Bed {activeTenancy?.bed?.bedNumber || 'A'})
+                </span>
+                <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-lg border border-emerald-500/30 font-bold">
+                  ₹6,000 / month
+                </span>
               </div>
             </div>
 
@@ -136,25 +154,51 @@ export default async function StudentDashboard() {
               </Link>
               <Link href="/student/electricity">
                 <Button variant="outline" className="w-full text-white border-white/20 hover:bg-white/10 text-xs">
-                  Electricity Dues (₹640)
+                  Electricity Dues ({hasTenancyOrDemo ? '₹640' : '₹0'})
                 </Button>
               </Link>
             </div>
           </div>
         </Card>
-      ) : (
+      ) : isDemoUser || primaryBooking ? (
         <Card className="bg-slate-900 text-white p-6 rounded-2xl border-none shadow-xl">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
             <div className="space-y-1">
               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold px-3 py-1 rounded-full inline-flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5" /> UniNest Active Reservation
               </span>
-              <h2 className="text-xl font-black">PCTE Smart Student Residency</h2>
-              <p className="text-slate-300 text-xs">Room 204 (Bed A) • Move-In Scheduled for 15 Sep 2026</p>
+              <h2 className="text-xl font-black">
+                {primaryBooking?.property?.name || 'PCTE Smart Student Residency'}
+              </h2>
+              <p className="text-slate-300 text-xs">
+                Room {primaryBooking?.bed?.room?.roomNumber || '204'} (Bed {primaryBooking?.bed?.bedNumber || 'A'}) •{' '}
+                {primaryBooking?.referenceNo ? `Ref: ${primaryBooking.referenceNo}` : 'Move-In Scheduled for 15 Sep 2026'}
+              </p>
             </div>
-            <Link href="/student/bookings">
+            <Link href={primaryBooking?.id ? `/student/bookings/${primaryBooking.id}` : '/student/bookings'}>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl">
                 View My Stay Workspace →
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      ) : (
+        <Card className="bg-slate-900 text-white p-6 rounded-2xl border-none shadow-xl">
+          <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
+            <div className="space-y-1">
+              <span className="bg-brand-500/20 text-brand-300 border border-brand-500/30 text-xs font-bold px-3 py-1 rounded-full inline-flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" /> Verified Student Housing
+              </span>
+              <h2 className="text-xl font-black">
+                No Active Bed Reservation — Search Verified PGs to reserve a bed
+              </h2>
+              <p className="text-slate-300 text-xs">
+                Lock any verified PG bed for 72 hours with a refundable ₹399 Commitment Token.
+              </p>
+            </div>
+            <Link href="/student/search">
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-xl">
+                Search Verified PGs →
               </Button>
             </Link>
           </div>
@@ -163,10 +207,34 @@ export default async function StudentDashboard() {
 
       {/* Quick Action Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Active Bookings" value={bookings.length} subtitle="Reserved & Stay" icon={<CalendarCheck className="w-5 h-5" />} color="brand" />
-        <StatCard title="Electricity Dues" value="₹640" subtitle="Due 10 Sep (50% Split)" icon={<Zap className="w-5 h-5" />} color="amber" />
-        <StatCard title="Maintenance Tickets" value="1 Active" subtitle="Bathroom Tap Leak" icon={<Wrench className="w-5 h-5" />} color="blue" />
-        <StatCard title="Roommate Match" value="87% Match" subtitle="Aman Verma (Active)" icon={<BedDouble className="w-5 h-5" />} color="purple" />
+        <StatCard
+          title="Active Bookings"
+          value={bookings.length}
+          subtitle={bookings.length > 0 ? 'Reserved & Stay' : 'No active bookings'}
+          icon={<CalendarCheck className="w-5 h-5" />}
+          color="brand"
+        />
+        <StatCard
+          title="Electricity Dues"
+          value={hasTenancyOrDemo ? '₹640' : '₹0'}
+          subtitle={hasTenancyOrDemo ? 'Due 10 Sep (50% Split)' : 'No active dues'}
+          icon={<Zap className="w-5 h-5" />}
+          color="amber"
+        />
+        <StatCard
+          title="Maintenance Tickets"
+          value={hasTenancyOrDemo ? '1 Active' : '0 Active'}
+          subtitle={hasTenancyOrDemo ? 'Bathroom Tap Leak' : 'No open tickets'}
+          icon={<Wrench className="w-5 h-5" />}
+          color="blue"
+        />
+        <StatCard
+          title="Roommate Match"
+          value={hasTenancyOrDemo ? '87% Match' : 'Find Matches'}
+          subtitle={hasTenancyOrDemo ? 'Aman Verma (Active)' : 'Browse Marketplace'}
+          icon={<BedDouble className="w-5 h-5" />}
+          color="purple"
+        />
       </div>
 
       {/* Recent Bookings List */}

@@ -5,6 +5,7 @@ import { DashboardShell } from '@/components/layout/DashboardShell';
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/login');
+  if (session.role !== 'STUDENT' && session.role !== 'ADMIN') redirect('/unauthorized');
 
   return (
     <DashboardShell

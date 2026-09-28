@@ -319,6 +319,8 @@ export async function GET(request: NextRequest) {
     const verified = searchParams.get('verified');
     const maxDistance = searchParams.get('maxDistance');
     const sort = searchParams.get('sort') || 'recommended';
+    const amenitiesParam = searchParams.get('amenities')?.split(',').filter(Boolean) || [];
+    const rulesParam = searchParams.get('rules')?.split(',').filter(Boolean) || [];
 
     // Target coordinates (Default: PCTE Institute 30.8984, 75.8564)
     let targetLat = parseFloat(searchParams.get('lat') || '30.8984');
@@ -429,6 +431,7 @@ export async function GET(request: NextRequest) {
             minDeposit,
             totalBeds,
             availBeds,
+            availableBeds: availBeds,
             trueMonthlyCost,
             rating,
             reviewCount: p.reviews.length || 12,
@@ -437,30 +440,125 @@ export async function GET(request: NextRequest) {
       }
     } catch (dbErr) {
       console.warn('Database query failed in properties search route, using DEMO_PROPERTIES fallback:', dbErr);
+    }
+
+    // Fall back to DEMO_PROPERTIES if Prisma returned 0 properties (e.g. when no DB properties are seeded)
+    if (!propertiesList || propertiesList.length === 0) {
       propertiesList = DEMO_PROPERTIES.map((p) => {
         const computedDistance = calculateHaversineDistance(p.latitude, p.longitude, targetLat, targetLng);
         return {
           ...p,
           computedDistance,
+          availableBeds: p.availBeds,
         };
       });
     }
 
-    // Apply Client Filters (Query, Gender, Min/Max Rent, Distance)
+    // Apply Filters across both DB and DEMO_PROPERTIES
     let filtered = propertiesList;
+
+    if (state) {
+      filtered = filtered.filter((p) => p.state?.toLowerCase() === state.toLowerCase());
+    }
+
+    if (city) {
+      filtered = filtered.filter((p) => p.city?.toLowerCase() === city.toLowerCase());
+    }
+
+    if (locality) {
+      filtered = filtered.filter((p) => p.locality?.toLowerCase() === locality.toLowerCase());
+    }
+
+    if (type && type !== 'ALL') {
+      filtered = filtered.filter((p) => p.type?.toUpperCase() === type.toUpperCase());
+    }
 
     if (q) {
       const qLower = q.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.name.toLowerCase().includes(qLower) ||
-          p.locality.toLowerCase().includes(qLower) ||
-          p.address.toLowerCase().includes(qLower)
+          p.name?.toLowerCase().includes(qLower) ||
+          p.locality?.toLowerCase().includes(qLower) ||
+          p.address?.toLowerCase().includes(qLower) ||
+          p.city?.toLowerCase().includes(qLower)
       );
     }
 
     if (gender && gender !== 'ALL' && gender !== 'ANY') {
       filtered = filtered.filter((p) => p.gender === gender || p.gender === 'ANY');
+    }
+
+    if (verified === 'true') {
+      filtered = filtered.filter((p) => p.verificationStatus === 'VERIFIED' || p.verified === true);
+    }
+
+    if (minRent) {
+      const minR = parseInt(minRent);
+      if (!isNaN(minR)) {
+        filtered = filtered.filter(
+          (p) =>
+            p.minBaseRent >= minR ||
+            p.rooms?.some((r: any) => (r.rent > 50000 ? r.rent / 100 : r.rent) >= minR)
+        );
+      }
+    }
+
+    if (maxRent) {
+      const maxR = parseInt(maxRent);
+      if (!isNaN(maxR)) {
+        filtered = filtered.filter(
+          (p) =>
+            p.minBaseRent <= maxR ||
+            p.rooms?.some((r: any) => (r.rent > 50000 ? r.rent / 100 : r.rent) <= maxR)
+        );
+      }
+    }
+
+    if (maxDeposit) {
+      const maxDep = parseInt(maxDeposit);
+      if (!isNaN(maxDep)) {
+        filtered = filtered.filter(
+          (p) =>
+            p.minDeposit <= maxDep ||
+            p.rooms?.some((r: any) => (r.deposit > 50000 ? r.deposit / 100 : r.deposit) <= maxDep)
+        );
+      }
+    }
+
+    if (sharing && sharing !== 'ALL') {
+      const sh = parseInt(sharing);
+      if (!isNaN(sh)) {
+        filtered = filtered.filter((p) => p.rooms?.some((r: any) => r.sharing === sh));
+      }
+    }
+
+    if (amenitiesParam.length > 0) {
+      filtered = filtered.filter((p) =>
+        amenitiesParam.every((reqAmenity) => {
+          const lower = reqAmenity.toLowerCase();
+          const inArray = (p.amenities || []).some(
+            (a: string) => a.toLowerCase().includes(lower) || lower.includes(a.toLowerCase())
+          );
+          if (inArray) return true;
+          if ((lower === 'wi-fi' || lower === 'wifi') && p.wifiAvailable) return true;
+          if (lower === 'food' && p.foodAvailable) return true;
+          if (lower === 'laundry' && p.laundryAvailable) return true;
+          if (lower === 'parking' && p.parkingAvailable) return true;
+          if (lower === 'ac' && p.rooms?.some((r: any) => r.hasAC)) return true;
+          return false;
+        })
+      );
+    }
+
+    if (rulesParam.length > 0) {
+      filtered = filtered.filter((p) =>
+        rulesParam.every((reqRule) => {
+          const lower = reqRule.toLowerCase();
+          return (p.rules || []).some(
+            (r: string) => r.toLowerCase().includes(lower) || lower.includes(r.toLowerCase())
+          );
+        })
+      );
     }
 
     if (maxDistance) {
@@ -486,6 +584,20 @@ export async function GET(request: NextRequest) {
       }
       if (sort === 'rating' || sort === 'highest_rated') {
         return b.rating - a.rating;
+      }
+      if (sort === 'most_available') {
+        return (b.availableBeds ?? b.availBeds ?? 0) - (a.availableBeds ?? a.availBeds ?? 0);
+      }
+      if (sort === 'recently_verified') {
+        const aVer = a.verificationStatus === 'VERIFIED' || a.verified ? 1 : 0;
+        const bVer = b.verificationStatus === 'VERIFIED' || b.verified ? 1 : 0;
+        if (bVer !== aVer) return bVer - aVer;
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      }
+      if (sort === 'recently_updated') {
+        const aTime = new Date(a.lastAvailabilityConfirm || a.updatedAt || a.verifiedAt || 0).getTime();
+        const bTime = new Date(b.lastAvailabilityConfirm || b.updatedAt || b.verifiedAt || 0).getTime();
+        return bTime - aTime;
       }
       return a.computedDistance - b.computedDistance;
     });

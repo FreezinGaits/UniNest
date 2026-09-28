@@ -62,18 +62,33 @@ const INITIAL_TICKETS: MaintenanceTicket[] = [
 ];
 
 export default function MaintenanceTicketsPage() {
-  const [isDemo, setIsDemo] = useState(false);
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [isDemo, setIsDemo] = useState(true);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>(INITIAL_TICKETS);
 
   React.useEffect(() => {
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
-        const email = data?.user?.email || '';
-        const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        const email = data?.email || data?.user?.email || '';
+        const demo = !email || email.includes('@uninest.demo') || email === 'rahul@uninest.in';
         setIsDemo(demo);
+
+        let savedTickets: MaintenanceTicket[] = [];
+        try {
+          const raw = localStorage.getItem('uninest_student_maintenance');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              savedTickets = parsed;
+            }
+          }
+        } catch {}
+
         if (demo) {
-          setTickets(INITIAL_TICKETS);
+          const existingIds = new Set(savedTickets.map(t => t.id));
+          setTickets([...savedTickets, ...INITIAL_TICKETS.filter(t => !existingIds.has(t.id))]);
+        } else {
+          setTickets(savedTickets);
         }
       })
       .catch(() => {});
@@ -103,14 +118,26 @@ export default function MaintenanceTicketsPage() {
       eta: 'SLA Guarantee: Within 24 hours',
     };
 
-    setTickets([newTicket, ...tickets]);
+    const updatedTickets = [newTicket, ...tickets];
+    setTickets(updatedTickets);
     setModalOpen(false);
     setTitle('');
     setDescription('');
 
+    try {
+      const raw = localStorage.getItem('uninest_student_maintenance');
+      const saved = raw ? JSON.parse(raw) : [];
+      saved.unshift(newTicket);
+      localStorage.setItem('uninest_student_maintenance', JSON.stringify(saved));
+    } catch {}
+
     // Trigger demo maintenance API persistence
     try {
-      await fetch('/api/demo/maintenance', { method: 'POST' });
+      await fetch('/api/demo/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTicket),
+      });
     } catch (err) {
       console.warn('Background ticket sync:', err);
     }

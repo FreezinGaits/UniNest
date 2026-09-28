@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { findStoreBooking, getEscrowStore, updateStoreBooking } from '@/lib/escrowStore';
 
+function sanitizeBookingUsers(booking: any) {
+  if (!booking || typeof booking !== 'object') return booking;
+  const copy = { ...booking };
+  if (copy.user && typeof copy.user === 'object') {
+    const { passwordHash: _pw, ...safeUser } = copy.user;
+    copy.user = safeUser;
+  }
+  if (copy.property?.landlord?.user && typeof copy.property.landlord.user === 'object') {
+    const { passwordHash: _lpw, ...safeLandlordUser } = copy.property.landlord.user;
+    copy.property = {
+      ...copy.property,
+      landlord: {
+        ...copy.property.landlord,
+        user: safeLandlordUser,
+      },
+    };
+  }
+  return copy;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { bookingId, otp, decision, reason, feedback } = await request.json();
@@ -12,7 +32,8 @@ export async function POST(request: NextRequest) {
     }
 
     const store = getEscrowStore();
-    let currentBooking = findStoreBooking(bookingId);
+    const rawStoreBooking = findStoreBooking(bookingId);
+    const currentBooking = rawStoreBooking?.id === bookingId ? rawStoreBooking : undefined;
 
     // Try reading from Prisma DB if available
     let dbBooking: any = null;
@@ -54,19 +75,22 @@ export async function POST(request: NextRequest) {
       const newWaiverCount = currentWaivers + 1;
       store.studentStats.emergencyWaiversUsed = newWaiverCount;
 
-      const updatedStore = updateStoreBooking(bookingId, () => ({
-        handshakeStatus: 'REFUNDED_EMERGENCY',
-        postVisitDecision: 'EMERGENCY_CANCEL',
-        status: 'CANCELLED',
-        emergencyReason: reason || 'Verified Student Emergency',
-        emergencyWaiverCount: newWaiverCount,
-        refundAmount: 39900,
-        notes: `1-Click Emergency Waiver Triggered (${reason || 'Emergency'}). 100% Refund (₹399) dispatched to student UPI within 2 hours.`,
-      }));
+      const updatedStore = currentBooking
+        ? updateStoreBooking(bookingId, () => ({
+            handshakeStatus: 'REFUNDED_EMERGENCY',
+            postVisitDecision: 'EMERGENCY_CANCEL',
+            status: 'CANCELLED',
+            emergencyReason: reason || 'Verified Student Emergency',
+            emergencyWaiverCount: newWaiverCount,
+            refundAmount: 39900,
+            notes: `1-Click Emergency Waiver Triggered (${reason || 'Emergency'}). 100% Refund (₹399) dispatched to student UPI within 2 hours.`,
+          }))
+        : null;
 
+      let updatedDb: any = null;
       try {
         if (dbBooking) {
-          await prisma.booking.update({
+          updatedDb = await prisma.booking.update({
             where: { id: bookingId },
             data: {
               handshakeStatus: 'REFUNDED_EMERGENCY',
@@ -74,6 +98,11 @@ export async function POST(request: NextRequest) {
               status: 'CANCELLED',
               emergencyReason: reason || 'Verified Student Emergency',
               emergencyWaiverCount: { increment: 1 },
+            },
+            include: {
+              user: true,
+              property: { include: { landlord: { include: { user: true } } } },
+              bed: { include: { room: true } },
             },
           });
           await prisma.bed.update({
@@ -90,7 +119,7 @@ export async function POST(request: NextRequest) {
         action: 'EMERGENCY_REFUND',
         refundAmount: 39900,
         waiversRemaining: Math.max(0, 2 - newWaiverCount),
-        booking: updatedStore,
+        booking: sanitizeBookingUsers(updatedStore || updatedDb || activeBooking),
         message: `Emergency Waiver approved (${reason || 'Emergency'}). 100% Refund of ₹399 initiated to your UPI (within 2 hours). Bed released back to marketplace.`,
       });
     }
@@ -113,21 +142,29 @@ export async function POST(request: NextRequest) {
         }
 
         const nowIso = new Date().toISOString();
-        const updatedStore = updateStoreBooking(bookingId, () => ({
-          visitVerifiedAt: nowIso,
-          handshakeStatus: 'VISIT_OTP_VERIFIED',
-          status: 'VISITED',
-          notes: 'Stage 1 Handshake Complete: Physical PG visit verified via 4-digit OTP. Awaiting student decision.',
-        }));
+        const updatedStore = currentBooking
+          ? updateStoreBooking(bookingId, () => ({
+              visitVerifiedAt: nowIso,
+              handshakeStatus: 'VISIT_OTP_VERIFIED',
+              status: 'VISITED',
+              notes: 'Stage 1 Handshake Complete: Physical PG visit verified via 4-digit OTP. Awaiting student decision.',
+            }))
+          : null;
 
+        let updatedDb: any = null;
         try {
           if (dbBooking) {
-            await prisma.booking.update({
+            updatedDb = await prisma.booking.update({
               where: { id: bookingId },
               data: {
                 visitVerifiedAt: new Date(),
                 handshakeStatus: 'VISIT_OTP_VERIFIED',
                 status: 'VISITED',
+              },
+              include: {
+                user: true,
+                property: { include: { landlord: { include: { user: true } } } },
+                bed: { include: { room: true } },
               },
             });
           }
@@ -138,9 +175,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           action: 'OTP_VERIFIED',
-          booking: updatedStore,
+          booking: sanitizeBookingUsers(updatedStore || updatedDb || activeBooking),
           message: 'Visit OTP verified! Physical visit recorded on the UniNest Trust Ledger. Now choose whether you love the room or want an instant ₹399 refund.',
         });
+      }
+
+      // For ACCEPTED or REJECTED, verify that visitVerifiedAt is already set OR valid OTP is provided
+      const isAlreadyVerified = Boolean(
+        activeBooking.visitVerifiedAt || currentBooking?.visitVerifiedAt
+      );
+      const otpMatches = Boolean(cleanOtp && expectedOtp && cleanOtp === expectedOtp);
+      if (!isAlreadyVerified && !otpMatches) {
+        return NextResponse.json(
+          { error: 'Visit OTP must be verified before submitting a post-visit decision.' },
+          { status: 400 }
+        );
       }
 
       // ─── 2A. ROOM ACCEPTED ("I Love It! ❤️") ───────────────────────────────
@@ -149,23 +198,31 @@ export async function POST(request: NextRequest) {
         const creditPaise = 39900; // ₹399
         const remainingPaise = rentPaise - creditPaise; // ₹5,601 (560100 paise)
 
-        const updatedStore = updateStoreBooking(bookingId, (b) => ({
-          visitVerifiedAt: b.visitVerifiedAt || new Date().toISOString(),
-          handshakeStatus: 'VISIT_OTP_VERIFIED',
-          postVisitDecision: 'ACCEPTED',
-          status: 'CONFIRMED',
-          notes: `Room Accepted! ₹399 token credited towards 1st Month Rent. Pay remaining ₹${(remainingPaise / 100).toLocaleString('en-IN')} into UniNest Escrow Vault.`,
-        }));
+        const updatedStore = currentBooking
+          ? updateStoreBooking(bookingId, (b) => ({
+              visitVerifiedAt: b.visitVerifiedAt || new Date().toISOString(),
+              handshakeStatus: 'VISIT_OTP_VERIFIED',
+              postVisitDecision: 'ACCEPTED',
+              status: 'CONFIRMED',
+              notes: `Room Accepted! ₹399 token credited towards 1st Month Rent. Pay remaining ₹${(remainingPaise / 100).toLocaleString('en-IN')} into UniNest Escrow Vault.`,
+            }))
+          : null;
 
+        let updatedDb: any = null;
         try {
           if (dbBooking) {
-            await prisma.booking.update({
+            updatedDb = await prisma.booking.update({
               where: { id: bookingId },
               data: {
                 visitVerifiedAt: dbBooking.visitVerifiedAt || new Date(),
                 handshakeStatus: 'VISIT_OTP_VERIFIED',
                 postVisitDecision: 'ACCEPTED',
                 status: 'CONFIRMED',
+              },
+              include: {
+                user: true,
+                property: { include: { landlord: { include: { user: true } } } },
+                bed: { include: { room: true } },
               },
             });
           }
@@ -178,7 +235,7 @@ export async function POST(request: NextRequest) {
           action: 'ROOM_ACCEPTED',
           creditAmount: creditPaise,
           remainingRent: remainingPaise,
-          booking: updatedStore,
+          booking: sanitizeBookingUsers(updatedStore || updatedDb || activeBooking),
           message: `Awesome! ₹399 has been credited towards your 1st Month Rent. You only need to deposit ₹${(remainingPaise / 100).toLocaleString('en-IN')} into the UniNest Escrow Vault to lock your move-in.`,
         });
       }
@@ -206,19 +263,22 @@ export async function POST(request: NextRequest) {
         store.studentStats.freeVisitRejectsUsed = newRejectCount;
         const freeRejectsRemaining = Math.max(0, 3 - newRejectCount);
 
-        const updatedStore = updateStoreBooking(bookingId, (b) => ({
-          visitVerifiedAt: b.visitVerifiedAt || new Date().toISOString(),
-          handshakeStatus: 'VISIT_OTP_VERIFIED',
-          postVisitDecision: 'REJECTED',
-          status: 'CANCELLED',
-          visitRejectCount: newRejectCount,
-          refundAmount: 39900,
-          notes: `Visit Completed — Room Rejected by Student. 100% Instant Refund (₹399) dispatched to Student UPI. Bed reverted to AVAILABLE.`,
-        }));
+        const updatedStore = currentBooking
+          ? updateStoreBooking(bookingId, (b) => ({
+              visitVerifiedAt: b.visitVerifiedAt || new Date().toISOString(),
+              handshakeStatus: 'VISIT_OTP_VERIFIED',
+              postVisitDecision: 'REJECTED',
+              status: 'CANCELLED',
+              visitRejectCount: newRejectCount,
+              refundAmount: 39900,
+              notes: `Visit Completed — Room Rejected by Student. 100% Instant Refund (₹399) dispatched to Student UPI. Bed reverted to AVAILABLE.`,
+            }))
+          : null;
 
+        let updatedDb: any = null;
         try {
           if (dbBooking) {
-            await prisma.booking.update({
+            updatedDb = await prisma.booking.update({
               where: { id: bookingId },
               data: {
                 visitVerifiedAt: dbBooking.visitVerifiedAt || new Date(),
@@ -226,6 +286,11 @@ export async function POST(request: NextRequest) {
                 postVisitDecision: 'REJECTED',
                 status: 'CANCELLED',
                 visitRejectCount: newRejectCount,
+              },
+              include: {
+                user: true,
+                property: { include: { landlord: { include: { user: true } } } },
+                bed: { include: { room: true } },
               },
             });
             await prisma.bed.update({
@@ -242,7 +307,7 @@ export async function POST(request: NextRequest) {
           action: 'ROOM_REJECTED',
           refundAmount: 39900,
           freeRejectsRemaining,
-          booking: updatedStore,
+          booking: sanitizeBookingUsers(updatedStore || updatedDb || activeBooking),
           message: `100% Instant UPI Refund of ₹399 initiated! Bed has been released back to AVAILABLE. Fair-Use Quota: ${freeRejectsRemaining}/3 free visit refunds remaining this semester.`,
         });
       }

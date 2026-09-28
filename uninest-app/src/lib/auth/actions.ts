@@ -69,6 +69,8 @@ const EMAIL_ROLE_MAP: Record<string, keyof typeof DEFAULT_PORTAL_USERS> = {
   'dispatch@quickfix.in': 'PROVIDER',
 };
 
+const DEMO_EMAIL_ROLES = EMAIL_ROLE_MAP;
+
 export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('session');
@@ -134,18 +136,18 @@ export async function login(
   password: string
 ): Promise<{ success: boolean; role?: UserRole; error?: string }> {
   let user: { id: string; name: string; email: string; role: UserRole; phone?: string; avatarUrl?: string } | null = null;
-  const normalizedInput = email.trim().toLowerCase();
-  const mappedRole = EMAIL_ROLE_MAP[normalizedInput];
+  const cleanEmail = email.trim().toLowerCase();
+  const mappedRole = DEMO_EMAIL_ROLES[cleanEmail];
 
   try {
-    const lookupEmail = mappedRole ? DEFAULT_PORTAL_USERS[mappedRole].dbEmail : normalizedInput;
+    const lookupEmail = mappedRole ? DEFAULT_PORTAL_USERS[mappedRole].dbEmail : cleanEmail;
     const dbUser = await prisma.user.findUnique({ where: { email: lookupEmail } });
     if (dbUser) {
       const valid = await bcrypt.compare(password, dbUser.passwordHash);
-      
-      const isDemoAccount = email.endsWith('@uninest.demo') || !!EMAIL_ROLE_MAP[email.trim().toLowerCase()];
-      const canUseDemoPassword = isDemoAccount && password === 'demo123';
-      
+
+      const isDemoAccount = Boolean(DEMO_EMAIL_ROLES[cleanEmail]);
+      const canUseDemoPassword = isDemoAccount && (password === 'demo123' || password === 'uninest2026');
+
       if (!valid && !canUseDemoPassword) {
         return { success: false, error: 'Invalid email or password' };
       }
@@ -164,6 +166,9 @@ export async function login(
 
   if (!user) {
     if (mappedRole) {
+      if (password !== 'demo123' && password !== 'uninest2026') {
+        return { success: false, error: 'Invalid email or password' };
+      }
       const portalUser = DEFAULT_PORTAL_USERS[mappedRole];
       user = {
         id: portalUser.id,
@@ -197,6 +202,10 @@ export async function registerUser(input: {
     return { success: false, error: 'Name, email, and password are required.' };
   }
 
+  if (DEMO_EMAIL_ROLES[cleanEmail]) {
+    return { success: false, error: 'An account with this email already exists. Please sign in instead.' };
+  }
+
   let userRecord: { id: string; name: string; email: string; role: UserRole; phone?: string } = {
     id: targetRole === 'LANDLORD' ? `usr-ll-${Date.now()}` : `usr-st-${Date.now()}`,
     name: cleanName,
@@ -206,15 +215,14 @@ export async function registerUser(input: {
   };
 
   try {
+    const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+    if (existingUser) {
+      return { success: false, error: 'An account with this email already exists. Please sign in instead.' };
+    }
+
     const passwordHash = await bcrypt.hash(input.password, 10);
-    const dbUser = await prisma.user.upsert({
-      where: { email: cleanEmail },
-      update: {
-        name: cleanName,
-        phone: cleanPhone || null,
-        role: targetRole,
-      },
-      create: {
+    const dbUser = await prisma.user.create({
+      data: {
         email: cleanEmail,
         name: cleanName,
         phone: cleanPhone || null,
@@ -284,7 +292,7 @@ export async function authenticateGoogleUser(input: {
       .split('@')[0]
       .replace(/[._-]/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
-  const mappedDemoRole = EMAIL_ROLE_MAP[cleanEmail] as UserRole | undefined;
+  const mappedDemoRole = DEMO_EMAIL_ROLES[cleanEmail] as UserRole | undefined;
   const preferredRole: UserRole =
     mappedDemoRole || (input.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT');
 
@@ -310,13 +318,17 @@ export async function authenticateGoogleUser(input: {
   };
 
   try {
-    const existing = await prisma.user.findUnique({
-      where: { email: cleanEmail },
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: {
+          in: [cleanEmail, cleanEmail.replace('@uninest.in', '@uninest.demo')],
+        },
+      },
     });
 
     if (existing) {
       existingPhone = existing.phone || '';
-      const finalRole = input.role ? preferredRole : existing.role;
+      const finalRole: UserRole = existing.role || preferredRole;
       const updated = await prisma.user.update({
         where: { id: existing.id },
         data: {
@@ -402,54 +414,105 @@ export async function logout(): Promise<void> {
   cookieStore.delete('session');
 }
 
-export async function switchRole(role: UserRole): Promise<{ success: boolean; error?: string }> {
-  const session = await getSession();
-  if (!session) return { success: false, error: 'Not authenticated' };
+export async function switchRole(newRole: UserRole): Promise<{ success: boolean; error?: string }> {
+  const current = await getSession();
+  if (!current) return { success: false, error: 'Not authenticated' };
 
-  const user = {
-    id: session.userId,
-    name: session.name,
-    email: session.email,
-    role: role,
-    phone: session.phone,
-    avatarUrl: session.avatarUrl,
+  const cleanEmail = current.email.trim().toLowerCase();
+  const demoEmail = cleanEmail.replace('@uninest.in', '@uninest.demo');
+  const isAuthorizedForAll =
+    Boolean(DEMO_EMAIL_ROLES[cleanEmail]) ||
+    Boolean(DEMO_EMAIL_ROLES[demoEmail]) ||
+    current.role === 'ADMIN';
+
+  if (newRole !== 'STUDENT' && newRole !== 'LANDLORD' && !isAuthorizedForAll) {
+    return { success: false, error: 'Unauthorized role switch' };
+  }
+
+  try {
+    const existing = await prisma.user.findFirst({
+      where: {
+        email: { in: [cleanEmail, demoEmail] },
+      },
+    });
+    if (existing) {
+      const user = await prisma.user.update({
+        where: { id: existing.id },
+        data: { role: newRole },
+      });
+      if (newRole === 'LANDLORD') {
+        await prisma.landlord.upsert({
+          where: { userId: user.id },
+          update: {},
+          create: { userId: user.id },
+        });
+      } else if (newRole === 'STUDENT') {
+        await prisma.student.upsert({
+          where: { userId: user.id },
+          update: {},
+          create: { userId: user.id },
+        });
+      }
+    }
+  } catch {
+    // Offline fallback handled via session cookie update
+  }
+
+  const sessionUser = {
+    id: current.userId,
+    name: current.name,
+    email: current.email,
+    role: newRole,
+    phone: current.phone,
+    avatarUrl: current.avatarUrl,
   };
 
-  await setSessionCookie(user);
+  await setSessionCookie(sessionUser);
   return { success: true };
 }
 
-export async function updateSessionProfile(updates: {
+export async function updateSessionProfile(input: {
   name: string;
   email: string;
   phone?: string;
   avatarUrl?: string;
   role?: UserRole;
+  organization?: string;
+  college?: string;
+  companyName?: string;
 }): Promise<{ success: boolean; role?: UserRole }> {
-  const session = await getSession();
-  if (!session) return { success: false };
+  const current = await getSession();
+  if (!current) return { success: false };
 
-  const cleanName = updates.name.trim() || session.name;
-  const cleanEmail = (updates.email.trim() || session.email).replace('@uninest.demo', '@uninest.in');
-  const cleanPhone = updates.phone !== undefined ? updates.phone.trim() : session.phone || '';
-  const cleanAvatar = updates.avatarUrl !== undefined ? updates.avatarUrl.trim() : session.avatarUrl || '';
-  const targetRole: UserRole = updates.role || session.role;
+  const cleanName = input.name.trim() || current.name;
+  const cleanEmail = (input.email.trim() || current.email).replace('@uninest.demo', '@uninest.in');
+  const cleanPhone = input.phone !== undefined ? input.phone.trim() : current.phone || '';
+  const cleanAvatar = input.avatarUrl !== undefined ? input.avatarUrl.trim() : current.avatarUrl || '';
+  const targetRole: UserRole = input.role || current.role;
+  const orgText = (input.organization || input.college || input.companyName || '').trim();
 
   try {
-    await prisma.user.update({
-      where: { id: session.userId },
-      data: {
-        name: cleanName,
-        phone: cleanPhone || null,
-        avatarUrl: cleanAvatar || null,
-        role: targetRole,
+    const candidateEmails = Array.from(
+      new Set([
+        current.email.toLowerCase(),
+        current.email.toLowerCase().replace('@uninest.in', '@uninest.demo'),
+        cleanEmail.toLowerCase(),
+        cleanEmail.toLowerCase().replace('@uninest.in', '@uninest.demo'),
+      ])
+    );
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: current.userId },
+          { email: { in: candidateEmails } },
+        ],
       },
     });
-  } catch {
-    // Also try updating by email if userId was a fallback ID
-    try {
-      await prisma.user.update({
-        where: { email: cleanEmail },
+
+    if (existingUser) {
+      const updated = await prisma.user.update({
+        where: { id: existingUser.id },
         data: {
           name: cleanName,
           phone: cleanPhone || null,
@@ -457,13 +520,33 @@ export async function updateSessionProfile(updates: {
           role: targetRole,
         },
       });
-    } catch {
-      // Offline fallback handled via session cookie update
+
+      if (targetRole === 'LANDLORD') {
+        await prisma.landlord.upsert({
+          where: { userId: updated.id },
+          update: orgText ? { businessName: orgText } : {},
+          create: {
+            userId: updated.id,
+            ...(orgText ? { businessName: orgText } : {}),
+          },
+        });
+      } else if (targetRole === 'STUDENT') {
+        await prisma.student.upsert({
+          where: { userId: updated.id },
+          update: orgText ? { collegeName: orgText } : {},
+          create: {
+            userId: updated.id,
+            ...(orgText ? { collegeName: orgText } : {}),
+          },
+        });
+      }
     }
+  } catch {
+    // Offline fallback handled via session cookie update
   }
 
   await setSessionCookie({
-    id: session.userId,
+    id: current.userId,
     email: cleanEmail,
     name: cleanName,
     role: targetRole,

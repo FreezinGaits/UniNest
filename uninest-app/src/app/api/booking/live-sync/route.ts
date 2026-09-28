@@ -5,6 +5,26 @@ import { findStoreBooking, getEscrowStore, getStoreBookings } from '@/lib/escrow
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function sanitizeBookingUsers(booking: any) {
+  if (!booking || typeof booking !== 'object') return booking;
+  const copy = { ...booking };
+  if (copy.user && typeof copy.user === 'object') {
+    const { passwordHash: _pw, ...safeUser } = copy.user;
+    copy.user = safeUser;
+  }
+  if (copy.property?.landlord?.user && typeof copy.property.landlord.user === 'object') {
+    const { passwordHash: _lpw, ...safeLandlordUser } = copy.property.landlord.user;
+    copy.property = {
+      ...copy.property,
+      landlord: {
+        ...copy.property.landlord,
+        user: safeLandlordUser,
+      },
+    };
+  }
+  return copy;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,7 +34,8 @@ export async function GET(request: NextRequest) {
     const storeBookings = getStoreBookings();
 
     if (bookingId) {
-      const memBooking = findStoreBooking(bookingId);
+      const rawMemBooking = findStoreBooking(bookingId);
+      const memBooking = rawMemBooking?.id === bookingId ? rawMemBooking : undefined;
       let dbBooking: any = null;
 
       try {
@@ -72,7 +93,7 @@ export async function GET(request: NextRequest) {
         {
           success: true,
           timestamp: new Date().toISOString(),
-          booking: merged,
+          booking: sanitizeBookingUsers(merged),
           studentStats: store.studentStats,
         },
         {
@@ -116,18 +137,21 @@ export async function GET(request: NextRequest) {
 
     const combinedMap = new Map<string, any>();
     for (const b of storeBookings) {
-      combinedMap.set(b.id, b);
+      combinedMap.set(b.id, sanitizeBookingUsers(b));
     }
     for (const b of dbBookings) {
       const mem = combinedMap.get(b.id);
-      combinedMap.set(b.id, {
-        ...mem,
-        ...b,
-        visitOtp: b.visitOtp || mem?.visitOtp || null,
-        moveInOtp: b.moveInOtp || mem?.moveInOtp || null,
-        escrowAmount: b.escrowAmount ?? mem?.escrowAmount ?? null,
-        agreement: b.agreement || mem?.agreement || null,
-      });
+      combinedMap.set(
+        b.id,
+        sanitizeBookingUsers({
+          ...mem,
+          ...b,
+          visitOtp: b.visitOtp || mem?.visitOtp || null,
+          moveInOtp: b.moveInOtp || mem?.moveInOtp || null,
+          escrowAmount: b.escrowAmount ?? mem?.escrowAmount ?? null,
+          agreement: b.agreement || mem?.agreement || null,
+        })
+      );
     }
 
     return NextResponse.json(

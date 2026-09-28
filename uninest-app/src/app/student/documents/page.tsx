@@ -74,12 +74,13 @@ export default function MyDocumentsPage() {
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
-        const email = data?.user?.email || '';
-        const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        const email = data?.email || data?.user?.email || '';
+        const demo = !email || email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        const storageKey = 'uninest_documents_store_' + (email || 'demo');
         let docs = demo ? [...INITIAL_DOCUMENTS] : [];
         
         try {
-          const stored = localStorage.getItem('uninest_documents_store');
+          const stored = localStorage.getItem(storageKey);
           if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {

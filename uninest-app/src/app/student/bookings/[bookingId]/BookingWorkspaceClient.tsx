@@ -702,18 +702,17 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
       const data = await res.json();
       setIsAcceptingCounter(false);
       if (data.success) {
+        const updatedVisit = {
+          ...latestVisit,
+          status: 'CONFIRMED',
+          scheduledDate: latestVisit.counterDate || latestVisit.scheduledDate,
+          timeSlot: latestVisit.counterSlot || latestVisit.timeSlot,
+        };
         setBooking((prev: any) => ({
           ...prev,
           status: 'VISIT_CONFIRMED',
-          visitAppointments: [
-            {
-              ...latestVisit,
-              status: 'CONFIRMED',
-              scheduledDate: latestVisit.counterDate || latestVisit.scheduledDate,
-              timeSlot: latestVisit.counterSlot || latestVisit.timeSlot,
-            },
-            ...(prev.visitAppointments?.slice(1) || []),
-          ],
+          visits: [updatedVisit, ...(prev.visits?.slice(1) || [])],
+          visitAppointments: [updatedVisit, ...(prev.visitAppointments?.slice(1) || [])],
         }));
       } else {
         alert(data.error || 'Failed to accept counter-proposal');
@@ -848,6 +847,57 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* Counter-Proposal Alert Banner */}
+      {latestVisit?.status === 'COUNTER_PROPOSED' && (
+        <div className="rounded-2xl p-4 border-2 border-amber-300 bg-amber-50 text-amber-950 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-extrabold">
+                ⏰ Landlord Proposed an Alternative Visit Slot
+              </h4>
+              <p className="text-xs text-amber-900">
+                Proposed Date:{' '}
+                <strong>
+                  {new Date(latestVisit.counterDate || latestVisit.scheduledDate).toLocaleDateString('en-IN', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </strong>{' '}
+                • Slot: <strong>{latestVisit.counterSlot || latestVisit.timeSlot}</strong>
+                {latestVisit.landlordNotes ? ` — "${latestVisit.landlordNotes}"` : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleAcceptCounterProposal}
+              disabled={isAcceptingCounter}
+              className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50"
+            >
+              {isAcceptingCounter ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              )}
+              <span>Accept Counter Slot</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowVisitModal(true)}
+              className="py-2 px-4 rounded-xl bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-xs transition-all"
+            >
+              Propose New Time
+            </button>
+          </div>
         </div>
       )}
 

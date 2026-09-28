@@ -29,7 +29,7 @@ export function StudentBookingsClient({ initialBookings }: StudentBookingsClient
 
   const filteredBookings = bookings.filter((b) => {
     if (filter === 'ALL') return true;
-    if (filter === 'RESERVED') return ['RESERVED', 'PENDING', 'VISITED'].includes(b.status);
+    if (filter === 'RESERVED') return ['RESERVED', 'VISIT_REQUESTED', 'VISIT_CONFIRMED', 'VISITED'].includes(b.status);
     if (filter === 'VISIT') return ['VISIT_REQUESTED', 'VISIT_CONFIRMED', 'VISITED'].includes(b.status);
     if (filter === 'CONFIRMED') return ['CONFIRMED', 'MOVE_IN_READY', 'ACTIVE', 'OCCUPIED'].includes(b.status);
     if (filter === 'CANCELLED') return ['CANCELLED', 'EXPIRED'].includes(b.status);

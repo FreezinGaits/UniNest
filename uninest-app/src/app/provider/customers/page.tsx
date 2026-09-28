@@ -67,7 +67,8 @@ export default async function CustomerDirectoryPage() {
 
   try {
     const dbCustomers = await prisma.user.findMany({
-      take: 10,
+      where: { role: { in: ['STUDENT', 'LANDLORD'] } },
+      take: 20,
       orderBy: { createdAt: 'desc' },
     });
     if (dbCustomers && dbCustomers.length > 0) {
