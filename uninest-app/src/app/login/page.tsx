@@ -68,8 +68,8 @@ function LoginContent() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Only show the Google OAuth button when real Google Cloud OAuth credentials are configured
-  const [oauthConfigured, setOauthConfigured] = useState(false);
+  // Google OAuth is now configured with live credentials
+  const [oauthConfigured, setOauthConfigured] = useState(true);
   const [recentAccounts, setRecentAccounts] = useState<RecentAccount[]>([]);
 
   const router = useRouter();

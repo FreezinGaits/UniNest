@@ -262,6 +262,8 @@ export async function authenticateGoogleUser(input: {
   success: boolean;
   user: { id: string; name: string; email: string; role: UserRole };
   isNewUser: boolean;
+  token: string;
+  expires: string;
 }> {
   const cleanEmail = input.email.trim().toLowerCase();
   const cleanName =
@@ -352,7 +354,22 @@ export async function authenticateGoogleUser(input: {
   }
 
   await setSessionCookie(userRecord);
-  return { success: true, user: userRecord, isNewUser };
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const token = await signToken({
+    userId: userRecord.id,
+    email: userRecord.email.replace('@uninest.demo', '@uninest.in'),
+    name: userRecord.name,
+    role: userRecord.role,
+    expires: expires.toISOString(),
+  });
+
+  return {
+    success: true,
+    user: userRecord,
+    isNewUser,
+    token,
+    expires: expires.toISOString(),
+  };
 }
 
 export async function logout(): Promise<void> {
