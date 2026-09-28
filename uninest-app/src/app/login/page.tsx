@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
   Building2,
+  GraduationCap,
   Mail,
   Lock,
   ArrowRight,
@@ -317,24 +318,26 @@ function LoginContent() {
               <button
                 type="button"
                 onClick={() => setSelectedRole('STUDENT')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                   selectedRole === 'STUDENT'
                     ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
                     : 'border-border bg-surface text-text-secondary hover:text-text-primary'
                 }`}
               >
-                🎓 I am a Student
+                <GraduationCap className="w-4 h-4 shrink-0" />
+                <span>I am a Student</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedRole('LANDLORD')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                   selectedRole === 'LANDLORD'
                     ? 'border-brand-600 bg-brand-50 text-brand-700 shadow-sm'
                     : 'border-border bg-surface text-text-secondary hover:text-text-primary'
                 }`}
               >
-                🏢 I am a Landlord
+                <Building2 className="w-4 h-4 shrink-0" />
+                <span>I am a Landlord</span>
               </button>
             </div>
           </div>
