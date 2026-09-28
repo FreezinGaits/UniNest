@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth/actions';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || undefined;
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    let studentUser = null;
-    if (userId) {
-      studentUser = await prisma.user.findUnique({ where: { id: userId } });
-    }
-    if (!studentUser) {
-      studentUser = await prisma.user.findFirst({ where: { email: 'rahul@uninest.demo' } });
-    }
-    if (!studentUser) {
-      studentUser = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
+    let studentUser = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!studentUser && session.email) {
+      studentUser = await prisma.user.findUnique({ where: { email: session.email } });
     }
 
     if (!studentUser) {

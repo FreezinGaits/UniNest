@@ -43,6 +43,19 @@ const SERVICES: ServiceItem[] = [
 
 export default function OnDemandServicesPage() {
   const [purchasedId, setPurchasedId] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
+
+  import('react').then(React => {
+    React.useEffect(() => {
+      fetch('/api/profile')
+        .then(res => res.json())
+        .then(data => {
+          const email = data?.user?.email || '';
+          setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
+        })
+        .catch(() => {});
+    }, []);
+  });
 
   async function handleOrderService(service: ServiceItem) {
     setPurchasedId(service.id);
@@ -117,9 +130,13 @@ export default function OnDemandServicesPage() {
                   <div className="flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg font-semibold">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Booked!
                   </div>
-                ) : (
+                ) : isDemo ? (
                   <Button variant="primary" size="sm" onClick={() => handleOrderService(srv)}>
                     <ShoppingCart className="w-3.5 h-3.5 mr-1" /> Order Now
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" disabled>
+                    Available soon
                   </Button>
                 )}
               </div>

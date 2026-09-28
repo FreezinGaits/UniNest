@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { SavedPropertiesClient } from './SavedPropertiesClient';
+import { getSession } from '@/lib/auth/actions';
 
 const DEMO_SAVED_ITEMS = [
   {
@@ -98,14 +99,19 @@ const DEMO_SAVED_ITEMS = [
 export default async function SavedPropertiesPage() {
   let savedItems: any[] = [];
 
+  const session = await getSession();
+  if (!session) {
+    return <SavedPropertiesClient initialSavedItems={[]} />;
+  }
+
   try {
-    let studentUser = await prisma.user.findFirst({
-      where: { email: 'rahul@uninest.demo' },
+    let studentUser = await prisma.user.findUnique({
+      where: { id: session.userId },
     });
 
-    if (!studentUser) {
-      studentUser = await prisma.user.findFirst({
-        where: { role: 'STUDENT' },
+    if (!studentUser && session.email) {
+      studentUser = await prisma.user.findUnique({
+        where: { email: session.email },
       });
     }
 
@@ -131,7 +137,10 @@ export default async function SavedPropertiesPage() {
 
   // Fallback to high-fidelity demo saved items if DB is offline or returned empty
   if (savedItems.length === 0) {
-    savedItems = DEMO_SAVED_ITEMS;
+    const isDemoUser = session.email?.includes('@uninest.demo') || session.email?.includes('@uninest.in');
+    if (isDemoUser) {
+      savedItems = DEMO_SAVED_ITEMS;
+    }
   }
 
   return <SavedPropertiesClient initialSavedItems={savedItems} />;

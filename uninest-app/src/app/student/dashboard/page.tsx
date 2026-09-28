@@ -62,8 +62,10 @@ export default async function StudentDashboard() {
     console.warn('Database error in StudentDashboard, using fallback demo data:', error);
   }
 
+  const isDemo = session?.email?.includes('@uninest.demo') || session?.email === 'rahul@uninest.in';
+
   // Fallback demo bookings if DB query returned nothing
-  if (!bookings || bookings.length === 0) {
+  if ((!bookings || bookings.length === 0) && isDemo) {
     bookings = [
       {
         id: 'bkg-pcte-2026-demo',
@@ -177,26 +179,32 @@ export default async function StudentDashboard() {
         </div>
 
         <div className="space-y-3">
-          {bookings.map((b: any) => (
-            <div key={b.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="space-y-1">
-                <span className="font-extrabold text-slate-900 text-sm block">{b.property?.name || 'PCTE Smart Student Residency'}</span>
-                <p className="text-xs text-slate-500">
-                  {b.property?.locality || 'Ferozepur Road'} • Room {b.bed?.room?.roomNumber || '204'}, Bed {b.bed?.bedNumber || 'A'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge variant={b.status === 'RESERVED' ? 'warning' : 'success'} size="sm">
-                  {b.status}
-                </Badge>
-                <Link href={`/student/bookings/${b.id}`}>
-                  <Button size="sm" variant="outline" className="text-xs">
-                    Workspace
-                  </Button>
-                </Link>
-              </div>
+          {bookings.length === 0 ? (
+            <div className="text-center py-6 text-sm text-slate-500">
+              No active bookings — <Link href="/student/search" className="text-brand-600 hover:underline">Search for PGs</Link> to get started!
             </div>
-          ))}
+          ) : (
+            bookings.map((b: any) => (
+              <div key={b.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
+                <div className="space-y-1">
+                  <span className="font-extrabold text-slate-900 text-sm block">{b.property?.name || 'PCTE Smart Student Residency'}</span>
+                  <p className="text-xs text-slate-500">
+                    {b.property?.locality || 'Ferozepur Road'} • Room {b.bed?.room?.roomNumber || '204'}, Bed {b.bed?.bedNumber || 'A'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant={b.status === 'RESERVED' ? 'warning' : 'success'} size="sm">
+                    {b.status}
+                  </Badge>
+                  <Link href={`/student/bookings/${b.id}`}>
+                    <Button size="sm" variant="outline" className="text-xs">
+                      Workspace
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Card>
     </div>

@@ -13,9 +13,23 @@ export async function GET() {
   let dbAvatar = session.avatarUrl || '';
 
   try {
-    const dbUser = await prisma.user.findUnique({
-      where: { email: session.email.toLowerCase() },
-    });
+    let dbUser = null;
+    if (session.userId) {
+      dbUser = await prisma.user.findUnique({ where: { id: session.userId } });
+    }
+    
+    if (!dbUser && session.email) {
+      dbUser = await prisma.user.findUnique({
+        where: { email: session.email.toLowerCase() },
+      });
+    }
+
+    if (!dbUser && session.email && session.email.includes('@uninest.in')) {
+      dbUser = await prisma.user.findUnique({
+        where: { email: session.email.toLowerCase().replace('@uninest.in', '@uninest.demo') },
+      });
+    }
+
     if (dbUser) {
       if (dbUser.phone) dbPhone = dbUser.phone;
       if (dbUser.avatarUrl) dbAvatar = dbUser.avatarUrl;

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Building2, MapPin, ShieldCheck, Wifi, UtensilsCrossed, Shirt, Car,
   Zap, CheckCircle2, User, Star, AlertCircle, CalendarCheck, Phone, Check, ArrowLeft,
@@ -26,6 +27,7 @@ interface PropertyDetailClientProps {
 }
 
 export function PropertyDetailClient({ property, initialBooking, initialVisit }: PropertyDetailClientProps) {
+  const router = useRouter();
   // State machine
   const [booking, setBooking] = useState(initialBooking);
   const [visit, setVisit] = useState(initialVisit);
@@ -40,8 +42,8 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
   const [showChatModal, setShowChatModal] = useState(false);
 
   // Selected Room/Bed for reservation
-  const selectedRoom = property.rooms?.[0] || { roomNumber: '204', rent: 600000, deposit: 1000000 };
-  const selectedBedLabel = 'A';
+  const [selectedRoom, setSelectedRoom] = useState<any>(property.rooms?.[0] || { roomNumber: '204', rent: 600000, deposit: 1000000 });
+  const [selectedBedLabel, setSelectedBedLabel] = useState<string>('A');
 
   const minRent = property.rooms?.length > 0 ? Math.min(...property.rooms.map((r: any) => r.rent)) / 100 : 6000;
   const minDeposit = property.rooms?.length > 0 ? Math.min(...property.rooms.map((r: any) => r.deposit)) / 100 : 10000;
@@ -62,10 +64,17 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
     : '🔒 Unlocked after ₹399 reservation';
 
   // Handle successful ₹399 payment
-  const handlePaymentSuccess = (data: { transactionId: string; address: string; landlordPhone: string }) => {
+  const handlePaymentSuccess = (data: {
+    transactionId: string;
+    address: string;
+    landlordPhone: string;
+    bookingId?: string;
+    reservationType?: string;
+  }) => {
     setBooking({
-      id: `bk-${Date.now()}`,
+      id: data.bookingId || `bk-${Date.now()}`,
       status: 'RESERVED',
+      reservationType: data.reservationType || 'IMMEDIATE_VISIT',
       reservationFee: 39900,
     });
   };
@@ -74,10 +83,10 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
     <div className="space-y-6 max-w-5xl mx-auto pb-16">
       {/* Back button */}
       <div>
-        <Link href="/student/search" className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+        <button onClick={() => router.back()} className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft className="w-4 h-4" />
-          Back to PG Search
-        </Link>
+          Back
+        </button>
       </div>
 
       {/* Reservation Status Banner */}
@@ -328,7 +337,11 @@ export function PropertyDetailClient({ property, initialBooking, initialVisit }:
                           <div
                             key={bed.id}
                             onClick={() => {
-                              if (isAvailable && !isReserved) setShowConfirmModal(true);
+                              if (isAvailable && !isReserved) {
+                                setSelectedRoom(room);
+                                setSelectedBedLabel(bed.label);
+                                setShowConfirmModal(true);
+                              }
                             }}
                             className={`p-3 rounded-xl border text-center transition-all ${
                               isAvailable

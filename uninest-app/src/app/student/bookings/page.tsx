@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { getEscrowStore } from '@/lib/escrowStore';
 import { StudentBookingsClient } from './StudentBookingsClient';
+import { getSession } from '@/lib/auth/actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,14 +9,19 @@ export default async function MyBookingsPage() {
   const store = getEscrowStore();
   let bookings: any[] = [];
 
+  const session = await getSession();
+  if (!session) {
+    return <StudentBookingsClient initialBookings={[]} />;
+  }
+
   try {
-    let studentUser = await prisma.user.findFirst({
-      where: { email: 'rahul@uninest.demo' },
+    let studentUser = await prisma.user.findUnique({
+      where: { id: session.userId },
     });
 
-    if (!studentUser) {
-      studentUser = await prisma.user.findFirst({
-        where: { role: 'STUDENT' },
+    if (!studentUser && session.email) {
+      studentUser = await prisma.user.findUnique({
+        where: { email: session.email },
       });
     }
 
@@ -48,7 +54,10 @@ export default async function MyBookingsPage() {
   }
 
   if (!bookings || bookings.length === 0) {
-    bookings = store.bookings;
+    const isDemoUser = session.email?.includes('@uninest.demo') || session.email?.includes('@uninest.in');
+    if (isDemoUser) {
+      bookings = store.bookings;
+    }
   }
 
   return <StudentBookingsClient initialBookings={bookings} />;

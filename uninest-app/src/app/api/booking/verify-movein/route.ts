@@ -32,11 +32,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     }
 
-    const expectedKey = activeBooking.moveInOtp || storeBooking?.moveInOtp || '792410';
+    const expectedKey = activeBooking.moveInOtp || storeBooking?.moveInOtp;
 
-    if (cleanKey !== expectedKey && cleanKey !== '792410') {
+    if (!expectedKey || cleanKey !== expectedKey) {
       return NextResponse.json(
-        { error: `Invalid Move-In Key. Please verify the 6-digit PIN with the student (Demo Key: ${expectedKey.slice(0, 3)}-${expectedKey.slice(3)}).` },
+        { error: `Invalid Move-In Key. Please verify the 6-digit PIN with the student.` },
         { status: 400 }
       );
     }

@@ -40,8 +40,15 @@ const DEMO_RENT_RECORDS = [
   },
 ];
 
+import { getSession } from '@/lib/auth/actions';
+
 export default async function RentCollectionPage() {
-  let records = DEMO_RENT_RECORDS;
+  const session = await getSession();
+  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
+                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+
+  let records = isDemoUser ? DEMO_RENT_RECORDS : [];
 
   try {
     const dbPayments = await prisma.payment.findMany({
@@ -79,6 +86,11 @@ export default async function RentCollectionPage() {
           <CreditCard className="w-6 h-6 text-emerald-600" />
         </div>
       </div>
+
+      {!isDemoUser && records.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">No rent records yet.</div>
+      ) : (
+        <>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="bg-emerald-50/50 border border-emerald-200">
@@ -130,6 +142,8 @@ export default async function RentCollectionPage() {
           </table>
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

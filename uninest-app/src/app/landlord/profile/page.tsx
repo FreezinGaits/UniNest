@@ -62,6 +62,15 @@ export default function LandlordProfilePage() {
           }
 
           if (!isDemoLandlord) {
+            setBankName('');
+            setAccountName('');
+            setAccountNo('');
+            setIfsc('');
+            setGstin('');
+            setPanNo('');
+            setCompany('');
+            setAddress('');
+
             const isSameSavedUser =
               savedParsed?.email &&
               savedParsed.email.toLowerCase() === userEmail.toLowerCase();
@@ -337,9 +346,10 @@ export default function LandlordProfilePage() {
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       className="w-full text-slate-900 font-bold p-1.5 mt-1 rounded-lg border border-slate-300 bg-white"
+                      placeholder="e.g. HDFC Bank"
                     />
                   ) : (
-                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{bankName}</span>
+                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{bankName || 'Add your bank details'}</span>
                   )}
                 </div>
 
@@ -351,9 +361,10 @@ export default function LandlordProfilePage() {
                       value={accountName}
                       onChange={(e) => setAccountName(e.target.value)}
                       className="w-full text-slate-900 font-bold p-1.5 mt-1 rounded-lg border border-slate-300 bg-white"
+                      placeholder="e.g. John Doe"
                     />
                   ) : (
-                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{accountName}</span>
+                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{accountName || 'Add your bank details'}</span>
                   )}
                 </div>
 
@@ -365,9 +376,10 @@ export default function LandlordProfilePage() {
                       value={accountNo}
                       onChange={(e) => setAccountNo(e.target.value)}
                       className="w-full text-slate-900 font-bold p-1.5 mt-1 rounded-lg border border-slate-300 bg-white"
+                      placeholder="e.g. 50200000000000"
                     />
                   ) : (
-                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">•••• •••• {accountNo.slice(-4)}</span>
+                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{accountNo ? `•••• •••• ${accountNo.slice(-4)}` : 'Add your bank details'}</span>
                   )}
                 </div>
 
@@ -379,9 +391,10 @@ export default function LandlordProfilePage() {
                       value={ifsc}
                       onChange={(e) => setIfsc(e.target.value)}
                       className="w-full text-slate-900 font-bold p-1.5 mt-1 rounded-lg border border-slate-300 bg-white"
+                      placeholder="e.g. HDFC0000000"
                     />
                   ) : (
-                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{ifsc}</span>
+                    <span className="text-slate-900 font-bold text-sm mt-0.5 block">{ifsc || 'Add your bank details'}</span>
                   )}
                 </div>
               </div>

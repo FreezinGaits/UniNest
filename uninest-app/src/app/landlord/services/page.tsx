@@ -29,8 +29,15 @@ const DEMO_SERVICES = [
   },
 ];
 
+import { getSession } from '@/lib/auth/actions';
+
 export default async function PartnerServicesPage() {
-  let services = DEMO_SERVICES;
+  const session = await getSession();
+  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
+                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+
+  let services = isDemoUser ? DEMO_SERVICES : [];
 
   try {
     const dbOrders = await prisma.serviceOrder.findMany({
@@ -65,6 +72,10 @@ export default async function PartnerServicesPage() {
         </div>
       </div>
 
+      {!isDemoUser && services.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">No services configured yet.</div>
+      ) : (
+        <>
       <Card padding="none">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -97,6 +108,8 @@ export default async function PartnerServicesPage() {
           </table>
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

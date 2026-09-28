@@ -65,27 +65,35 @@ const INITIAL_DOCUMENTS: DocumentPDFData[] = [
 
 export default function MyDocumentsPage() {
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
-  const [documents, setDocuments] = useState<DocumentPDFData[]>(INITIAL_DOCUMENTS);
+  const [documents, setDocuments] = useState<DocumentPDFData[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentPDFData | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [downloadedDoc, setDownloadedDoc] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load dynamically added invoice receipts from payment activity
-    try {
-      const stored = localStorage.getItem('uninest_documents_store');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge unique stored docs with initial docs
-          const existingIds = new Set(INITIAL_DOCUMENTS.map(d => d.id));
-          const newDocs = parsed.filter((d: DocumentPDFData) => !existingIds.has(d.id));
-          setDocuments([...newDocs, ...INITIAL_DOCUMENTS]);
+    fetch('/api/profile')
+      .then(res => res.json())
+      .then(data => {
+        const email = data?.user?.email || '';
+        const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        let docs = demo ? [...INITIAL_DOCUMENTS] : [];
+        
+        try {
+          const stored = localStorage.getItem('uninest_documents_store');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const existingIds = new Set(docs.map(d => d.id));
+              const newDocs = parsed.filter((d: DocumentPDFData) => !existingIds.has(d.id));
+              docs = [...newDocs, ...docs];
+            }
+          }
+        } catch (e) {
+          console.error('Error loading stored documents:', e);
         }
-      }
-    } catch (e) {
-      console.error('Error loading stored documents:', e);
-    }
+        setDocuments(docs);
+      })
+      .catch(() => {});
   }, []);
 
   const categories = ['ALL', 'AGREEMENT', 'RECEIPT', 'KYC', 'COLLEGE', 'AUDIT'];
@@ -150,55 +158,61 @@ export default function MyDocumentsPage() {
       )}
 
       {/* Documents Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredDocs.map((doc) => (
-          <div
-            key={doc.id}
-            onClick={() => handleOpenViewer(doc)}
-            className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all flex flex-col justify-between space-y-4 cursor-pointer group"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                  {doc.referenceNo}
-                </span>
-                <Badge variant={doc.status === 'VERIFIED' || doc.status === 'SIGNED' ? 'success' : 'default'} size="sm">
-                  {doc.status}
-                </Badge>
+      {filteredDocs.length === 0 ? (
+        <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center shadow-sm">
+          <p className="text-sm text-slate-500">No documents yet.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDocs.map((doc) => (
+            <div
+              key={doc.id}
+              onClick={() => handleOpenViewer(doc)}
+              className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all flex flex-col justify-between space-y-4 cursor-pointer group"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                    {doc.referenceNo}
+                  </span>
+                  <Badge variant={doc.status === 'VERIFIED' || doc.status === 'SIGNED' ? 'success' : 'default'} size="sm">
+                    {doc.status}
+                  </Badge>
+                </div>
+
+                <h3 className="font-extrabold text-sm text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors">
+                  {doc.title}
+                </h3>
+                <p className="text-[11px] text-slate-500">Issuer: {doc.issuer}</p>
               </div>
 
-              <h3 className="font-extrabold text-sm text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors">
-                {doc.title}
-              </h3>
-              <p className="text-[11px] text-slate-500">Issuer: {doc.issuer}</p>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-400 text-[11px]">Issued: {doc.issueDate} • {doc.fileSize || '350 KB'}</span>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenViewer(doc);
-                  }}
-                  variant="outline"
-                  className="border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5"
-                >
-                  <Eye className="w-3.5 h-3.5 text-slate-500" />
-                  View
-                </Button>
-                <Button
-                  onClick={(e) => handleDirectDownload(e, doc)}
-                  className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Download
-                </Button>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[11px]">Issued: {doc.issueDate} • {doc.fileSize || '350 KB'}</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenViewer(doc);
+                    }}
+                    variant="outline"
+                    className="border-slate-200 hover:bg-slate-100 text-slate-700 font-extrabold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    View
+                  </Button>
+                  <Button
+                    onClick={(e) => handleDirectDownload(e, doc)}
+                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 shadow-sm active:scale-95 transition-transform"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Document Viewer Modal */}
       <DocumentViewerModal

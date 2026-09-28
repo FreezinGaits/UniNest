@@ -65,6 +65,8 @@ export async function POST(request: Request) {
     }
 
     const parsedMoveIn = moveInDate ? new Date(moveInDate) : new Date(Date.now() + 14 * 86400000);
+    const yearNum = parseInt(String(year));
+    const safeYear = isNaN(yearNum) ? 2 : yearNum;
 
     let resultRequest = null;
     try {

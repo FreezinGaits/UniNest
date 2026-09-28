@@ -39,13 +39,27 @@ export function TenantDisputesClient({ initialDisputes }: TenantDisputesClientPr
     setUpdatedStatus(dispute.status === 'OPEN' ? 'IN_REVIEW' : dispute.status);
   };
 
-  const handleSaveMediation = (e: React.FormEvent) => {
+  const handleSaveMediation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDispute) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/demo/dispute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          disputeId: selectedDispute.id,
+          status: updatedStatus,
+          responseNote,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save mediation');
+      }
+
       setDisputes(
         disputes.map((d) =>
           d.id === selectedDispute.id
@@ -58,7 +72,10 @@ export function TenantDisputesClient({ initialDisputes }: TenantDisputesClientPr
       setShowSuccessToast(true);
 
       setTimeout(() => setShowSuccessToast(false), 4000);
-    }, 500);
+    } catch (err) {
+      alert('Failed to save mediation. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (

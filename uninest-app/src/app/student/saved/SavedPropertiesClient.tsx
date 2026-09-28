@@ -20,6 +20,7 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
   const [selectedPropertyForVisit, setSelectedPropertyForVisit] = useState<any | null>(null);
 
   const handleRemove = (propertyId: string) => {
+    fetch('/api/student/saved', { method: 'DELETE', body: JSON.stringify({ propertyId }) }).catch(() => {});
     setItems((prev) => prev.filter((item) => item.property.id !== propertyId));
   };
 

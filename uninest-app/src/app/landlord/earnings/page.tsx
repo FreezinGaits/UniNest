@@ -24,9 +24,12 @@ const DEMO_SERVICE_ORDERS = [
 export default async function LandlordEarningsPage() {
   const session = await getSession();
   if (!session) return null;
+  const isDemoUser = session.email?.toLowerCase().includes('demo') || 
+                     session.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session.email?.toLowerCase() === 'vikram@passiresidency.in';
 
-  let rewards = DEMO_REWARDS;
-  let serviceOrders = DEMO_SERVICE_ORDERS;
+  let rewards = isDemoUser ? DEMO_REWARDS : [];
+  let serviceOrders = isDemoUser ? DEMO_SERVICE_ORDERS : [];
   let totalRentCollected = 168000;
   let totalRentDue = 180000;
 
@@ -102,6 +105,12 @@ export default async function LandlordEarningsPage() {
           <DollarSign className="w-6 h-6 text-emerald-600" />
         </div>
       </div>
+
+      {!isDemoUser && rewards.length === 0 && serviceOrders.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">No earnings data yet.</div>
+      ) : (
+        <>
+
 
       {/* Key Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -196,6 +205,8 @@ export default async function LandlordEarningsPage() {
           </div>
         </Card>
       </section>
+        </>
+      )}
     </div>
   );
 }

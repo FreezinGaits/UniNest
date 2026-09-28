@@ -44,6 +44,22 @@ export async function POST(request: NextRequest) {
             signedAt: new Date(),
           },
         });
+      } else if (dbBooking) {
+        const startDate = dbBooking.agreedMoveInDate || dbBooking.moveInDate || new Date();
+        const endDate = new Date(startDate.getTime() + 335 * 24 * 60 * 60 * 1000);
+        await prisma.agreement.create({
+          data: {
+            id: agreementRef,
+            bookingId: dbBooking.id,
+            startDate,
+            endDate,
+            rent: dbBooking.escrowAmount || 600000,
+            deposit: 600000,
+            status: 'SIGNED',
+            tenantSigned: true,
+            signedAt: new Date(),
+          },
+        });
       }
     } catch (e) {
       // Offline fallback handled by escrowStore

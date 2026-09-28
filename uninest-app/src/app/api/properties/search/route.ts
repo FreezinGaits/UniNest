@@ -323,6 +323,10 @@ export async function GET(request: NextRequest) {
     // Target coordinates (Default: PCTE Institute 30.8984, 75.8564)
     let targetLat = parseFloat(searchParams.get('lat') || '30.8984');
     let targetLng = parseFloat(searchParams.get('lng') || '75.8564');
+    if (isNaN(targetLat) || isNaN(targetLng)) {
+      targetLat = 0;
+      targetLng = 0;
+    }
 
     let propertiesList: any[] = [];
 
@@ -433,10 +437,6 @@ export async function GET(request: NextRequest) {
       }
     } catch (dbErr) {
       console.warn('Database query failed in properties search route, using DEMO_PROPERTIES fallback:', dbErr);
-    }
-
-    // Fallback to DEMO_PROPERTIES if DB returned 0 items (e.g. unseeded or offline DB)
-    if (propertiesList.length === 0) {
       propertiesList = DEMO_PROPERTIES.map((p) => {
         const computedDistance = calculateHaversineDistance(p.latitude, p.longitude, targetLat, targetLng);
         return {
@@ -490,9 +490,19 @@ export async function GET(request: NextRequest) {
       return a.computedDistance - b.computedDistance;
     });
 
+    const pageParam = Math.max(1, parseInt(searchParams.get('page') || '1') || 1);
+    const limitParam = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50') || 50));
+    const totalCount = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / limitParam));
+    const startIndex = (pageParam - 1) * limitParam;
+    const paginatedProperties = filtered.slice(startIndex, startIndex + limitParam);
+
     return NextResponse.json({
-      properties: filtered,
-      totalCount: filtered.length,
+      properties: paginatedProperties,
+      totalCount,
+      page: pageParam,
+      limit: limitParam,
+      totalPages,
       targetLocation: { latitude: targetLat, longitude: targetLng },
     });
   } catch (error) {

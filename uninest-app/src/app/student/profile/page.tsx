@@ -40,6 +40,7 @@ export default function StudentProfilePage() {
   const [smoking, setSmoking] = useState('Non-Smoker');
 
   const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
+  const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
     let savedParsed: any = null;
@@ -61,7 +62,8 @@ export default function StudentProfilePage() {
       .then((data) => {
         if (data?.authenticated && data?.user) {
           const userEmail = (data.user.email || 'rahul@uninest.in').replace('@uninest.demo', '@uninest.in');
-          const isDemoStudent = userEmail.toLowerCase() === 'rahul@uninest.in';
+          const isDemoStudent = userEmail.toLowerCase() === 'rahul@uninest.in' || userEmail.toLowerCase().includes('@uninest.demo');
+          setIsDemoUser(isDemoStudent);
 
           setName(data.user.name || 'Rahul Sharma');
           setEmail(userEmail);
@@ -571,17 +573,23 @@ export default function StudentProfilePage() {
                 </Link>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
-                <span className="font-extrabold text-slate-900 text-sm block">{currentStay.propertyName}</span>
-                <p className="text-slate-500 flex items-center">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600 mr-1 shrink-0" />
-                  {currentStay.address}
-                </p>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-200 mt-2">
-                  <span className="text-slate-600 font-medium">{currentStay.roomNo}</span>
-                  <span className="text-emerald-700 font-bold">₹{currentStay.rent.toLocaleString()}/mo</span>
+              {isDemoUser ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                  <span className="font-extrabold text-slate-900 text-sm block">{currentStay.propertyName}</span>
+                  <p className="text-slate-500 flex items-center">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600 mr-1 shrink-0" />
+                    {currentStay.address}
+                  </p>
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-200 mt-2">
+                    <span className="text-slate-600 font-medium">{currentStay.roomNo}</span>
+                    <span className="text-emerald-700 font-bold">₹{currentStay.rent.toLocaleString()}/mo</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center text-xs text-slate-500">
+                  No active stay — Book a PG to see your stay details here.
+                </div>
+              )}
             </div>
 
           </div>

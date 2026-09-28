@@ -39,21 +39,31 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
     status: 'AVAILABLE',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const newBed: BedItem = {
-        id: `bed-new-${Date.now()}`,
-        bedLabel: `Bed ${formData.roomNo}-${formData.bedLabelLetter}`,
-        roomNo: `Room ${formData.roomNo}`,
-        property: formData.property,
-        sharing: formData.sharing,
-        status: formData.status,
-        tenant: formData.status === 'OCCUPIED' ? 'New Tenant' : '—',
-        rent: Number(formData.rent),
-      };
+    const newBed: BedItem = {
+      id: `bed-new-${Date.now()}`,
+      bedLabel: `Bed ${formData.roomNo}-${formData.bedLabelLetter}`,
+      roomNo: `Room ${formData.roomNo}`,
+      property: formData.property,
+      sharing: formData.sharing,
+      status: formData.status,
+      tenant: formData.status === 'OCCUPIED' ? 'New Tenant' : '—',
+      rent: Number(formData.rent),
+    };
+
+    try {
+      const res = await fetch('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save bed');
+      }
 
       setBeds([newBed, ...beds]);
       setIsSubmitting(false);
@@ -69,7 +79,10 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
       });
 
       setTimeout(() => setShowSuccessToast(false), 4000);
-    }, 500);
+    } catch (err) {
+      alert('Failed to save bed. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const occupiedCount = beds.filter((b) => b.status === 'OCCUPIED' || b.status === 'RESERVED').length;

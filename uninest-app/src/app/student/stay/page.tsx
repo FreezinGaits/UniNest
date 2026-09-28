@@ -12,6 +12,38 @@ import {
 
 export default function MyStayDetailsPage() {
   const [claimScenario, setClaimScenario] = useState<string | null>(null);
+  const [isDemo, setIsDemo] = useState(false);
+
+  import('react').then(React => {
+    React.useEffect(() => {
+      fetch('/api/profile')
+        .then(res => res.json())
+        .then(data => {
+          const email = data?.user?.email || '';
+          setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
+        })
+        .catch(() => {});
+    }, []);
+  });
+
+  if (!isDemo) {
+    return (
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-text-primary">My Stay & Roommate Hub</h1>
+            <p className="text-text-secondary mt-1">Current accommodation, roommate compatibility score, and accidental damage policy</p>
+          </div>
+          <div className="p-2.5 bg-brand-50 rounded-xl">
+            <Building2 className="w-6 h-6 text-brand-600" />
+          </div>
+        </div>
+        <div className="bg-surface-secondary border border-border p-8 rounded-2xl text-center shadow-sm">
+          <p className="text-sm text-text-secondary">No active tenancy — Book and complete move-in to see your stay details.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

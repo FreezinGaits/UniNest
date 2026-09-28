@@ -25,6 +25,10 @@ export default async function LandlordDashboard() {
   const session = await getSession();
   if (!session) return null;
 
+  const isDemoUser = session.email?.toLowerCase().includes('demo') || 
+                     session.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session.email?.toLowerCase() === 'vikram@passiresidency.in';
+
   // Single unified source of truth shared with /landlord/properties
   const properties = await getAllProperties();
 
@@ -43,7 +47,7 @@ export default async function LandlordDashboard() {
     console.warn('Database error in LandlordDashboard bookings, using fallback:', error);
   }
 
-  if (!recentBookings || recentBookings.length === 0) {
+  if ((!recentBookings || recentBookings.length === 0) && isDemoUser) {
     recentBookings = [
       {
         id: 'bkg-pcte-2026-demo',
@@ -254,20 +258,24 @@ export default async function LandlordDashboard() {
             </Link>
           </div>
           <div className="space-y-3">
-            {recentBookings.map((booking: any) => (
-              <div key={booking.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-light">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary">{booking.user?.name || 'Rahul Sharma'}</p>
-                  <p className="text-xs text-text-secondary">
-                    {booking.property?.name || 'PCTE Smart Student Residency'} • Room{' '}
-                    {booking.bed?.room?.roomNumber || '204'}
-                  </p>
+            {recentBookings.length > 0 ? (
+              recentBookings.map((booking: any) => (
+                <div key={booking.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-light">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-text-primary">{booking.user?.name || 'Rahul Sharma'}</p>
+                    <p className="text-xs text-text-secondary">
+                      {booking.property?.name || 'PCTE Smart Student Residency'} • Room{' '}
+                      {booking.bed?.room?.roomNumber || '204'}
+                    </p>
+                  </div>
+                  <Badge variant={booking.status === 'ACTIVE' ? 'success' : 'warning'} size="sm">
+                    {booking.status || 'RESERVED'}
+                  </Badge>
                 </div>
-                <Badge variant={booking.status === 'ACTIVE' ? 'success' : 'warning'} size="sm">
-                  {booking.status || 'RESERVED'}
-                </Badge>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-sm text-text-secondary py-4 text-center">No recent bookings yet.</p>
+            )}
           </div>
         </Card>
       </div>

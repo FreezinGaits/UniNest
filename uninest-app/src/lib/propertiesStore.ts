@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 
 export interface PropertyItem {
   id: string;
@@ -19,8 +17,6 @@ export interface PropertyItem {
   description?: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const PROPERTIES_FILE = path.join(DATA_DIR, 'properties.json');
 
 export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
   {
@@ -155,38 +151,13 @@ export function normalizePropertyItem(raw: any): PropertyItem {
   };
 }
 
-function readPropertiesFromDisk(): PropertyItem[] {
-  try {
-    if (fs.existsSync(PROPERTIES_FILE)) {
-      const raw = fs.readFileSync(PROPERTIES_FILE, 'utf-8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.map(normalizePropertyItem);
-      }
-    }
-  } catch {
-    // Ignore fs errors in serverless environments
-  }
-  return [];
-}
 
-function writePropertiesToDisk(properties: PropertyItem[]): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    fs.writeFileSync(PROPERTIES_FILE, JSON.stringify(properties, null, 2), 'utf-8');
-  } catch {
-    // Ignore fs errors on read-only serverless filesystems
-  }
-}
 
 export async function getAllProperties(): Promise<PropertyItem[]> {
-  const diskItems = readPropertiesFromDisk();
   const memItems = globalForPropertiesStore.uninestPropertiesMemory || [];
 
   const mergedMap = new Map<string, PropertyItem>();
-  for (const item of [...memItems, ...diskItems, ...DEFAULT_DEMO_PROPERTIES]) {
+  for (const item of [...memItems, ...DEFAULT_DEMO_PROPERTIES]) {
     const norm = normalizePropertyItem(item);
     if (!mergedMap.has(norm.id)) {
       mergedMap.set(norm.id, norm);
@@ -235,7 +206,6 @@ export async function createProperty(data: {
   const existing = await getAllProperties();
   const updated = [newProperty, ...existing.filter((p) => p.id !== newProperty.id)];
   globalForPropertiesStore.uninestPropertiesMemory = updated;
-  writePropertiesToDisk(updated);
 
   return newProperty;
 }
@@ -257,7 +227,6 @@ export async function verifyProperty(
 
   if (found) {
     globalForPropertiesStore.uninestPropertiesMemory = updated;
-    writePropertiesToDisk(updated);
     return true;
   }
 

@@ -32,7 +32,7 @@ export default function RoommateProfileDetailsPage({
   const fetchProfile = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/student/roommates?studentId=`);
+      const res = await fetch(`/api/student/roommates?id=${requestId}`);
       const data = await res.json();
       let found = null;
       if (data.success && data.requests) {

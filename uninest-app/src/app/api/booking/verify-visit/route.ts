@@ -98,16 +98,16 @@ export async function POST(request: NextRequest) {
     // ─── 2. VISIT OTP VERIFICATION & POST-VISIT DECISION ─────────────────────
     if (decision === 'VERIFY_ONLY' || decision === 'ACCEPTED' || decision === 'REJECTED') {
       const cleanOtp = (otp || '').toString().trim();
-      const expectedOtp = activeBooking.visitOtp || currentBooking?.visitOtp || '8412';
+      const expectedOtp = activeBooking.visitOtp || currentBooking?.visitOtp;
 
-      // When decision is VERIFY_ONLY, validate the 4-digit OTP (allow expectedOtp or demo master 8412)
+      // When decision is VERIFY_ONLY, validate the 4-digit OTP
       if (decision === 'VERIFY_ONLY') {
         if (!cleanOtp || cleanOtp.length !== 4) {
           return NextResponse.json({ error: 'Please enter the 4-digit Visit OTP shared by the landlord.' }, { status: 400 });
         }
-        if (cleanOtp !== expectedOtp && cleanOtp !== '8412') {
+        if (!expectedOtp || cleanOtp !== expectedOtp) {
           return NextResponse.json(
-            { error: `Invalid Visit OTP. Ask the landlord to generate/share the 4-digit PIN (Demo PIN: ${expectedOtp}).` },
+            { error: `Invalid Visit OTP. Ask the landlord to generate/share the 4-digit PIN.` },
             { status: 400 }
           );
         }

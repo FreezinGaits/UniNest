@@ -4,9 +4,12 @@ import { prisma } from '@/lib/db';
 export async function POST() {
   try {
     const student = await prisma.user.findFirst({ where: { email: 'rahul@uninest.demo' } });
-    const s = await prisma.student.findFirst({ where: { userId: student?.id } });
+    if (!student) {
+      return NextResponse.json({ error: 'Demo user not found. Please seed the database.' }, { status: 404 });
+    }
+    const s = await prisma.student.findFirst({ where: { userId: student.id } });
     const tenancy = await prisma.tenancy.findFirst({ where: { studentId: s?.id, isActive: true } });
-    if (!student || !tenancy) return NextResponse.json({ message: 'No active tenancy found' }, { status: 400 });
+    if (!tenancy) return NextResponse.json({ message: 'No active tenancy found' }, { status: 400 });
 
     const dueRecord = await prisma.rentRecord.findFirst({
       where: { tenancyId: tenancy.id, status: 'DUE' },

@@ -4,10 +4,17 @@ import { Badge } from '@/components/ui/Badge';
 import { BarChart3, TrendingUp, Users, DollarSign, Building2 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 
+import { getSession } from '@/lib/auth/actions';
+
 export default async function PropertyAnalyticsPage() {
-  let occupancyRate = 82;
-  let totalRevenueMonth = 168000;
-  let yieldPercentage = 9.4;
+  const session = await getSession();
+  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
+                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+
+  let occupancyRate = isDemoUser ? 82 : 0;
+  let totalRevenueMonth = isDemoUser ? 168000 : 0;
+  let yieldPercentage = isDemoUser ? 9.4 : 0;
 
   try {
     const properties = await prisma.property.findMany({
@@ -40,6 +47,10 @@ export default async function PropertyAnalyticsPage() {
         </div>
       </div>
 
+      {!isDemoUser && occupancyRate === 0 && totalRevenueMonth === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">Analytics will appear once you have active tenancies.</div>
+      ) : (
+        <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Portfolio Occupancy" value={`${occupancyRate}%`} subtitle="Beds filled" icon={<Users className="w-5 h-5 text-brand-600" />} />
         <StatCard title="Gross Monthly Revenue" value={formatINR(totalRevenueMonth)} subtitle="Rent + Ancillary" icon={<DollarSign className="w-5 h-5 text-emerald-600" />} />
@@ -108,6 +119,8 @@ export default async function PropertyAnalyticsPage() {
           </div>
         </Card>
       </div>
+        </>
+      )}
     </div>
   );
 }

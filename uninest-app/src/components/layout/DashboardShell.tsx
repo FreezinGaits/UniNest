@@ -18,9 +18,6 @@ interface DashboardShellProps {
 const roleOptions = [
   { role: 'STUDENT', label: 'Student', desc: 'Search PGs, book beds, manage stay', icon: <GraduationCap className="w-5 h-5" />, color: 'bg-blue-100 text-blue-600' },
   { role: 'LANDLORD', label: 'Landlord', desc: 'Manage properties, tenants, earnings', icon: <Building2 className="w-5 h-5" />, color: 'bg-brand-100 text-brand-600' },
-  { role: 'ADMIN', label: 'Admin', desc: 'Platform oversight, analytics, audit', icon: <Shield className="w-5 h-5" />, color: 'bg-purple-100 text-purple-600' },
-  { role: 'COLLEGE', label: 'College Partner', desc: 'Student housing overview', icon: <School className="w-5 h-5" />, color: 'bg-amber-100 text-amber-600' },
-  { role: 'PROVIDER', label: 'Service Provider', desc: 'Jobs, customers, earnings', icon: <Truck className="w-5 h-5" />, color: 'bg-cyan-100 text-cyan-600' },
 ];
 
 export function DashboardShell({ children, role, userName, userEmail }: DashboardShellProps) {

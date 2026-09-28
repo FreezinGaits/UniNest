@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { authenticateGoogleUser } from '@/lib/auth/actions';
 
 const DEFAULT_CLIENT_ID = [
@@ -11,6 +12,8 @@ const DEFAULT_CLIENT_SECRET = [
   'bf7wXXYI7a',
   'YjZBVioeYr5nHxwCS',
 ].join('-');
+
+const STATE_SECRET = process.env.AUTH_SECRET || 'uninest-dev-secret-change-in-production';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -27,9 +30,19 @@ export async function GET(request: NextRequest) {
   let selectedRole: 'STUDENT' | 'LANDLORD' | undefined = undefined;
   if (stateParam) {
     try {
-      const parsed = JSON.parse(Buffer.from(stateParam, 'base64url').toString('utf-8'));
-      if (parsed.role === 'LANDLORD' || parsed.role === 'STUDENT') {
-        selectedRole = parsed.role;
+      const [payloadB64, sig] = stateParam.split('.');
+      if (payloadB64 && sig) {
+        const expectedSig = crypto
+          .createHmac('sha256', STATE_SECRET)
+          .update(payloadB64)
+          .digest('base64url');
+        const cookieNonce = request.cookies.get('oauth_state')?.value;
+        if (sig === expectedSig) {
+          const parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'));
+          if ((!cookieNonce || parsed.nonce === cookieNonce) && (parsed.role === 'LANDLORD' || parsed.role === 'STUDENT')) {
+            selectedRole = parsed.role;
+          }
+        }
       }
     } catch {
       // Ignore malformed state

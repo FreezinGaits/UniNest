@@ -46,8 +46,15 @@ const VERIFIED_TENANTS = [
   },
 ];
 
+import { getSession } from '@/lib/auth/actions';
+
 export default async function TenantDirectoryPage() {
-  let tenants = VERIFIED_TENANTS;
+  const session = await getSession();
+  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
+                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+
+  let tenants = isDemoUser ? VERIFIED_TENANTS : [];
 
   try {
     const dbStudents = await prisma.student.findMany({
@@ -84,6 +91,10 @@ export default async function TenantDirectoryPage() {
         </div>
       </div>
 
+      {!isDemoUser && tenants.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">No tenants yet.</div>
+      ) : (
+        <>
       <Card padding="none">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -124,6 +135,8 @@ export default async function TenantDirectoryPage() {
           </table>
         </div>
       </Card>
+        </>
+      )}
     </div>
   );
 }

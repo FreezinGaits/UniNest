@@ -46,13 +46,29 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
     setResolutionNote(ticket.resolutionNote || '');
   };
 
-  const handleSaveTicket = (e: React.FormEvent) => {
+  const handleSaveTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTicket) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/demo/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId: selectedTicket.id,
+          vendor: assignedVendor,
+          priority: updatedPriority,
+          status: updatedStatus,
+          resolutionNote,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to save ticket');
+      }
+
       setTickets(
         tickets.map((t) =>
           t.id === selectedTicket.id
@@ -71,7 +87,10 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
       setShowSuccessToast(true);
 
       setTimeout(() => setShowSuccessToast(false), 4000);
-    }, 500);
+    } catch (err) {
+      alert('Failed to save ticket. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (

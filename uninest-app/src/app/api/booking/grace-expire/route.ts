@@ -11,7 +11,13 @@ import { findStoreBooking, updateStoreBooking } from '@/lib/escrowStore';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId } = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid or empty request body' }, { status: 400 });
+    }
+    const { bookingId } = body;
 
     if (!bookingId) {
       return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });

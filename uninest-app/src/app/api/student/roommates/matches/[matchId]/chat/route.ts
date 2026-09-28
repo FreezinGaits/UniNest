@@ -122,7 +122,7 @@ export async function POST(
         },
       });
     } catch (dbErr) {
-      console.warn('DB save error for chat message, returning simulated message:', dbErr);
+      console.warn('DB save error for chat message, persisting to in-memory chat store:', dbErr);
       messageRecord = {
         id: `msg-${Date.now()}`,
         matchId,
@@ -131,6 +131,10 @@ export async function POST(
         isBlocked: modResult.isBlocked,
         createdAt: new Date().toISOString(),
       };
+      const targetChat = DEMO_CHAT_DATABASE[matchId] || DEMO_CHAT_DATABASE['default'];
+      if (targetChat && Array.isArray(targetChat.messages)) {
+        targetChat.messages.push(messageRecord);
+      }
     }
 
     return NextResponse.json({

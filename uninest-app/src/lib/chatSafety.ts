@@ -34,10 +34,17 @@ export function moderateChatMessage(content: string): ModerateMessageResult {
     if (matchesLink) reason = 'External website link detected';
     if (matchesSocial) reason = 'Off-platform contact/payment attempt detected';
 
+    let redactedContent = content;
+    redactedContent = redactedContent.replace(new RegExp(PHONE_REGEX, 'g'), '**-****-****');
+    redactedContent = redactedContent.replace(new RegExp(WORD_DIGITS_REGEX, 'g'), '**********');
+    redactedContent = redactedContent.replace(new RegExp(EMAIL_REGEX, 'g'), '****@****.***');
+    redactedContent = redactedContent.replace(new RegExp(LINK_REGEX, 'g'), '[LINK REMOVED]');
+    redactedContent = redactedContent.replace(new RegExp(SOCIAL_REGEX, 'g'), '[REDACTED]');
+
     return {
       isBlocked: true,
       reason,
-      cleanedContent: '[Message Hidden - External Contact Detected]',
+      cleanedContent: redactedContent,
       warningMessage: '⚠️ For your safety, please keep communication within UniNest.',
     };
   }

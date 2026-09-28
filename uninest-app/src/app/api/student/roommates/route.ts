@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth/actions';
 import { calculateCompatibility } from '@/lib/roommateCompatibility';
 
 export async function GET(request: Request) {
   try {
+    const session = await getSession();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const locality = searchParams.get('locality') || '';
@@ -11,16 +13,25 @@ export async function GET(request: Request) {
     const maxBudget = searchParams.get('maxBudget') ? parseInt(searchParams.get('maxBudget')!) : null;
     const roomType = searchParams.get('roomType') || '';
     const currentStudentId = searchParams.get('studentId') || '';
+    const targetRequestId = searchParams.get('id') || '';
 
-    // Fetch active logged in student's request for compatibility scoring (default to Rahul if none specified)
+    const isDemoUser =
+      session?.email?.toLowerCase().includes('demo') ||
+      session?.email?.toLowerCase() === 'rahul@uninest.in';
+
+    // Fetch active logged in student's request for compatibility scoring
     let currentStudentReq = null;
     try {
       if (currentStudentId) {
         currentStudentReq = await prisma.roommateRequest.findFirst({
           where: { studentId: currentStudentId, status: 'ACTIVE' },
         });
+      } else if (session?.userId) {
+        currentStudentReq = await prisma.roommateRequest.findFirst({
+          where: { student: { userId: session.userId }, status: 'ACTIVE' },
+        });
       }
-      if (!currentStudentReq) {
+      if (!currentStudentReq && isDemoUser) {
         currentStudentReq = await prisma.roommateRequest.findFirst({
           where: { status: 'ACTIVE' },
           orderBy: { createdAt: 'asc' },
@@ -35,7 +46,9 @@ export async function GET(request: Request) {
       status: 'ACTIVE',
     };
 
-    if (currentStudentReq) {
+    if (targetRequestId) {
+      whereClause.id = targetRequestId;
+    } else if (currentStudentReq) {
       whereClause.id = { not: currentStudentReq.id };
     }
 

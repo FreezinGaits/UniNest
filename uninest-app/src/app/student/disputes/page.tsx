@@ -90,10 +90,28 @@ const DEMO_DISPUTES: DisputeItem[] = [
 ];
 
 export default function DisputesComplaintsPage() {
-  const [disputes, setDisputes] = useState<DisputeItem[]>(DEMO_DISPUTES);
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(DEMO_DISPUTES[0]);
+  const [isDemo, setIsDemo] = useState(false);
+  const [disputes, setDisputes] = useState<DisputeItem[]>([]);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
+
+  import('react').then(React => {
+    React.useEffect(() => {
+      fetch('/api/profile')
+        .then(res => res.json())
+        .then(data => {
+          const email = data?.user?.email || '';
+          const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+          setIsDemo(demo);
+          if (demo) {
+            setDisputes(DEMO_DISPUTES);
+            setSelectedDispute(DEMO_DISPUTES[0]);
+          }
+        })
+        .catch(() => {});
+    }, []);
+  });
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [newCategory, setNewCategory] = useState('DEPOSIT');
   const [newTitle, setNewTitle] = useState('');
 
@@ -169,38 +187,44 @@ export default function DisputesComplaintsPage() {
         <div className="lg:col-span-1 space-y-3">
           <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Active & Past Cases</h2>
 
-          {filteredDisputes.map((item) => (
-            <div
-              key={item.id}
-              onClick={() => setSelectedDispute(item)}
-              className="cursor-pointer"
-            >
-              <Card
-                className={`p-4 transition-all ${
-                  selectedDispute?.id === item.id ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/20' : 'hover:border-brand-300'
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-bold text-brand-700">{item.caseId}</span>
-                    <Badge variant={
-                      item.status === 'RESOLVED' ? 'success' :
-                      item.status === 'ESCALATED' ? 'danger' : 'warning'
-                    } size="sm">
-                      {item.status}
-                    </Badge>
-                  </div>
-
-                  <h3 className="font-bold text-xs text-text-primary line-clamp-2">{item.title}</h3>
-
-                  <div className="flex items-center justify-between text-[11px] text-text-tertiary pt-1 border-t border-border">
-                    <span>Category: <strong>{item.category}</strong></span>
-                    <span className="font-semibold text-text-primary">{formatINR(item.amount)}</span>
-                  </div>
-                </div>
-              </Card>
+          {filteredDisputes.length === 0 ? (
+            <div className="bg-surface-secondary border border-border p-8 rounded-2xl text-center shadow-sm">
+              <p className="text-sm text-text-secondary">No disputes filed.</p>
             </div>
-          ))}
+          ) : (
+            filteredDisputes.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => setSelectedDispute(item)}
+                className="cursor-pointer"
+              >
+                <Card
+                  className={`p-4 transition-all ${
+                    selectedDispute?.id === item.id ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/20' : 'hover:border-brand-300'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-brand-700">{item.caseId}</span>
+                      <Badge variant={
+                        item.status === 'RESOLVED' ? 'success' :
+                        item.status === 'ESCALATED' ? 'danger' : 'warning'
+                      } size="sm">
+                        {item.status}
+                      </Badge>
+                    </div>
+
+                    <h3 className="font-bold text-xs text-text-primary line-clamp-2">{item.title}</h3>
+
+                    <div className="flex items-center justify-between text-[11px] text-text-tertiary pt-1 border-t border-border">
+                      <span>Category: <strong>{item.category}</strong></span>
+                      <span className="font-semibold text-text-primary">{formatINR(item.amount)}</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Right Column: Case Details Viewer */}

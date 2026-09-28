@@ -63,6 +63,11 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
     });
   }
 
+  const isDemoProperty = matched?.id?.startsWith('prop-pcte') || false;
+  if (!isDemoProperty) {
+    rooms.length = 0; // Clear generated dummy data for real properties
+  }
+
   const totalBeds = rooms.reduce((a, r) => a + r.beds.length, 0);
   const occupiedBeds = rooms.reduce(
     (a, r) => a + r.beds.filter((b) => b.status === 'OCCUPIED').length,
@@ -130,35 +135,41 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
         <h2 className="text-lg font-semibold text-text-primary mb-4">
           Room & Bed Matrix ({rooms.length} Rooms • {totalBeds} Beds)
         </h2>
-        <div className="space-y-3">
-          {rooms.map((room) => (
-            <div
-              key={room.id}
-              className="border border-border-light rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-3"
-            >
-              <div>
-                <span className="font-bold text-text-primary">Room {room.roomNumber}</span>
-                <span className="text-xs text-text-secondary ml-2">
-                  ({room.sharing}-Sharing • {formatRupees(room.rentRupees)}/mo per bed)
-                </span>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  {room.beds.map((b) => (
-                    <span
-                      key={b.id}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                        b.status === 'OCCUPIED'
-                          ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                          : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      }`}
-                    >
-                      Bed {b.label}: {b.status}
-                    </span>
-                  ))}
+        {rooms.length > 0 ? (
+          <div className="space-y-3">
+            {rooms.map((room) => (
+              <div
+                key={room.id}
+                className="border border-border-light rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-3"
+              >
+                <div>
+                  <span className="font-bold text-text-primary">Room {room.roomNumber}</span>
+                  <span className="text-xs text-text-secondary ml-2">
+                    ({room.sharing}-Sharing • {formatRupees(room.rentRupees)}/mo per bed)
+                  </span>
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    {room.beds.map((b) => (
+                      <span
+                        key={b.id}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                          b.status === 'OCCUPIED'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}
+                      >
+                        Bed {b.label}: {b.status}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-text-secondary text-center py-6">
+            No rooms configured yet — Add rooms and beds in the Bed Management section.
+          </p>
+        )}
       </Card>
     </div>
   );

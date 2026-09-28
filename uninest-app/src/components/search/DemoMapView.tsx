@@ -50,28 +50,54 @@ export default function DemoMapView({
   const [activeProperty, setActiveProperty] = useState<MapProperty | null>(
     properties[0] || null
   );
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // SVG viewport dimensions
   const width = 800;
   const height = 500;
-  const cx = width / 2;
-  const cy = height / 2;
+  const cx = width / 2 + pan.x;
+  const cy = height / 2 + pan.y;
 
-  // Scale map coordinates around center (college coordinates)
-  const scale = 8000; // scale factor for lat/lng to SVG pixels
+  // Dynamically compute base scale from property spread so no properties get clipped at the border
+  const maxDelta = properties.reduce((max, p) => {
+    if (!p.latitude || !p.longitude) return max;
+    const dLat = Math.abs(p.latitude - collegeLat);
+    const dLng = Math.abs(p.longitude - collegeLng);
+    return Math.max(max, dLat, dLng);
+  }, 0.02);
+
+  const baseScale = Math.min(12000, Math.max(2000, 180 / Math.max(maxDelta, 0.005)));
+  const scale = baseScale * zoom;
 
   const getPos = (lat?: number, lng?: number) => {
     if (!lat || !lng) return { x: cx, y: cy };
     const dx = (lng - collegeLng) * scale;
     const dy = (collegeLat - lat) * scale; // inverted Y axis for SVG
     return {
-      x: Math.max(60, Math.min(width - 60, cx + dx)),
-      y: Math.max(60, Math.min(height - 60, cy + dy)),
+      x: cx + dx,
+      y: cy + dy,
     };
   };
 
   // Convert radius in km to SVG circle radius pixels
-  const radiusPx = (radiusKm / 5) * 160;
+  const radiusPx = (radiusKm / 5) * 160 * zoom;
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!isDragging) return;
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-6 shadow-sm relative overflow-hidden">
@@ -87,6 +113,35 @@ export default function DemoMapView({
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-600">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
+              className="px-2 py-0.5 rounded bg-white hover:bg-slate-50 font-bold text-slate-700 shadow-2xs"
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+              className="px-2 py-0.5 rounded bg-white hover:bg-slate-50 font-bold text-slate-700 shadow-2xs"
+              title="Zoom Out"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoom(1);
+                setPan({ x: 0, y: 0 });
+              }}
+              className="px-2 py-0.5 rounded bg-white hover:bg-slate-50 font-semibold text-slate-600 text-[11px] shadow-2xs"
+              title="Reset View"
+            >
+              Reset
+            </button>
+          </div>
           <span className="flex items-center gap-1 font-medium">
             <span className="w-3 h-3 rounded-full bg-indigo-500 inline-block" />
             {selectedCollegeName}
@@ -105,7 +160,15 @@ export default function DemoMapView({
       {/* SVG Canvas Map Container */}
       <div className="relative w-full h-[460px] bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80 shadow-inner">
         {/* Grid Background */}
-        <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          className={`absolute inset-0 w-full h-full select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" strokeWidth="0.8" opacity="0.4" />
@@ -129,7 +192,7 @@ export default function DemoMapView({
             <circle r="18" fill="rgba(99, 102, 241, 0.2)" className="animate-pulse" />
             <circle r="10" fill="#6366f1" stroke="#ffffff" strokeWidth="2" />
             <text y="-16" textAnchor="middle" fill="#a5b4fc" fontSize="11" fontWeight="bold">
-              🎓 {selectedCollegeName}
+              {selectedCollegeName}
             </text>
           </g>
 

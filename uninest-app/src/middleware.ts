@@ -53,17 +53,20 @@ export async function middleware(request: NextRequest) {
         }
       }
 
-      res.cookies.set({
-        name: 'session',
-        value: await signToken({
-          ...parsed,
-          expires: expiresInOneDay.toISOString(),
-        }),
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        expires: expiresInOneDay,
-      });
+      const remainingMs = parsed.expires ? new Date(parsed.expires).getTime() - Date.now() : 0;
+      if (remainingMs < 12 * 60 * 60 * 1000) {
+        res.cookies.set({
+          name: 'session',
+          value: await signToken({
+            ...parsed,
+            expires: expiresInOneDay.toISOString(),
+          }),
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          expires: expiresInOneDay,
+        });
+      }
     } catch {
       res.cookies.delete('session');
       if (isProtected) {

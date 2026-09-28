@@ -34,43 +34,45 @@ export default function StudentOnboardingPage() {
 
   const [formData, setFormData] = useState({
     // Step 1: Personal Info
-    fullName: 'Rahul Sharma',
-    phone: '9876543210',
-    email: 'rahul@uninest.demo',
+    fullName: '',
+    phone: '',
+    email: '',
     gender: 'MALE',
-    dob: '2003-05-15',
-    emergencyName: 'Rajesh Sharma',
-    emergencyPhone: '9814012345',
+    dob: '',
+    emergencyName: '',
+    emergencyPhone: '',
     emergencyRel: 'Father',
 
     // Step 2: Academic Details
     state: 'Punjab',
-    city: 'Ludhiana',
+    city: '',
     collegeName: 'PCTE Institute',
-    enrollmentNo: 'PCTE-BTECH-2024-042',
-    course: 'B.Tech Computer Science',
+    enrollmentNo: '',
+    course: '',
     year: '3',
 
     // Step 3: Housing Preferences
     prefSharing: 'Double Sharing',
-    prefLocation: 'Ferozepur Road / BRS Nagar',
-    budgetMin: '5000',
-    budgetMax: '7000',
-    acPref: true,
+    prefLocation: '',
+    budgetMin: '',
+    budgetMax: '',
+    acPref: false,
 
     // Step 4: Lifestyle & Roommate Preferences
     sleepSchedule: 'Night Owl (12 AM - 7 AM)',
-    studyHabits: 'Quiet focused study in room',
+    studyHabits: '',
     cleanliness: '4',
-    noisePref: 'Moderate noise acceptable',
+    noisePref: '',
     smokingPref: 'Non-smoker strictly',
     foodPref: 'Vegetarian',
-    socialPref: 'Friendly & conversational',
+    socialPref: '',
 
     // Step 5: Document KYC
     documentType: 'Aadhaar Card',
-    documentNo: '9876 5432 1098',
+    documentNo: '',
   });
+
+  const [fileName, setFileName] = useState('');
 
   const completionPercent = Math.round((step / totalSteps) * 100);
 
@@ -432,12 +434,18 @@ export default function StudentOnboardingPage() {
                     className="bg-slate-950 border-slate-800"
                   />
                 </div>
-                <div className="border-2 border-dashed border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 text-center bg-slate-950/60 cursor-pointer">
+                <div className="border-2 border-dashed border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 text-center bg-slate-950/60 relative cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.png"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+                  />
                   <Upload className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                   <p className="font-bold text-white text-xs">Upload Student ID Card / Admission Slip</p>
-                  <p className="text-[11px] text-slate-400 mt-1">PNG, JPG or PDF up to 5MB (Simulated Verification)</p>
-                  <span className="inline-block mt-3 px-3 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[11px]">
-                    ✓ PCTE_ID_CARD_2024.pdf Attached
+                  <p className="text-[11px] text-slate-400 mt-1">PNG, JPG or PDF up to 5MB</p>
+                  <span className={`inline-block mt-3 px-3 py-1 rounded font-bold text-[11px] ${fileName ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-300'}`}>
+                    {fileName ? `✓ ${fileName} Attached` : 'No file selected'}
                   </span>
                 </div>
               </div>

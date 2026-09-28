@@ -1,9 +1,16 @@
 import { getAllProperties } from '@/lib/propertiesStore';
 import { BedInventoryClient, BedItem } from './BedInventoryClient';
 
+import { getSession } from '@/lib/auth/actions';
+
 export const dynamic = 'force-dynamic';
 
 export default async function BedInventoryPage() {
+  const session = await getSession();
+  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
+                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
+                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+
   const properties = await getAllProperties();
 
   // Generate bed inventory directly from the landlord's actual portfolio properties
@@ -46,12 +53,12 @@ export default async function BedInventoryPage() {
 
         if (occupiedAssigned < occupiedTarget) {
           status = 'OCCUPIED';
-          tenant = sampleTenants[tenantIdx % sampleTenants.length];
+          tenant = isDemoUser ? sampleTenants[tenantIdx % sampleTenants.length] : '—';
           tenantIdx++;
           occupiedAssigned++;
         } else if (reservedAssigned === 0) {
           status = 'RESERVED';
-          tenant = 'Rohit Verma (OTP Hold)';
+          tenant = isDemoUser ? 'Rohit Verma (OTP Hold)' : '—';
           reservedAssigned = 1;
         }
 

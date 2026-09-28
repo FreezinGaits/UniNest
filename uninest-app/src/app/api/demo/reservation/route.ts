@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth/actions';
 import { getEscrowStore, EscrowBookingRecord } from '@/lib/escrowStore';
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
     const body = await request.json();
     const {
       propertyId,
@@ -64,12 +66,25 @@ export async function POST(request: NextRequest) {
 
     // Try Prisma DB first if online
     try {
-      let studentUser = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
+      const effectiveUserId = userId || session?.userId;
+      let studentUser = effectiveUserId
+        ? await prisma.user.findUnique({ where: { id: effectiveUserId } })
+        : null;
+      if (!studentUser && session?.email) {
+        studentUser = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { email: session.email.toLowerCase() },
+              { email: session.email.toLowerCase().replace('@uninest.in', '@uninest.demo') },
+            ],
+          },
+        });
+      }
       if (!studentUser) {
         studentUser = await prisma.user.findFirst({ where: { email: 'rahul@uninest.demo' } });
       }
       if (!studentUser) {
-        studentUser = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
+        return NextResponse.json({ error: 'User not found. Please log in or seed the database.' }, { status: 404 });
       }
 
       const property = await prisma.property.findUnique({
@@ -143,7 +158,7 @@ export async function POST(request: NextRequest) {
     const newEscrowRecord: EscrowBookingRecord = {
       id: bookingId,
       referenceNo: `RES-${Date.now().toString().slice(-5)}`,
-      userId: 'usr-student-demo',
+      userId: session?.userId || userId || 'usr-student-demo',
       propertyId,
       bedId: bedId || 'bed-204-a',
       status: 'RESERVED',
@@ -176,10 +191,10 @@ export async function POST(request: NextRequest) {
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
       user: {
-        id: 'usr-student-demo',
-        name: 'Rahul Sharma',
-        email: 'rahul@uninest.demo',
-        phone: '+91 98765 43210',
+        id: session?.userId || userId || 'usr-student-demo',
+        name: session?.name || 'Rahul Sharma',
+        email: session?.email || 'rahul@uninest.demo',
+        phone: session?.phone || '',
       },
       property: {
         id: propertyId,

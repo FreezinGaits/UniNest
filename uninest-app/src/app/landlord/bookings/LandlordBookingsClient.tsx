@@ -121,15 +121,11 @@ export function LandlordBookingsClient({
         );
         setCounterId(null);
       } else {
-        const fallbackStatus =
-          action === 'ACCEPT' ? 'CONFIRMED' : action === 'COUNTER_PROPOSE' ? 'COUNTER_PROPOSED' : 'CANCELLED';
-        setVisits((prev) =>
-          prev.map((v) => (v.id === visitId ? { ...v, status: fallbackStatus, counterSlot } : v))
-        );
-        setCounterId(null);
+        alert('Failed to respond to visit. Please try again.');
       }
     } catch (err) {
       setLoadingId(null);
+      alert('Failed to respond to visit. Please try again.');
     }
   };
 

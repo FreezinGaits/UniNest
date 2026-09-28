@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
 import { PropertyDetailClient } from './PropertyDetailClient';
+import { getSession } from '@/lib/auth/actions';
 
 const DEMO_FALLBACK_PROPERTY = {
   id: 'prop-demo-01',
@@ -82,6 +83,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   let initialBooking: any = null;
   let initialVisit: any = null;
 
+  const session = await getSession();
+
   try {
     property = await prisma.property.findUnique({
       where: { id },
@@ -93,10 +96,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       },
     });
 
-    if (property) {
-      const student = await prisma.user.findFirst({
-        where: { email: 'rahul@uninest.demo' },
+    if (property && session) {
+      let student = await prisma.user.findUnique({
+        where: { id: session.userId },
       });
+      if (!student && session.email) {
+        student = await prisma.user.findUnique({
+          where: { email: session.email },
+        });
+      }
 
       if (student) {
         initialBooking = await prisma.booking.findFirst({

@@ -44,12 +44,14 @@ export async function POST(request: NextRequest) {
     // ─── SCENARIO B: ADVANCE BOOKING TIERED CANCELLATION (15–45 Days) ───────────
     else if (booking.reservationType === 'ADVANCE_SESSION' || mode === 'ADVANCE_TIERED') {
       const moveInTarget = booking.agreedMoveInDate || booking.moveInDate;
-      const daysUntilMoveIn =
+      let daysUntilMoveIn =
         typeof simulatedDaysUntilMoveIn === 'number'
           ? simulatedDaysUntilMoveIn
           : moveInTarget
           ? Math.ceil((new Date(moveInTarget).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
           : 35;
+
+      if (isNaN(daysUntilMoveIn)) daysUntilMoveIn = 999;
 
       const tokenAmount = booking.advanceTokenAmount || booking.reservationFee || 90000; // ₹900 default 15% token
 

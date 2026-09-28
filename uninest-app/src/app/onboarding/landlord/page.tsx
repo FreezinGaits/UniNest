@@ -29,27 +29,29 @@ export default function LandlordOnboardingPage() {
   const [submitted, setSubmitted] = useState(false);
 
   const [formData, setFormData] = useState({
-    fullName: 'Vikram Singh',
-    businessName: 'Singh Student Housing Network',
-    phone: '9898989801',
-    email: 'landlord@uninest.demo',
-    address: 'Suite 4, Model Town Market',
-    city: 'Ludhiana',
+    fullName: '',
+    businessName: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
     state: 'Punjab',
-    panNo: 'ABCPS1234F',
-    gstNo: '03ABCPS1234F1Z5',
-    bankAccount: '91802004561234',
-    ifscCode: 'HDFC0000123',
-    propertyName: 'CampusNest Residency',
+    panNo: '',
+    gstNo: '',
+    bankAccount: '',
+    ifscCode: '',
+    propertyName: '',
     propertyType: 'PG',
     locality: 'Ferozepur Road',
-    baseRent: '6000',
-    deposit: '6000',
-    wifiCharge: '0',
-    foodCharge: '1800',
-    maintenanceCharge: '400',
-    electricityRate: '8',
+    baseRent: '',
+    deposit: '',
+    wifiCharge: '',
+    foodCharge: '',
+    maintenanceCharge: '',
+    electricityRate: '',
   });
+
+  const [fileName, setFileName] = useState('');
 
   const completionPercent = Math.round((step / totalSteps) * 100);
 
@@ -243,8 +245,17 @@ export default function LandlordOnboardingPage() {
               <p className="text-xs text-slate-400 max-w-md mx-auto">
                 Submit your electricity bill and property ownership documents to receive the official <strong className="text-emerald-400">UniNest Verified</strong> badge.
               </p>
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 text-xs text-emerald-300 font-medium">
-                ✓ Property Ownership & Electricity Bill Document Uploaded
+              <div className="border-2 border-dashed border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 text-center bg-slate-950/60 relative max-w-md mx-auto mt-4 cursor-pointer">
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.png"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  onChange={(e) => setFileName(e.target.files?.[0]?.name || '')}
+                />
+                <p className="font-bold text-white text-xs mb-2">Upload Property Document</p>
+                <div className={`inline-block px-3 py-1 rounded text-[11px] font-bold ${fileName ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-slate-800 text-slate-300'}`}>
+                  {fileName ? `✓ ${fileName} Uploaded` : 'No file selected'}
+                </div>
               </div>
             </div>
           )}

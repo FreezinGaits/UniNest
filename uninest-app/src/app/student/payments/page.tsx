@@ -31,6 +31,20 @@ import {
 } from 'lucide-react';
 
 export default function RentPaymentsPage() {
+  const [isDemo, setIsDemo] = useState(false);
+  
+  import('react').then(React => {
+    React.useEffect(() => {
+      fetch('/api/profile')
+        .then(res => res.json())
+        .then(data => {
+          const email = data?.user?.email || '';
+          setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
+        })
+        .catch(() => {});
+    }, []);
+  });
+
   const [autoPayEnabled, setAutoPayEnabled] = useState(true);
   const [rentPaid, setRentPaid] = useState(false);
   const [paidReceiptDoc, setPaidReceiptDoc] = useState<DocumentPDFData | null>(null);
@@ -435,32 +449,40 @@ export default function RentPaymentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paidReceiptDoc && (
-                  <tr className="bg-emerald-50/50 hover:bg-emerald-50 transition-colors">
-                    <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-emerald-700">
-                      {paidReceiptDoc.referenceNo}
-                    </td>
-                    <td className="px-4 py-3.5 font-extrabold text-slate-900">{paidReceiptDoc.title}</td>
-                    <td className="px-4 py-3.5 text-right font-black text-emerald-700">₹6,000.00</td>
-                    <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">Direct UPI (UTR: {rentUtr})</td>
-                    <td className="px-4 py-3.5">
-                      <Badge variant="success" size="sm">
-                        SUCCESS
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <button
-                        onClick={() => {
-                          setPreviewDoc(paidReceiptDoc);
-                          setIsViewerOpen(true);
-                        }}
-                        className="py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
-                      >
-                        <Eye className="w-3.5 h-3.5" /> View / Download
-                      </button>
+                {!isDemo ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                      No payment history yet.
                     </td>
                   </tr>
-                )}
+                ) : (
+                  <>
+                    {paidReceiptDoc && (
+                      <tr className="bg-emerald-50/50 hover:bg-emerald-50 transition-colors">
+                        <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-emerald-700">
+                          {paidReceiptDoc.referenceNo}
+                        </td>
+                        <td className="px-4 py-3.5 font-extrabold text-slate-900">{paidReceiptDoc.title}</td>
+                        <td className="px-4 py-3.5 text-right font-black text-emerald-700">₹6,000.00</td>
+                        <td className="px-4 py-3.5 text-slate-600 text-xs font-semibold">Direct UPI (UTR: {rentUtr})</td>
+                        <td className="px-4 py-3.5">
+                          <Badge variant="success" size="sm">
+                            SUCCESS
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <button
+                            onClick={() => {
+                              setPreviewDoc(paidReceiptDoc);
+                              setIsViewerOpen(true);
+                            }}
+                            className="py-1.5 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs inline-flex items-center gap-1 shadow-sm"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View / Download
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                 <tr className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-4 py-3.5 font-mono text-xs font-extrabold text-indigo-600">
                     UNP-UPI-2026-000003
@@ -526,6 +548,8 @@ export default function RentPaymentsPage() {
                     </button>
                   </td>
                 </tr>
+                </>
+                )}
               </tbody>
             </table>
           </div>

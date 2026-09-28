@@ -140,6 +140,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, profileComplete: 90 });
   } catch (error) {
     console.error('Onboarding update caught error:', error);
-    return NextResponse.json({ success: true, profileComplete: 90 });
+    return NextResponse.json({ success: false, error: 'Onboarding failed' }, { status: 500 });
   }
 }

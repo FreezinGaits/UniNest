@@ -47,10 +47,30 @@ const INITIAL_RECORDS: ComplianceRecord[] = [
   },
 ];
 
+import { useEffect } from 'react';
+
 export default function TenantVerificationPoliceClearancePage() {
-  const [records] = useState<ComplianceRecord[]>(INITIAL_RECORDS);
+  const [records, setRecords] = useState<ComplianceRecord[]>(INITIAL_RECORDS);
+  const [isDemoUser, setIsDemoUser] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<DocumentPDFData | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.json())
+      .then(data => {
+        const userEmail = (data?.user?.email || '').toLowerCase();
+        const demo = userEmail.includes('demo') || userEmail === 'landlord@uninest.in' || userEmail === 'vikram@passiresidency.in';
+        setIsDemoUser(demo);
+        if (!demo) {
+          setRecords([]);
+        }
+      })
+      .catch(() => {
+        setIsDemoUser(false);
+        setRecords([]);
+      });
+  }, []);
 
   function handleDownloadPoliceForm(record: ComplianceRecord) {
     const docData: DocumentPDFData = {
@@ -102,6 +122,10 @@ export default function TenantVerificationPoliceClearancePage() {
         </div>
       </div>
 
+      {isDemoUser === false && records.length === 0 ? (
+        <div className="text-center py-12 text-sm text-text-secondary">Compliance records will appear once configured.</div>
+      ) : (
+        <>
       <Card padding="none">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -155,6 +179,8 @@ export default function TenantVerificationPoliceClearancePage() {
           </table>
         </div>
       </Card>
+        </>
+      )}
 
       {/* Document Viewer Modal for Police Forms */}
       <DocumentViewerModal

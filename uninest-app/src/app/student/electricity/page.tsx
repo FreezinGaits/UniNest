@@ -11,7 +11,19 @@ export default function ElectricityDuesPage() {
   const [paid, setPaid] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const currentBill = {
+  const [isDemo, setIsDemo] = useState(false);
+
+  React.useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.json())
+      .then(data => {
+        const email = data?.user?.email || '';
+        setIsDemo(email.includes('@uninest.demo') || email === 'rahul@uninest.in');
+      })
+      .catch(() => {});
+  }, []);
+
+  const currentBill = isDemo ? {
     month: 'Sep 2026',
     dueDate: '10 Oct 2026',
     meterNo: 'SUB-MTR-204',
@@ -26,12 +38,12 @@ export default function ElectricityDuesPage() {
     roommateStatus: 'PAID', // Aman already paid his half
     property: 'PCTE Smart Student Residency',
     roomAssignment: 'Room 204, Bed B'
-  };
+  } : null;
 
-  const history = [
+  const history = isDemo ? [
     { month: 'Aug 2026', units: 67, prevReading: 1178, currReading: 1245, totalBill: 636.50, share: 318.25, status: 'PAID', datePaid: '08 Sep 2026' },
     { month: 'Jul 2026', units: 73, prevReading: 1105, currReading: 1178, totalBill: 693.50, share: 346.75, status: 'PAID', datePaid: '05 Aug 2026' },
-  ];
+  ] : [];
 
   const handlePayBill = () => {
     setPaying(true);
@@ -40,6 +52,25 @@ export default function ElectricityDuesPage() {
       setPaid(true);
     }, 1200);
   };
+
+  if (!isDemo || !currentBill) {
+    return (
+      <div className="space-y-6 animate-fade-in pb-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Electricity Dues & Sub-Meter Split</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Automated sub-meter consumption calculations & 50/50 roommate split ledger.</p>
+          </div>
+          <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl shrink-0">
+            <Zap className="w-6 h-6 text-amber-600" />
+          </div>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm">
+          <p className="text-sm text-slate-500">Electricity readings will appear here once your smart meter is connected.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">

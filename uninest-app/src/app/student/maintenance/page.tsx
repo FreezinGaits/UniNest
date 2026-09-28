@@ -62,7 +62,23 @@ const INITIAL_TICKETS: MaintenanceTicket[] = [
 ];
 
 export default function MaintenanceTicketsPage() {
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(INITIAL_TICKETS);
+  const [isDemo, setIsDemo] = useState(false);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/profile')
+      .then(res => res.json())
+      .then(data => {
+        const email = data?.user?.email || '';
+        const demo = email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        setIsDemo(demo);
+        if (demo) {
+          setTickets(INITIAL_TICKETS);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [category, setCategory] = useState<'PLUMBING' | 'ELECTRICAL' | 'HVAC' | 'LOCKSMITH' | 'FURNITURE' | 'INTERNET'>('PLUMBING');
   const [title, setTitle] = useState('');
@@ -143,7 +159,12 @@ export default function MaintenanceTicketsPage() {
         </h2>
 
         <div className="grid grid-cols-1 gap-4">
-          {tickets.map((tkt) => (
+          {tickets.length === 0 ? (
+            <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center shadow-sm">
+              <p className="text-sm text-slate-500">No maintenance tickets yet — Submit one below if you have an issue.</p>
+            </div>
+          ) : (
+            tickets.map((tkt) => (
             <div key={tkt.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:border-slate-300 transition-all space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
@@ -183,7 +204,7 @@ export default function MaintenanceTicketsPage() {
                 </div>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </div>
 

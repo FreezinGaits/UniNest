@@ -142,7 +142,11 @@ export async function login(
     const dbUser = await prisma.user.findUnique({ where: { email: lookupEmail } });
     if (dbUser) {
       const valid = await bcrypt.compare(password, dbUser.passwordHash);
-      if (!valid && password !== 'demo123') {
+      
+      const isDemoAccount = email.endsWith('@uninest.demo') || !!EMAIL_ROLE_MAP[email.trim().toLowerCase()];
+      const canUseDemoPassword = isDemoAccount && password === 'demo123';
+      
+      if (!valid && !canUseDemoPassword) {
         return { success: false, error: 'Invalid email or password' };
       }
       user = {
@@ -169,17 +173,7 @@ export async function login(
         phone: portalUser.phone,
       };
     } else {
-      const inferredName = normalizedInput
-        .split('@')[0]
-        .replace(/[._-]/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-      user = {
-        id: DEFAULT_PORTAL_USERS.STUDENT.id,
-        email: normalizedInput || DEFAULT_PORTAL_USERS.STUDENT.email,
-        name: inferredName || DEFAULT_PORTAL_USERS.STUDENT.name,
-        role: 'STUDENT',
-        phone: '',
-      };
+      return { success: false, error: 'Account not found. Please create an account or sign in with Google.' };
     }
   }
 
@@ -412,38 +406,14 @@ export async function switchRole(role: UserRole): Promise<{ success: boolean; er
   const session = await getSession();
   if (!session) return { success: false, error: 'Not authenticated' };
 
-  let user: { id: string; name: string; email: string; role: UserRole; phone?: string; avatarUrl?: string } | null = null;
-  const defaultPortal = DEFAULT_PORTAL_USERS[role] || DEFAULT_PORTAL_USERS.STUDENT;
-
-  try {
-    const dbUser = await prisma.user.findFirst({
-      where: { role },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    if (dbUser) {
-      user = {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email.replace('@uninest.demo', '@uninest.in'),
-        role: dbUser.role,
-        phone: dbUser.phone || defaultPortal.phone,
-        avatarUrl: dbUser.avatarUrl || undefined,
-      };
-    }
-  } catch (error) {
-    console.warn(`Database offline during switchRole to ${role}, using default portal user:`, error);
-  }
-
-  if (!user) {
-    user = {
-      id: defaultPortal.id,
-      name: defaultPortal.name,
-      email: defaultPortal.email,
-      role: defaultPortal.role,
-      phone: defaultPortal.phone,
-    };
-  }
+  const user = {
+    id: session.userId,
+    name: session.name,
+    email: session.email,
+    role: role,
+    phone: session.phone,
+    avatarUrl: session.avatarUrl,
+  };
 
   await setSessionCookie(user);
   return { success: true };

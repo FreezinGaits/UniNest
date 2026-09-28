@@ -1,30 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-async function getStudentUser(userId?: string) {
-  let studentUser = null;
-  if (userId) {
-    studentUser = await prisma.user.findUnique({ where: { id: userId } });
-  }
-  if (!studentUser) {
-    studentUser = await prisma.user.findFirst({
-      where: { email: 'rahul@uninest.demo' },
-    });
-  }
-  if (!studentUser) {
-    studentUser = await prisma.user.findFirst({
-      where: { role: 'STUDENT' },
-    });
-  }
-  return studentUser;
-}
+import { getSession } from '@/lib/auth/actions';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') || undefined;
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const studentUser = await getStudentUser(userId);
+    let studentUser = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!studentUser && session.email) {
+      studentUser = await prisma.user.findUnique({ where: { email: session.email } });
+    }
+
     if (!studentUser) {
       return NextResponse.json({ savedProperties: [] });
     }
@@ -59,14 +48,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { propertyId, userId } = body;
+    const { propertyId } = body;
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property ID is required' }, { status: 400 });
     }
 
-    const studentUser = await getStudentUser(userId);
+    let studentUser = await prisma.user.findUnique({ where: { id: session.userId } });
+    if (!studentUser && session.email) {
+      studentUser = await prisma.user.findUnique({ where: { email: session.email } });
+    }
+
     if (!studentUser) {
       return NextResponse.json({ error: 'Student user not found' }, { status: 404 });
     }

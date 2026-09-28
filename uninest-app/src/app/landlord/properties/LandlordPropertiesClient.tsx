@@ -125,42 +125,18 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
       if (res.ok && data.property) {
         const cleanNew = sanitizeProperty(data.property);
         setProperties((prev) => [cleanNew, ...prev.filter((p) => p.id !== cleanNew.id)]);
+        setShowSuccessToast(true);
+        setTimeout(() => setShowSuccessToast(false), 5000);
       } else {
-        const fallbackProp = sanitizeProperty({
-          id: `prop-new-${Date.now()}`,
-          name: formData.name,
-          locality: formData.locality,
-          city: formData.city,
-          address: formData.address,
-          verificationStatus: 'UNDER_REVIEW',
-          totalRooms: Number(formData.totalRooms),
-          totalBeds: Number(formData.totalRooms) * Number(formData.bedsPerRoom),
-          occupiedBeds: 0,
-          rentPerMonth: Number(formData.rentPerMonth),
-          openTickets: 0,
-        });
-        setProperties((prev) => [fallbackProp, ...prev]);
+        alert('Failed to save property. Please try again.');
       }
     } catch (err) {
-      console.warn('API error submitting property, using local fallback:', err);
-      const fallbackProp = sanitizeProperty({
-        id: `prop-new-${Date.now()}`,
-        name: formData.name,
-        locality: formData.locality,
-        city: formData.city,
-        address: formData.address,
-        verificationStatus: 'UNDER_REVIEW',
-        totalRooms: Number(formData.totalRooms),
-        totalBeds: Number(formData.totalRooms) * Number(formData.bedsPerRoom),
-        occupiedBeds: 0,
-        rentPerMonth: Number(formData.rentPerMonth),
-        openTickets: 0,
-      });
-      setProperties((prev) => [fallbackProp, ...prev]);
+      console.warn('API error submitting property:', err);
+      alert('Failed to save property. Please try again.');
     } finally {
       setIsSubmitting(false);
       setIsModalOpen(false);
-      setShowSuccessToast(true);
+
       setFormData({
         name: '',
         locality: 'Ferozepur Road',

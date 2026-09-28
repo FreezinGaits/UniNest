@@ -137,12 +137,10 @@ export default function ModeratedRoommateChatPage({
       {/* Top Header */}
       <header className="bg-white border-b border-slate-200 px-5 py-3.5 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center gap-3.5">
-          <Link href="/student/roommates/my-requests">
-            <Button variant="secondary" className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs px-3 py-1.5 rounded-xl font-medium">
-              <ArrowLeft className="w-4 h-4 mr-1 text-slate-600" />
-              Back
-            </Button>
-          </Link>
+          <Button onClick={() => router.back()} variant="secondary" className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs px-3 py-1.5 rounded-xl font-medium">
+            <ArrowLeft className="w-4 h-4 mr-1 text-slate-600" />
+            Back
+          </Button>
 
           <img
             src={partnerReq?.student?.user?.avatarUrl || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150'}
