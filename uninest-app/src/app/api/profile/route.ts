@@ -47,18 +47,22 @@ export async function GET() {
     // Use session values
   }
 
+  const normalizedEmail = session.email.replace('@uninest.demo', '@uninest.in');
+  const userPayload = {
+    userId: session.userId,
+    name: session.name,
+    email: normalizedEmail,
+    role: session.role,
+    phone: dbPhone,
+    avatarUrl: dbAvatar,
+    college: dbCollege || undefined,
+    companyName: dbCompanyName || undefined,
+  };
+
   return NextResponse.json({
     authenticated: true,
-    user: {
-      userId: session.userId,
-      name: session.name,
-      email: session.email.replace('@uninest.demo', '@uninest.in'),
-      role: session.role,
-      phone: dbPhone,
-      avatarUrl: dbAvatar,
-      college: dbCollege || undefined,
-      companyName: dbCompanyName || undefined,
-    },
+    ...userPayload,
+    user: userPayload,
   });
 }
 
@@ -67,15 +71,17 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
     const body = await request.json();
     const { name, email, phone, avatarUrl, role, college, companyName, organization } = body;
-    if (!name || !email) {
+    const resolvedName = name || session?.name;
+    const resolvedEmail = email || session?.email;
+    if (!resolvedName || !resolvedEmail) {
       return NextResponse.json({ error: 'Name and email are required' }, { status: 400 });
     }
     const validRole: UserRole | undefined =
       role === 'LANDLORD' || role === 'STUDENT' ? role : undefined;
 
     const result = await updateSessionProfile({
-      name,
-      email,
+      name: resolvedName,
+      email: resolvedEmail,
       phone,
       avatarUrl,
       role: validRole,
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
       companyName,
     });
 
-    const lookupEmail = (session?.email || email).toLowerCase();
+    const lookupEmail = resolvedEmail.toLowerCase();
     try {
       const dbUser = await prisma.user.findFirst({
         where: {

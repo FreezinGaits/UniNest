@@ -330,6 +330,7 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 onClick={() => setIsOpen(false)}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
@@ -424,6 +425,7 @@ export function Sidebar({
               <Link
                 key={tab.href}
                 href={tab.href}
+                prefetch={false}
                 className="flex flex-col items-center justify-center -mt-4"
               >
                 <div
@@ -452,6 +454,7 @@ export function Sidebar({
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={false}
               className={cn(
                 'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors min-w-[56px]',
                 isActive ? 'text-brand-600 font-bold' : 'text-text-tertiary hover:text-text-primary'

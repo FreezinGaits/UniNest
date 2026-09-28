@@ -160,10 +160,14 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'visible' &&
+        booking?.status !== 'CANCELLED'
+      ) {
         syncLiveBookingState(false);
       }
-    }, 4000);
+    }, 12000);
 
     const handleReconnected = () => syncLiveBookingState(true);
     window.addEventListener('uninest:network-reconnected', handleReconnected);
