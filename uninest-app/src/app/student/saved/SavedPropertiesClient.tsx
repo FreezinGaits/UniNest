@@ -72,7 +72,7 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
             });
 
             return (
-              <Card key={savedId} className="group overflow-hidden flex flex-col hover:shadow-xl transition-all border-slate-200/80">
+              <Card key={savedId} padding="none" className="group overflow-hidden flex flex-col hover:shadow-xl transition-all border-slate-200/80 rounded-2xl">
                 {/* Property Image & Heart Button Overlay */}
                 <div className="relative h-48 w-full bg-slate-100 overflow-hidden">
                   <img
@@ -105,7 +105,7 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
                 </div>
 
                 {/* Card Content */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-extrabold text-base text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
@@ -162,21 +162,21 @@ export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClie
                   </div>
 
                   {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-100">
                     <Link
                       href={`/student/search/${property.id}`}
-                      className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                      className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Details</span>
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>View Details</span>
                     </Link>
 
                     <button
                       onClick={() => setSelectedPropertyForPayment(property)}
-                      className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-lg flex items-center justify-center gap-1.5 shadow-sm transition-all whitespace-nowrap"
                     >
-                      <BedDouble className="w-3.5 h-3.5" />
-                      <span>Reserve ₹399</span>
+                      <span>Reserve Bed</span>
+                      <span className="bg-white/20 text-white px-1.5 py-0.5 rounded text-[11px] font-black">₹399</span>
                     </button>
                   </div>
                 </div>
