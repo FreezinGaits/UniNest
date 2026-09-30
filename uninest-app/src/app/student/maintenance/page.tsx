@@ -70,7 +70,13 @@ export default function MaintenanceTicketsPage() {
       .then(res => res.json())
       .then(data => {
         const email = data?.email || data?.user?.email || '';
-        const demo = !email || email.includes('@uninest.demo') || email === 'rahul@uninest.in';
+        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
+        const demo =
+          previewEnabled ||
+          !email ||
+          email.includes('@uninest.demo') ||
+          email === 'rahul@uninest.in' ||
+          email === 'rahul.sharma@pcte.edu.in';
         setIsDemo(demo);
 
         let savedTickets: MaintenanceTicket[] = [];

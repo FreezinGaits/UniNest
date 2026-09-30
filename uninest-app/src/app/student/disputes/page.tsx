@@ -103,10 +103,13 @@ export default function DisputesComplaintsPage() {
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
         const name = data?.name || data?.user?.name || 'Student';
+        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
         const demo =
+          previewEnabled ||
           !email ||
           email === 'rahul@uninest.in' ||
           email === 'rahul@uninest.demo' ||
+          email === 'rahul.sharma@pcte.edu.in' ||
           email.includes('@uninest.demo');
         setIsDemo(demo);
         setUserEmail(email || 'demo');

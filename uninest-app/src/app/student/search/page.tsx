@@ -106,10 +106,28 @@ export default function StudentSearchPage() {
   const [sortBy, setSortBy] = useState('recommended');
 
   useEffect(() => {
+    let local: string[] = [];
+    try {
+      const raw = localStorage.getItem('uninest_saved_pg_ids');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) local = parsed;
+      }
+    } catch {}
+    if (local.length > 0) {
+      setSavedIds(local);
+    }
+
     fetch('/api/student/saved/ids')
       .then((res) => res.json())
       .then((data) => {
-        if (data.savedIds) setSavedIds(data.savedIds);
+        if (Array.isArray(data.savedIds)) {
+          const merged = Array.from(new Set([...local, ...data.savedIds]));
+          setSavedIds(merged);
+          try {
+            localStorage.setItem('uninest_saved_pg_ids', JSON.stringify(merged));
+          } catch {}
+        }
       })
       .catch(() => {});
   }, []);
@@ -657,6 +675,11 @@ export default function StudentSearchPage() {
                             propertyId={property.id}
                             initialSaved={savedIds.includes(property.id)}
                             size="sm"
+                            onToggle={(saved) =>
+                              setSavedIds((prev) =>
+                                saved ? Array.from(new Set([...prev, property.id])) : prev.filter((id) => id !== property.id)
+                              )
+                            }
                           />
                         </div>
                       </div>

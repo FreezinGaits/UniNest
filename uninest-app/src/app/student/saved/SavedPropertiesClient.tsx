@@ -1,27 +1,71 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Heart, MapPin, ShieldCheck, Star, BedDouble, Calendar, ArrowRight, Eye, Sparkles } from 'lucide-react';
+import { Heart, MapPin, ShieldCheck, Star, Calendar, ArrowRight, Eye, Sparkles } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
-import { HeartSaveButton } from '@/components/property/HeartSaveButton';
+import { HeartSaveButton, readLocalSavedIds, writeLocalSavedIds } from '@/components/property/HeartSaveButton';
 import { DemoPaymentModal } from '@/components/booking/DemoPaymentModal';
 import { VisitSchedulingModal } from '@/components/booking/VisitSchedulingModal';
 
 interface SavedPropertiesClientProps {
   initialSavedItems: any[];
+  initialSavedIds?: string[];
 }
 
-export function SavedPropertiesClient({ initialSavedItems }: SavedPropertiesClientProps) {
+export function SavedPropertiesClient({ initialSavedItems, initialSavedIds = [] }: SavedPropertiesClientProps) {
   const [savedList, setSavedList] = useState<any[]>(initialSavedItems);
   const items = savedList;
   const [selectedPropertyForPayment, setSelectedPropertyForPayment] = useState<any | null>(null);
   const [selectedPropertyForVisit, setSelectedPropertyForVisit] = useState<any | null>(null);
 
+  useEffect(() => {
+    const localIds = readLocalSavedIds();
+    const combinedIds = Array.from(new Set([...initialSavedIds, ...localIds]));
+    if (combinedIds.length > 0) {
+      writeLocalSavedIds(combinedIds);
+    }
+
+    const existingPropIds = new Set(initialSavedItems.map((i) => i.property?.id));
+    const missingIds = combinedIds.filter((id) => !existingPropIds.has(id));
+
+    if (missingIds.length > 0) {
+      fetch('/api/properties/search')
+        .then((res) => res.json())
+        .then((data) => {
+          const allProps: any[] = data?.properties || [];
+          const resolvedItems = missingIds
+            .map((id) => {
+              const found = allProps.find((p) => p.id === id);
+              if (!found) return null;
+              return {
+                id: `saved-${id}`,
+                propertyId: id,
+                savedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                property: found,
+              };
+            })
+            .filter(Boolean);
+
+          if (resolvedItems.length > 0) {
+            setSavedList((prev) => {
+              const seen = new Set(prev.map((p) => p.property?.id));
+              const additions = resolvedItems.filter((r: any) => !seen.has(r.property.id));
+              return [...additions, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialSavedIds, initialSavedItems]);
+
   const handleUnsave = (propertyId: string) => {
     setSavedList((prev) => prev.filter((item) => item.property.id !== propertyId));
+    const nextLocal = readLocalSavedIds().filter((id) => id !== propertyId);
+    writeLocalSavedIds(nextLocal);
   };
   const handleRemove = handleUnsave;
 

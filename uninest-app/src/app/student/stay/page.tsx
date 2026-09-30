@@ -20,7 +20,15 @@ export default function MyStayDetailsPage() {
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
-        if (email && email !== 'rahul@uninest.in' && email !== 'rahul@uninest.demo' && !email.includes('@uninest.demo')) {
+        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
+        if (
+          !previewEnabled &&
+          email &&
+          email !== 'rahul@uninest.in' &&
+          email !== 'rahul@uninest.demo' &&
+          email !== 'rahul.sharma@pcte.edu.in' &&
+          !email.includes('@uninest.demo')
+        ) {
           const activeStay = localStorage.getItem(`uninest_active_stay_${email}`);
           if (!activeStay) {
             setIsDemo(false);
@@ -43,8 +51,28 @@ export default function MyStayDetailsPage() {
             <Building2 className="w-6 h-6 text-brand-600" />
           </div>
         </div>
-        <div className="bg-surface-secondary border border-border p-8 rounded-2xl text-center shadow-sm">
-          <p className="text-sm text-text-secondary">No active tenancy — Book and complete move-in to see your stay details.</p>
+        <div className="bg-surface border border-border p-8 rounded-2xl text-center shadow-sm space-y-4">
+          <p className="text-sm text-text-secondary max-w-md mx-auto">
+            No active tenancy yet on this new account — Book and complete move-in to see your stay details, or load sample residency data to preview all features.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/student/search"
+              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+            >
+              Find &amp; Book a PG
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('uninest_preview_demo_data', 'true');
+                setIsDemo(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition-colors"
+            >
+              Load Sample Active Residency Data
+            </button>
+          </div>
         </div>
       </div>
     );

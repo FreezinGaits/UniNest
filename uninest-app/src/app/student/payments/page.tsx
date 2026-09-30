@@ -100,10 +100,13 @@ export default function RentPaymentsPage() {
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
         const name = data?.name || data?.user?.name || 'Student';
+        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
         const isDemoUser =
+          previewEnabled ||
           !email ||
           email === 'rahul@uninest.in' ||
           email === 'rahul@uninest.demo' ||
+          email === 'rahul.sharma@pcte.edu.in' ||
           email.includes('@uninest.demo');
 
         setIsDemo(isDemoUser);

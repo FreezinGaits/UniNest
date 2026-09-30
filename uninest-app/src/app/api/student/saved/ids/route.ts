@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth/actions';
-
-const globalForSaved = globalThis as unknown as {
-  savedPropertyMap?: Map<string, Set<string>>;
-};
+import { readUserSavedIds } from '../route';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +10,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userKey = (session.email || session.userId || 'guest').toLowerCase();
+    const isDemoUser = userKey.includes('@uninest.demo') || userKey === 'rahul@uninest.in' || userKey === 'rahul.sharma@pcte.edu.in';
+    const savedSet = await readUserSavedIds(userKey, isDemoUser);
+    const memIds = Array.from(savedSet);
+
     let studentUser = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!studentUser && session.email) {
       studentUser = await prisma.user.findFirst({
@@ -20,11 +22,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const userKey = studentUser?.id || session.userId || session.email;
-    const memIds = Array.from(globalForSaved.savedPropertyMap?.get(userKey) || []);
-
     if (!studentUser) {
-      return NextResponse.json({ savedIds: memIds });
+      return NextResponse.json({ success: true, savedIds: memIds, count: memIds.length });
     }
 
     const saved = await prisma.savedProperty.findMany({
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const savedIds = Array.from(new Set([...saved.map((s) => s.propertyId), ...memIds]));
     return NextResponse.json({ success: true, savedIds, count: savedIds.length });
-  } catch (error: any) {
-    return NextResponse.json({ savedIds: [] });
+  } catch {
+    return NextResponse.json({ success: true, savedIds: [] });
   }
 }

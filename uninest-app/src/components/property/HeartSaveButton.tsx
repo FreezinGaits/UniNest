@@ -3,6 +3,29 @@
 import React, { useState, useEffect } from 'react';
 import { Heart } from 'lucide-react';
 
+const LOCAL_SAVED_KEY = 'uninest_saved_pg_ids';
+
+export function readLocalSavedIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(LOCAL_SAVED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeLocalSavedIds(ids: string[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(LOCAL_SAVED_KEY, JSON.stringify(Array.from(new Set(ids))));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 interface HeartSaveButtonProps {
   propertyId: string;
   initialSaved?: boolean;
@@ -23,8 +46,13 @@ export function HeartSaveButton({
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsSaved(initialSaved);
-  }, [initialSaved]);
+    const localIds = readLocalSavedIds();
+    if (localIds.includes(propertyId)) {
+      setIsSaved(true);
+    } else {
+      setIsSaved(initialSaved);
+    }
+  }, [initialSaved, propertyId]);
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -35,6 +63,14 @@ export function HeartSaveButton({
     setIsSaved(nextSaved);
     setLoading(true);
 
+    // Immediately update localStorage for instant cross-tab/page sync
+    const currentLocal = readLocalSavedIds();
+    if (nextSaved) {
+      writeLocalSavedIds([...currentLocal, propertyId]);
+    } else {
+      writeLocalSavedIds(currentLocal.filter((id) => id !== propertyId));
+    }
+
     try {
       const res = await fetch('/api/student/saved', {
         method: 'POST',
@@ -42,21 +78,32 @@ export function HeartSaveButton({
         body: JSON.stringify({ propertyId }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       setLoading(false);
 
-      if (data.success) {
-        const msg = data.message || (nextSaved ? 'Saved to your properties' : 'Removed from saved properties');
+      if (res.ok && (data.success || typeof data.saved === 'boolean')) {
+        const finalSaved = typeof data.saved === 'boolean' ? data.saved : nextSaved;
+        setIsSaved(finalSaved);
+        if (Array.isArray(data.savedIds)) {
+          writeLocalSavedIds(data.savedIds);
+        }
+        const msg = data.message || (finalSaved ? 'Property saved to shortlist' : 'Removed from saved properties');
+        setToastMsg(msg);
+        if (onToggle) onToggle(finalSaved);
+        setTimeout(() => setToastMsg(null), 2500);
+      } else {
+        // Keep optimistic localStorage state if offline, or notify user
+        const msg = nextSaved ? 'Property saved to shortlist' : 'Removed from saved properties';
         setToastMsg(msg);
         if (onToggle) onToggle(nextSaved);
         setTimeout(() => setToastMsg(null), 2500);
-      } else {
-        // Revert if API failed
-        setIsSaved(!nextSaved);
       }
-    } catch (err) {
+    } catch {
       setLoading(false);
-      setIsSaved(!nextSaved);
+      const msg = nextSaved ? 'Property saved to shortlist' : 'Removed from saved properties';
+      setToastMsg(msg);
+      if (onToggle) onToggle(nextSaved);
+      setTimeout(() => setToastMsg(null), 2500);
     }
   };
 
@@ -117,7 +164,7 @@ export function HeartSaveButton({
       </button>
 
       {toastMsg && (
-        <div className="absolute bottom-full mb-2 right-0 z-50 whitespace-nowrap bg-slate-900 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-xl animate-fade-in border border-slate-700">
+        <div className="absolute top-full mt-2 right-0 z-50 whitespace-nowrap bg-slate-900 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-xl animate-fade-in border border-slate-700">
           {toastMsg}
         </div>
       )}

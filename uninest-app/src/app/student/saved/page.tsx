@@ -106,6 +106,15 @@ export default async function SavedPropertiesPage() {
     return <SavedPropertiesClient initialSavedItems={[]} />;
   }
 
+  const userKey = (session.email || session.userId || 'guest').toLowerCase();
+  const isDemoUser =
+    userKey.includes('@uninest.demo') ||
+    userKey === 'rahul@uninest.in' ||
+    userKey === 'rahul.sharma@pcte.edu.in';
+
+  const { readUserSavedIds } = await import('@/app/api/student/saved/route');
+  const savedSet = await readUserSavedIds(userKey, isDemoUser);
+
   try {
     let studentUser = await prisma.user.findUnique({
       where: { id: session.userId },
@@ -139,16 +148,17 @@ export default async function SavedPropertiesPage() {
       }));
     }
   } catch (err) {
-    console.warn('DB lookup failed on saved properties page, using demo fallback:', err);
+    console.warn('DB lookup failed on saved properties page, using fallback:', err);
   }
 
-  // Fallback to high-fidelity demo saved items if DB is offline or returned empty
-  if (savedItems.length === 0) {
-    const isDemoUser = session.email?.includes('@uninest.demo') || session.email?.includes('@uninest.in');
-    if (isDemoUser) {
-      savedItems = DEMO_SAVED_ITEMS;
+  const existingIds = new Set(savedItems.map((item) => item.property?.id));
+  for (const demoItem of DEMO_SAVED_ITEMS) {
+    if (savedSet.has(demoItem.property.id) && !existingIds.has(demoItem.property.id)) {
+      savedItems.push(demoItem);
+      existingIds.add(demoItem.property.id);
     }
   }
 
-  return <SavedPropertiesClient initialSavedItems={savedItems} />;
+  return <SavedPropertiesClient initialSavedItems={savedItems} initialSavedIds={Array.from(savedSet)} />;
 }
+

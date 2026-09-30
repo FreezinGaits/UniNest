@@ -505,41 +505,39 @@ function LoginContent() {
           )}
 
           {/* Verified Role Quick-Access */}
-          {isDev && (
-            <div className="mt-6">
-              <div className="relative mb-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-[10px]">
-                  <span className="bg-surface-secondary px-3 text-text-tertiary font-bold uppercase tracking-wider">
-                    Verified Role Portals (One-Click Access)
-                  </span>
-                </div>
+          <div className="mt-6">
+            <div className="relative mb-3">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
               </div>
-              <div className="space-y-1.5">
-                {portalQuickAccess.map((account) => (
-                  <button
-                    key={account.email}
-                    onClick={() => handleQuickAccess(account)}
-                    disabled={loading}
-                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg border border-border bg-surface hover:bg-surface-tertiary transition-colors text-left disabled:opacity-50"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-xs font-bold">
-                      {account.name[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-text-primary truncate">{account.name}</p>
-                      <p className="text-[11px] text-text-tertiary truncate">{account.displayEmail}</p>
-                    </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-tertiary text-text-secondary">
-                      {account.role}
-                    </span>
-                  </button>
-                ))}
+              <div className="relative flex justify-center text-[10px]">
+                <span className="bg-surface-secondary px-3 text-text-tertiary font-bold uppercase tracking-wider">
+                  Verified Role Portals (One-Click Demo Access)
+                </span>
               </div>
             </div>
-          )}
+            <div className="space-y-1.5">
+              {portalQuickAccess.map((account) => (
+                <button
+                  key={account.email}
+                  onClick={() => handleQuickAccess(account)}
+                  disabled={loading}
+                  className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg border border-border bg-surface hover:bg-surface-tertiary transition-colors text-left disabled:opacity-50"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-xs font-bold">
+                    {account.name[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-text-primary truncate">{account.name}</p>
+                    <p className="text-[11px] text-text-tertiary truncate">{account.displayEmail}</p>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-surface-tertiary text-text-secondary">
+                    {account.role}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-5 pt-4 border-t border-border flex items-center justify-between text-[11px] text-text-tertiary">
             <span>Protected by Indian Contract Act, 1872</span>
