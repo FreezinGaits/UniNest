@@ -10,25 +10,29 @@ import {
   Save, Check, Camera
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui/Shared';
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
 
 export default function StudentProfilePage() {
   const router = useRouter();
+  const contextUser = useDashboardUser();
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Profile Form State (Synchronized with Rahul Sharma / rahul@uninest.in)
-  const [name, setName] = useState('Rahul Sharma');
+  const [isDemoUser, setIsDemoUser] = useState(contextUser.isDemoUser);
+
+  // Profile Form State (Synchronized with Rahul Sharma for demo, or clean for real users)
+  const [name, setName] = useState(contextUser.userName || (contextUser.isDemoUser ? 'Rahul Sharma' : 'Student'));
   const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200');
-  const [email, setEmail] = useState('rahul@uninest.in');
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [emergencyPhone, setEmergencyPhone] = useState('+91 98123 45678 (Parent - Ramesh Sharma)');
-  const [collegeName, setCollegeName] = useState('PCTE Institute of Technology');
-  const [course, setCourse] = useState('B.Tech Computer Science & Engineering');
-  const [year, setYear] = useState<number | string>(2);
-  const [studentId, setStudentId] = useState('PCTE-CSE-2024-089');
+  const [email, setEmail] = useState(contextUser.userEmail || (contextUser.isDemoUser ? 'rahul@uninest.in' : ''));
+  const [phone, setPhone] = useState(contextUser.isDemoUser ? '+91 98765 43210' : 'Not added yet — Tap Edit Profile to add');
+  const [emergencyPhone, setEmergencyPhone] = useState(contextUser.isDemoUser ? '+91 98123 45678 (Parent - Ramesh Sharma)' : 'Not added yet — Tap Edit Profile to add');
+  const [collegeName, setCollegeName] = useState(contextUser.isDemoUser ? 'PCTE Institute of Technology' : 'Not specified');
+  const [course, setCourse] = useState(contextUser.isDemoUser ? 'B.Tech Computer Science & Engineering' : 'Not specified');
+  const [year, setYear] = useState<number | string>(contextUser.isDemoUser ? 2 : 1);
+  const [studentId, setStudentId] = useState(contextUser.isDemoUser ? 'PCTE-CSE-2024-089' : 'Not assigned');
   const [city, setCity] = useState('Ludhiana');
-  const [hometown, setHometown] = useState('Ludhiana, Punjab');
-  const [bio, setBio] = useState('Focused engineering student looking for a clean, quiet study environment.');
+  const [hometown, setHometown] = useState(contextUser.isDemoUser ? 'Ludhiana, Punjab' : '');
+  const [bio, setBio] = useState(contextUser.isDemoUser ? 'Focused engineering student looking for a clean, quiet study environment.' : '');
 
   // Roommate Preferences State
   const [locality, setLocality] = useState('Ferozepur Road (Near PCTE)');
@@ -43,22 +47,18 @@ export default function StudentProfilePage() {
   const [guests, setGuests] = useState('Occasional Daytime');
 
   const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
-  const [isDemoUser, setIsDemoUser] = useState(false);
 
   useEffect(() => {
     fetch('/api/profile')
       .then((r) => r.json())
       .then((data) => {
         const userObj = data?.user || data;
-        if (data?.authenticated || userObj?.email) {
-          const rawEmail = userObj?.email || 'rahul@uninest.in';
-          const userEmail = rawEmail.replace('@uninest.demo', '@uninest.in');
-          const isDemoStudent =
-            userEmail.toLowerCase() === 'rahul@uninest.in' ||
-            rawEmail.toLowerCase() === 'rahul@uninest.demo' ||
-            userEmail.toLowerCase().includes('@uninest.demo');
-          setIsDemoUser(isDemoStudent);
+        const rawEmail = userObj?.email || contextUser.userEmail || '';
+        const userEmail = rawEmail.replace('@uninest.demo', '@uninest.in');
+        const isDemoStudent = rawEmail ? isDemoAccountEmail(rawEmail) : contextUser.isDemoUser;
+        setIsDemoUser(isDemoStudent);
 
+        if (userEmail) {
           let savedParsed: any = null;
           try {
             const perUserSaved =
@@ -77,10 +77,10 @@ export default function StudentProfilePage() {
             }
           } catch {}
 
-          setName(savedParsed?.name || userObj.name || (isDemoStudent ? 'Rahul Sharma' : 'Student'));
+          setName(savedParsed?.name || userObj?.name || contextUser.userName || (isDemoStudent ? 'Rahul Sharma' : 'Student'));
           setEmail(userEmail);
-          if (savedParsed?.avatarUrl || userObj.avatarUrl) {
-            setAvatarUrl(savedParsed?.avatarUrl || userObj.avatarUrl);
+          if (savedParsed?.avatarUrl || userObj?.avatarUrl) {
+            setAvatarUrl(savedParsed?.avatarUrl || userObj?.avatarUrl);
           }
 
           if (!isDemoStudent) {
@@ -88,7 +88,7 @@ export default function StudentProfilePage() {
               savedParsed?.phone && savedParsed.phone !== '+91 98765 43210'
                 ? savedParsed.phone
                 : '';
-            const realPhone = userObj.phone || savedPhone || '';
+            const realPhone = userObj?.phone || savedPhone || '';
 
             if (realPhone) {
               setPhone(realPhone);
@@ -105,13 +105,12 @@ export default function StudentProfilePage() {
                 : '';
             setEmergencyPhone(savedEmergency || 'Not added yet — Tap Edit Profile to add');
 
-            // Do NOT keep Rahul Sharma's default rollNo, course, year, or college for non-demo users
-            setCollegeName(savedParsed?.collegeName || savedParsed?.college || userObj.college || 'Not specified');
-            setCourse(savedParsed?.course || userObj.course || 'Not specified');
-            setYear(savedParsed?.year || userObj.year || 1);
-            setStudentId(savedParsed?.studentId || savedParsed?.rollNo || userObj.rollNo || 'Not assigned');
-            setHometown(savedParsed?.hometown || userObj.hometown || '');
-            setBio(savedParsed?.bio || userObj.bio || '');
+            setCollegeName(savedParsed?.collegeName || savedParsed?.college || userObj?.college || 'Not specified');
+            setCourse(savedParsed?.course || userObj?.course || 'Not specified');
+            setYear(savedParsed?.year || userObj?.year || 1);
+            setStudentId(savedParsed?.studentId || savedParsed?.rollNo || userObj?.rollNo || 'Not assigned');
+            setHometown(savedParsed?.hometown || userObj?.hometown || '');
+            setBio(savedParsed?.bio || userObj?.bio || '');
           } else if (savedParsed) {
             if (savedParsed.phone) setPhone(savedParsed.phone);
             if (savedParsed.emergencyPhone) setEmergencyPhone(savedParsed.emergencyPhone);
@@ -123,7 +122,6 @@ export default function StudentProfilePage() {
             if (savedParsed.bio) setBio(savedParsed.bio);
           }
 
-          // Restore roommate & housing preferences if saved
           if (savedParsed) {
             if (savedParsed.city) setCity(savedParsed.city);
             if (savedParsed.locality) setLocality(savedParsed.locality);
@@ -142,7 +140,7 @@ export default function StudentProfilePage() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [contextUser.userEmail, contextUser.userName, contextUser.isDemoUser]);
 
   // Fixed metadata for active stay & KYC
   const currentStay = {

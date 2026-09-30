@@ -80,13 +80,16 @@ const DEMO_PAYMENTS: PaymentRecord[] = [
   },
 ];
 
-export default function RentPaymentsPage() {
-  const [isDemo, setIsDemo] = useState(true);
-  const [userEmail, setUserEmail] = useState('rahul@uninest.in');
-  const [userName, setUserName] = useState('Rahul Sharma');
-  const [payments, setPayments] = useState<PaymentRecord[]>(DEMO_PAYMENTS);
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
 
-  const [autoPayEnabled, setAutoPayEnabled] = useState(true);
+export default function RentPaymentsPage() {
+  const { userEmail: ctxEmail, userName: ctxName, isDemoUser: ctxIsDemo } = useDashboardUser();
+  const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
+  const [userEmail, setUserEmail] = useState(ctxEmail || '');
+  const [userName, setUserName] = useState(ctxName || 'Student');
+  const [payments, setPayments] = useState<PaymentRecord[]>(ctxIsDemo ? DEMO_PAYMENTS : []);
+
+  const [autoPayEnabled, setAutoPayEnabled] = useState(ctxIsDemo);
   const [rentPaid, setRentPaid] = useState(false);
   const [paidReceiptDoc, setPaidReceiptDoc] = useState<DocumentPDFData | null>(null);
   const [paymentFailMsg, setPaymentFailMsg] = useState(false);
@@ -95,57 +98,61 @@ export default function RentPaymentsPage() {
   const [difficultySubmitted, setDifficultySubmitted] = useState<string | null>(null);
 
   useEffect(() => {
+    const applyUserPayments = (email: string, name: string) => {
+      const demo = isDemoAccountEmail(email);
+      setIsDemo(demo);
+      setUserEmail(email);
+      setUserName(demo ? 'Rahul Sharma' : name || 'Student');
+      setAutoPayEnabled(demo);
+
+      const storageKey = `uninest_student_payments_${email || 'guest'}`;
+      let savedPayments: PaymentRecord[] = [];
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            savedPayments = parsed;
+          }
+        }
+      } catch {}
+
+      if (savedPayments.length > 0) {
+        setRentPaid(true);
+        if (savedPayments[0]?.docData) {
+          setPaidReceiptDoc(savedPayments[0].docData);
+        }
+      }
+
+      if (demo) {
+        const existingRefs = new Set(savedPayments.map((p) => p.referenceNo));
+        const merged = [
+          ...savedPayments,
+          ...DEMO_PAYMENTS.filter((p) => !existingRefs.has(p.referenceNo)),
+        ];
+        setPayments(merged);
+      } else {
+        setPayments(savedPayments);
+      }
+    };
+
+    if (ctxEmail) {
+      applyUserPayments(ctxEmail, ctxName);
+      return;
+    }
+
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
         const name = data?.name || data?.user?.name || 'Student';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        const isDemoUser =
-          previewEnabled ||
-          !email ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul@uninest.demo' ||
-          email === 'rahul.sharma@pcte.edu.in' ||
-          email.includes('@uninest.demo');
-
-        setIsDemo(isDemoUser);
-        setUserEmail(email || 'demo');
-        setUserName(isDemoUser ? 'Rahul Sharma' : name);
-        setAutoPayEnabled(isDemoUser);
-
-        const storageKey = `uninest_student_payments_${email || 'demo'}`;
-        let savedPayments: PaymentRecord[] = [];
-        try {
-          const raw = localStorage.getItem(storageKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              savedPayments = parsed;
-            }
-          }
-        } catch {}
-
-        if (savedPayments.length > 0) {
-          setRentPaid(true);
-          if (savedPayments[0]?.docData) {
-            setPaidReceiptDoc(savedPayments[0].docData);
-          }
-        }
-
-        if (isDemoUser) {
-          const existingRefs = new Set(savedPayments.map((p) => p.referenceNo));
-          const merged = [
-            ...savedPayments,
-            ...DEMO_PAYMENTS.filter((p) => !existingRefs.has(p.referenceNo)),
-          ];
-          setPayments(merged);
-        } else {
-          setPayments(savedPayments);
-        }
+        applyUserPayments(email, name);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+        setPayments([]);
+      });
+  }, [ctxEmail, ctxName]);
 
   // Real UPI Payment Modal State
   const [upiModalOpen, setUpiModalOpen] = useState(false);

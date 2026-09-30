@@ -13,10 +13,25 @@ export interface PropertyItem {
   rentPerMonth: number;
   openTickets: number;
   ownerName?: string;
+  ownerEmail?: string;
   createdAt?: string;
   description?: string;
 }
 
+export function isDemoLandlordEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  return (
+    clean.endsWith('@uninest.demo') ||
+    clean === 'landlord@uninest.in' ||
+    clean === 'vikram@passiresidency.in' ||
+    clean === 'admin@uninest.in' ||
+    clean === 'rahul@uninest.in' ||
+    clean === 'rahul.sharma@pcte.edu.in' ||
+    clean === 'pcte@uninest.in' ||
+    clean === 'provider@uninest.in'
+  );
+}
 
 export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
   {
@@ -33,6 +48,7 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     rentPerMonth: 6000,
     openTickets: 1,
     ownerName: 'Vikram Singh (Passi Group)',
+    ownerEmail: 'landlord@uninest.in',
     createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
   },
   {
@@ -49,6 +65,7 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     rentPerMonth: 7500,
     openTickets: 0,
     ownerName: 'Vikram Singh',
+    ownerEmail: 'landlord@uninest.in',
     createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
   },
   {
@@ -65,6 +82,7 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     rentPerMonth: 6500,
     openTickets: 0,
     ownerName: 'Sunita Devi',
+    ownerEmail: 'landlord@uninest.in',
     createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
   },
 ];
@@ -142,6 +160,7 @@ export function normalizePropertyItem(raw: any): PropertyItem {
     rentPerMonth,
     openTickets,
     ownerName: raw.ownerName || raw.landlord?.user?.name || 'Vikram Singh',
+    ownerEmail: raw.ownerEmail || raw.landlord?.user?.email || 'landlord@uninest.in',
     createdAt: raw.createdAt
       ? typeof raw.createdAt === 'string'
         ? raw.createdAt
@@ -169,6 +188,16 @@ export async function getAllProperties(): Promise<PropertyItem[]> {
   return result;
 }
 
+export async function getPropertiesForLandlord(email?: string | null): Promise<PropertyItem[]> {
+  const all = await getAllProperties();
+  if (isDemoLandlordEmail(email)) {
+    return all;
+  }
+  if (!email) return [];
+  const cleanEmail = email.trim().toLowerCase();
+  return all.filter((p) => p.ownerEmail && p.ownerEmail.trim().toLowerCase() === cleanEmail);
+}
+
 export async function createProperty(data: {
   name: string;
   locality: string;
@@ -181,6 +210,7 @@ export async function createProperty(data: {
   gender?: string;
   description?: string;
   ownerName?: string;
+  ownerEmail?: string;
 }): Promise<PropertyItem> {
   const propId = `prop-new-${Date.now()}`;
   const totalBeds = Number(data.totalRooms || 4) * Number(data.bedsPerRoom || 2);
@@ -199,6 +229,7 @@ export async function createProperty(data: {
     rentPerMonth: Number(data.rentPerMonth || 6000),
     openTickets: 0,
     ownerName: data.ownerName || 'Vikram Singh (Landlord)',
+    ownerEmail: data.ownerEmail || 'landlord@uninest.in',
     createdAt: new Date().toISOString(),
     description: data.description || '',
   });

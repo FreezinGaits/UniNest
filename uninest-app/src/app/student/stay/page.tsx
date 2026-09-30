@@ -10,34 +10,36 @@ import {
   XCircle, Sparkles, Heart, Clock, Volume2, ShieldCheck, FileCheck
 } from 'lucide-react';
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function MyStayDetailsPage() {
+  const { userEmail, isDemoUser } = useDashboardUser();
   const [claimScenario, setClaimScenario] = useState<string | null>(null);
-  const [isDemo, setIsDemo] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState<boolean>(isDemoUser);
 
   useEffect(() => {
+    try {
+      localStorage.removeItem('uninest_preview_demo_data');
+    } catch {}
+    if (userEmail) {
+      const demo = isDemoAccountEmail(userEmail);
+      const activeStay = localStorage.getItem(`uninest_active_stay_${userEmail}`);
+      setIsDemo(demo || Boolean(activeStay));
+      return;
+    }
+
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        if (
-          !previewEnabled &&
-          email &&
-          email !== 'rahul@uninest.in' &&
-          email !== 'rahul@uninest.demo' &&
-          email !== 'rahul.sharma@pcte.edu.in' &&
-          !email.includes('@uninest.demo')
-        ) {
-          const activeStay = localStorage.getItem(`uninest_active_stay_${email}`);
-          if (!activeStay) {
-            setIsDemo(false);
-          }
-        }
+        const demo = isDemoAccountEmail(email);
+        const activeStay = email ? localStorage.getItem(`uninest_active_stay_${email}`) : null;
+        setIsDemo(demo || Boolean(activeStay));
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+      });
+  }, [userEmail]);
 
   if (!isDemo) {
     return (
@@ -53,25 +55,15 @@ export default function MyStayDetailsPage() {
         </div>
         <div className="bg-surface border border-border p-8 rounded-2xl text-center shadow-sm space-y-4">
           <p className="text-sm text-text-secondary max-w-md mx-auto">
-            No active tenancy yet on this new account — Book and complete move-in to see your stay details, or load sample residency data to preview all features.
+            No active tenancy — Book and complete move-in to see your stay details here.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex items-center justify-center">
             <a
               href="/student/search"
-              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors"
             >
               Find &amp; Book a PG
             </a>
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem('uninest_preview_demo_data', 'true');
-                setIsDemo(true);
-              }}
-              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition-colors"
-            >
-              Load Sample Active Residency Data
-            </button>
           </div>
         </div>
       </div>

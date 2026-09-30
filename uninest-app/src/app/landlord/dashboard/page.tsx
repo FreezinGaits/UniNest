@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth/actions';
 import { prisma } from '@/lib/db';
-import { getAllProperties } from '@/lib/propertiesStore';
+import { getPropertiesForLandlord, isDemoLandlordEmail } from '@/lib/propertiesStore';
 import { formatRupees } from '@/lib/utils';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -25,26 +25,27 @@ export default async function LandlordDashboard() {
   const session = await getSession();
   if (!session) return null;
 
-  const isDemoUser = session.email?.toLowerCase().includes('demo') || 
-                     session.email?.toLowerCase() === 'landlord@uninest.in' || 
-                     session.email?.toLowerCase() === 'vikram@passiresidency.in';
+  const isDemoUser = isDemoLandlordEmail(session.email);
 
   // Single unified source of truth shared with /landlord/properties
-  const properties = await getAllProperties();
+  const properties = await getPropertiesForLandlord(session.email);
 
   let recentBookings: any[] = [];
-  try {
-    recentBookings = await prisma.booking.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      include: {
-        user: { select: { name: true } },
-        property: { select: { name: true } },
-        bed: { include: { room: { select: { roomNumber: true } } } },
-      },
-    });
-  } catch (error) {
-    console.warn('Database error in LandlordDashboard bookings, using fallback:', error);
+  if (isDemoUser || properties.length > 0) {
+    try {
+      recentBookings = await prisma.booking.findMany({
+        where: isDemoUser ? undefined : { propertyId: { in: properties.map((p) => p.id) } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        include: {
+          user: { select: { name: true } },
+          property: { select: { name: true } },
+          bed: { include: { room: { select: { roomNumber: true } } } },
+        },
+      });
+    } catch (error) {
+      console.warn('Database error in LandlordDashboard bookings, using fallback:', error);
+    }
   }
 
   if ((!recentBookings || recentBookings.length === 0) && isDemoUser) {
@@ -64,7 +65,7 @@ export default async function LandlordDashboard() {
   const occupiedBeds = properties.reduce((acc, p) => acc + Number(p.occupiedBeds || 0), 0);
   const reservedBeds = recentBookings.filter(
     (b) => b.status === 'RESERVED' || b.status === 'VISIT_REQUESTED' || b.status === 'VISIT_CONFIRMED'
-  ).length || 1;
+  ).length || (isDemoUser ? 1 : 0);
   const openMaintenance = properties.reduce((acc, p) => acc + Number(p.openTickets || 0), 0);
   const availableBeds = Math.max(0, totalBeds - occupiedBeds - reservedBeds);
   const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
@@ -78,7 +79,7 @@ export default async function LandlordDashboard() {
     (sum, p) => sum + Number(p.totalBeds || 0) * Number(p.rentPerMonth || 6000),
     0
   );
-  const ancillaryEarningsRupees = 8500;
+  const ancillaryEarningsRupees = isDemoUser ? 8500 : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -89,7 +90,7 @@ export default async function LandlordDashboard() {
             Landlord Business Dashboard
           </h1>
           <p className="text-text-secondary mt-1">
-            Passi Residency Properties Ltd. • {properties.length}{' '}
+            {isDemoUser ? 'Passi Residency Properties Ltd.' : (session.name || 'Landlord Portfolio')} • {properties.length}{' '}
             {properties.length === 1 ? 'property' : 'properties'} ({totalBeds} total beds)
           </p>
         </div>

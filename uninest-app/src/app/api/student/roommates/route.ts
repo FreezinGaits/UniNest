@@ -179,7 +179,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      currentStudentRequest: currentStudentReq || getDemoCurrentRequest(),
+      currentStudentRequest: currentStudentReq || (isDemoUser ? getDemoCurrentRequest() : null),
       requests: results,
       totalCount: results.length,
     });

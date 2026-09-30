@@ -30,8 +30,8 @@ export default async function LandlordEarningsPage() {
 
   let rewards = isDemoUser ? DEMO_REWARDS : [];
   let serviceOrders = isDemoUser ? DEMO_SERVICE_ORDERS : [];
-  let totalRentCollected = 16800000;
-  let totalRentDue = 18000000;
+  let totalRentCollected = isDemoUser ? 16800000 : 0;
+  let totalRentDue = isDemoUser ? 18000000 : 0;
 
   try {
     const landlord = await prisma.landlord.findUnique({ where: { userId: session.userId } });

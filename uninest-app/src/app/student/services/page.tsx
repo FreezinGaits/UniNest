@@ -75,50 +75,61 @@ const SERVICES: ServiceItem[] = [
   { id: 'srv-18', name: 'Parent / Guest Overnight Stay Room', category: 'Hospitality', price: 120000, provider: 'UniNest Host Suite (DEMO PARTNER)', description: 'Furnished guest room booking for visiting parents.', icon: Home },
 ];
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function OnDemandServicesPage() {
+  const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
   const [purchasedId, setPurchasedId] = useState<string | null>(null);
-  const [isDemo, setIsDemo] = useState(true);
-  const [userEmail, setUserEmail] = useState('rahul@uninest.in');
-  const [activeOrders, setActiveOrders] = useState<ActiveServiceOrder[]>(ACTIVE_ORDERS);
+  const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
+  const [userEmail, setUserEmail] = useState(ctxEmail || '');
+  const [activeOrders, setActiveOrders] = useState<ActiveServiceOrder[]>(ctxIsDemo ? ACTIVE_ORDERS : []);
 
   useEffect(() => {
+    const loadOrdersForEmail = (email: string) => {
+      const demo = isDemoAccountEmail(email);
+      setIsDemo(demo);
+      setUserEmail(email || 'guest');
+
+      const storageKey = 'uninest_service_orders_' + (email || 'guest');
+      let savedOrders: ActiveServiceOrder[] = [];
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            savedOrders = parsed;
+          }
+        }
+      } catch {}
+
+      if (demo) {
+        const existingIds = new Set(savedOrders.map((o) => o.serviceId));
+        const merged = [
+          ...savedOrders,
+          ...ACTIVE_ORDERS.filter((o) => !existingIds.has(o.serviceId)),
+        ];
+        setActiveOrders(merged);
+      } else {
+        setActiveOrders(savedOrders);
+      }
+    };
+
+    if (ctxEmail) {
+      loadOrdersForEmail(ctxEmail);
+      return;
+    }
+
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
-        const demo =
-          !email ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul@uninest.demo' ||
-          email.includes('@uninest.demo');
-        setIsDemo(demo);
-        setUserEmail(email || 'demo');
-
-        const storageKey = 'uninest_service_orders_' + (email || 'demo');
-        let savedOrders: ActiveServiceOrder[] = [];
-        try {
-          const raw = localStorage.getItem(storageKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              savedOrders = parsed;
-            }
-          }
-        } catch {}
-
-        if (demo) {
-          const existingIds = new Set(savedOrders.map((o) => o.serviceId));
-          const merged = [
-            ...savedOrders,
-            ...ACTIVE_ORDERS.filter((o) => !existingIds.has(o.serviceId)),
-          ];
-          setActiveOrders(merged);
-        } else {
-          setActiveOrders(savedOrders);
-        }
+        loadOrdersForEmail(email);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+        setActiveOrders([]);
+      });
+  }, [ctxEmail]);
 
   async function handleOrderSuccess(service: ServiceItem) {
     setPurchasedId(service.id);

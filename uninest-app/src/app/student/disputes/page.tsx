@@ -90,58 +90,67 @@ const DEMO_DISPUTES: DisputeItem[] = [
   },
 ];
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function DisputesComplaintsPage() {
-  const [isDemo, setIsDemo] = useState(true);
-  const [userEmail, setUserEmail] = useState('rahul@uninest.in');
-  const [userName, setUserName] = useState('Rahul Sharma');
-  const [disputes, setDisputes] = useState<DisputeItem[]>(DEMO_DISPUTES);
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(DEMO_DISPUTES[0]);
+  const { userEmail: ctxEmail, userName: ctxName, isDemoUser: ctxIsDemo } = useDashboardUser();
+  const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
+  const [userEmail, setUserEmail] = useState(ctxEmail || '');
+  const [userName, setUserName] = useState(ctxName || 'Student');
+  const [disputes, setDisputes] = useState<DisputeItem[]>(ctxIsDemo ? DEMO_DISPUTES : []);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(ctxIsDemo ? DEMO_DISPUTES[0] : null);
 
   useEffect(() => {
+    const loadDisputesForEmail = (email: string, name: string) => {
+      const demo = isDemoAccountEmail(email);
+      setIsDemo(demo);
+      setUserEmail(email || 'guest');
+      setUserName(demo ? 'Rahul Sharma' : name || 'Student');
+
+      const storageKey = 'uninest_student_disputes_' + (email || 'guest');
+      let savedDisputes: DisputeItem[] = [];
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            savedDisputes = parsed;
+          }
+        }
+      } catch {}
+
+      if (demo) {
+        const existingIds = new Set(savedDisputes.map((d) => d.id));
+        const merged = [
+          ...savedDisputes,
+          ...DEMO_DISPUTES.filter((d) => !existingIds.has(d.id)),
+        ];
+        setDisputes(merged);
+        setSelectedDispute(merged[0] || null);
+      } else {
+        setDisputes(savedDisputes);
+        setSelectedDispute(savedDisputes[0] || null);
+      }
+    };
+
+    if (ctxEmail) {
+      loadDisputesForEmail(ctxEmail, ctxName);
+      return;
+    }
+
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
         const name = data?.name || data?.user?.name || 'Student';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        const demo =
-          previewEnabled ||
-          !email ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul@uninest.demo' ||
-          email === 'rahul.sharma@pcte.edu.in' ||
-          email.includes('@uninest.demo');
-        setIsDemo(demo);
-        setUserEmail(email || 'demo');
-        setUserName(demo ? 'Rahul Sharma' : name);
-
-        const storageKey = 'uninest_student_disputes_' + (email || 'demo');
-        let savedDisputes: DisputeItem[] = [];
-        try {
-          const raw = localStorage.getItem(storageKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              savedDisputes = parsed;
-            }
-          }
-        } catch {}
-
-        if (demo) {
-          const existingIds = new Set(savedDisputes.map((d) => d.id));
-          const merged = [
-            ...savedDisputes,
-            ...DEMO_DISPUTES.filter((d) => !existingIds.has(d.id)),
-          ];
-          setDisputes(merged);
-          setSelectedDispute(merged[0] || null);
-        } else {
-          setDisputes(savedDisputes);
-          setSelectedDispute(savedDisputes[0] || null);
-        }
+        loadDisputesForEmail(email, name);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+        setDisputes([]);
+        setSelectedDispute(null);
+      });
+  }, [ctxEmail, ctxName]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');

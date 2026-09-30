@@ -9,63 +9,67 @@ import {
   DollarSign, TrendingUp, Award, Save, Check
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui/Shared';
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
 
 export default function LandlordProfilePage() {
   const router = useRouter();
+  const contextUser = useDashboardUser();
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isDemoUser, setIsDemoUser] = useState(contextUser.isDemoUser);
 
-  // Landlord Profile State (Synchronized with Vikram Singh / landlord@uninest.in)
-  const [name, setName] = useState('Vikram Singh');
-  const [company, setCompany] = useState('Passi Residency Properties Ltd.');
+  // Landlord Profile State (Synchronized with Vikram Singh for demo, or clean for real users)
+  const [name, setName] = useState(contextUser.userName || (contextUser.isDemoUser ? 'Vikram Singh' : 'Landlord'));
+  const [company, setCompany] = useState(contextUser.isDemoUser ? 'Passi Residency Properties Ltd.' : '');
   const [avatarUrl, setAvatarUrl] = useState('https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200');
-  const [email, setEmail] = useState('landlord@uninest.in');
-  const [phone, setPhone] = useState('+91 98989 89801');
+  const [email, setEmail] = useState(contextUser.userEmail || (contextUser.isDemoUser ? 'landlord@uninest.in' : ''));
+  const [phone, setPhone] = useState(contextUser.isDemoUser ? '+91 98989 89801' : 'Not added yet — Tap Edit Profile to add');
   const [city, setCity] = useState('Ludhiana');
-  const [address, setAddress] = useState('Plot 42, Block B, Passi Nagar, Ferozepur Road, Ludhiana, Punjab');
-  const [gstin, setGstin] = useState('03AABCP4829K1Z5');
-  const [panNo, setPanNo] = useState('AABCP4829K');
+  const [address, setAddress] = useState(contextUser.isDemoUser ? 'Plot 42, Block B, Passi Nagar, Ferozepur Road, Ludhiana, Punjab' : '');
+  const [gstin, setGstin] = useState(contextUser.isDemoUser ? '03AABCP4829K1Z5' : '');
+  const [panNo, setPanNo] = useState(contextUser.isDemoUser ? 'AABCP4829K' : '');
 
   // Bank payout info state
-  const [bankName, setBankName] = useState('HDFC Bank Ltd. (Direct UPI Linked)');
-  const [accountName, setAccountName] = useState('Passi Residency Properties (Vikram Singh)');
-  const [accountNo, setAccountNo] = useState('50200084911098');
-  const [ifsc, setIfsc] = useState('HDFC0000123');
+  const [bankName, setBankName] = useState(contextUser.isDemoUser ? 'HDFC Bank Ltd. (Direct UPI Linked)' : '');
+  const [accountName, setAccountName] = useState(contextUser.isDemoUser ? 'Passi Residency Properties (Vikram Singh)' : '');
+  const [accountNo, setAccountNo] = useState(contextUser.isDemoUser ? '50200084911098' : '');
+  const [ifsc, setIfsc] = useState(contextUser.isDemoUser ? 'HDFC0000123' : '');
 
   const [isRealUserWithoutPhone, setIsRealUserWithoutPhone] = useState(false);
 
   useEffect(() => {
-    let savedParsed: any = null;
-    try {
-      const savedLocal = localStorage.getItem('uninest_landlord_profile');
-      if (savedLocal) {
-        savedParsed = JSON.parse(savedLocal);
-        if (savedParsed.name) setName(savedParsed.name);
-        if (savedParsed.email) setEmail(savedParsed.email.replace('@uninest.demo', '@uninest.in'));
-        if (savedParsed.phone) setPhone(savedParsed.phone);
-        if (savedParsed.companyName || savedParsed.company) setCompany(savedParsed.companyName || savedParsed.company);
-        if (savedParsed.gstin) setGstin(savedParsed.gstin);
-        if (savedParsed.panNo) setPanNo(savedParsed.panNo);
-        if (savedParsed.bankName) setBankName(savedParsed.bankName);
-        if (savedParsed.accountName) setAccountName(savedParsed.accountName);
-        if (savedParsed.accountNo) setAccountNo(savedParsed.accountNo);
-        if (savedParsed.ifsc) setIfsc(savedParsed.ifsc);
-        if (savedParsed.city) setCity(savedParsed.city);
-        if (savedParsed.address) setAddress(savedParsed.address);
-      }
-    } catch {}
-
     fetch('/api/profile')
       .then((r) => r.json())
       .then((data) => {
-        if (data?.authenticated && data?.user) {
-          const userEmail = (data.user.email || 'landlord@uninest.in').replace('@uninest.demo', '@uninest.in');
-          const isDemoLandlord = userEmail.toLowerCase() === 'landlord@uninest.in';
+        const userObj = data?.user || data;
+        const rawEmail = userObj?.email || contextUser.userEmail || '';
+        const userEmail = rawEmail.replace('@uninest.demo', '@uninest.in');
+        const isDemoLandlord = rawEmail ? isDemoAccountEmail(rawEmail) : contextUser.isDemoUser;
+        setIsDemoUser(isDemoLandlord);
 
-          setName(savedParsed?.name || data.user.name || 'Vikram Singh');
+        let savedParsed: any = null;
+        try {
+          const perUserSaved =
+            localStorage.getItem('uninest_landlord_profile_' + userEmail) ||
+            localStorage.getItem('uninest_landlord_profile_' + rawEmail);
+          if (perUserSaved) {
+            savedParsed = JSON.parse(perUserSaved);
+          } else {
+            const legacySaved = localStorage.getItem('uninest_landlord_profile');
+            if (legacySaved) {
+              const parsed = JSON.parse(legacySaved);
+              if (!parsed?.email || parsed.email.toLowerCase() === userEmail.toLowerCase()) {
+                savedParsed = parsed;
+              }
+            }
+          }
+        } catch {}
+
+        if (userEmail) {
+          setName(savedParsed?.name || userObj?.name || contextUser.userName || (isDemoLandlord ? 'Vikram Singh' : 'Landlord'));
           setEmail(userEmail);
-          if (data.user.avatarUrl) {
-            setAvatarUrl(data.user.avatarUrl);
+          if (userObj?.avatarUrl) {
+            setAvatarUrl(userObj.avatarUrl);
           }
 
           if (!isDemoLandlord) {
@@ -85,7 +89,7 @@ export default function LandlordProfilePage() {
               !String(savedParsed.phone).startsWith('Not added yet')
                 ? savedParsed.phone
                 : '';
-            const realPhone = savedPhone || data.user.phone || '';
+            const realPhone = savedPhone || userObj?.phone || '';
 
             if (realPhone) {
               setPhone(realPhone);
@@ -94,20 +98,39 @@ export default function LandlordProfilePage() {
               setPhone('Not added yet — Tap Edit Profile to add');
               setIsRealUserWithoutPhone(true);
             }
+          } else if (savedParsed) {
+            if (savedParsed.phone) setPhone(savedParsed.phone);
+            if (savedParsed.companyName || savedParsed.company) setCompany(savedParsed.companyName || savedParsed.company);
+            if (savedParsed.gstin) setGstin(savedParsed.gstin);
+            if (savedParsed.panNo) setPanNo(savedParsed.panNo);
+            if (savedParsed.bankName) setBankName(savedParsed.bankName);
+            if (savedParsed.accountName) setAccountName(savedParsed.accountName);
+            if (savedParsed.accountNo) setAccountNo(savedParsed.accountNo);
+            if (savedParsed.ifsc) setIfsc(savedParsed.ifsc);
+            if (savedParsed.city) setCity(savedParsed.city);
+            if (savedParsed.address) setAddress(savedParsed.address);
           }
         }
       })
       .catch(() => {});
-  }, []);
+  }, [contextUser.userEmail, contextUser.userName, contextUser.isDemoUser]);
 
   // Portfolio Summary
-  const portfolio = {
-    totalProperties: 3,
-    totalUnits: 28,
-    occupiedUnits: 24,
-    occupancyRate: '85.7%',
-    monthlyRevenue: 168000,
-  };
+  const portfolio = isDemoUser
+    ? {
+        totalProperties: 3,
+        totalUnits: 28,
+        occupiedUnits: 24,
+        occupancyRate: '85.7%',
+        monthlyRevenue: 168000,
+      }
+    : {
+        totalProperties: 0,
+        totalUnits: 0,
+        occupiedUnits: 0,
+        occupancyRate: '0%',
+        monthlyRevenue: 0,
+      };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,25 +141,24 @@ export default function LandlordProfilePage() {
     if (cleanPhone) {
       setIsRealUserWithoutPhone(false);
     }
+    const payload = {
+      name,
+      email: cleanEmail,
+      phone: cleanPhone || phone,
+      company,
+      companyName: company,
+      gstin,
+      panNo,
+      bankName,
+      accountName,
+      accountNo,
+      ifsc,
+      city,
+      address,
+    };
     try {
-      localStorage.setItem(
-        'uninest_landlord_profile',
-        JSON.stringify({
-          name,
-          email: cleanEmail,
-          phone: cleanPhone || phone,
-          company,
-          companyName: company,
-          gstin,
-          panNo,
-          bankName,
-          accountName,
-          accountNo,
-          ifsc,
-          city,
-          address,
-        })
-      );
+      localStorage.setItem('uninest_landlord_profile_' + cleanEmail, JSON.stringify(payload));
+      localStorage.setItem('uninest_landlord_profile', JSON.stringify(payload));
       await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

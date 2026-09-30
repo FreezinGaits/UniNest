@@ -1,10 +1,10 @@
 /**
- * UniNest Production Progressive Web Application (PWA) Service Worker v4.0
+ * UniNest Production Progressive Web Application (PWA) Service Worker v5.0
  * - Zero-interference passthrough for all Next.js App Router navigations, RSC streams, and /api/* routes
- * - Prevents Chromium WebAPK/Standalone ERR_FAILED ("This page couldn't load") on redirects and dynamic routes
+ * - Preserves all authentication cookies and headers natively
  */
 
-const CACHE_NAME = 'uninest-pwa-v4.0';
+const CACHE_NAME = 'uninest-pwa-v5.0';
 const STATIC_SHELL_ASSETS = ['/icon-192.png', '/icon-512.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -48,22 +48,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Add Cache-Control: no-cache for API requests
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request, {
-        headers: {
-          ...Object.fromEntries(request.headers.entries()),
-          'Cache-Control': 'no-cache'
-        }
-      })
-    );
-    return;
-  }
-
   // Only serve static PWA icons/manifest from cache-with-network-fallback.
-  // All HTML navigations, Next.js RSC payloads, /_next/ chunks, and /api/* routes
-  // use native browser networking so redirects, auth cookies, and live data never fail.
+  // Never intercept /api/* routes, RSC payloads, or HTML navigations so cookies are always sent natively.
   if (STATIC_SHELL_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {

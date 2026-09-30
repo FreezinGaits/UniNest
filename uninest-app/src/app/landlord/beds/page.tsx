@@ -1,4 +1,4 @@
-import { getAllProperties } from '@/lib/propertiesStore';
+import { getPropertiesForLandlord, isDemoLandlordEmail } from '@/lib/propertiesStore';
 import { BedInventoryClient, BedItem } from './BedInventoryClient';
 
 import { getSession } from '@/lib/auth/actions';
@@ -7,11 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function BedInventoryPage() {
   const session = await getSession();
-  const isDemoUser = session?.email?.toLowerCase().includes('demo') || 
-                     session?.email?.toLowerCase() === 'landlord@uninest.in' || 
-                     session?.email?.toLowerCase() === 'vikram@passiresidency.in';
+  const isDemoUser = isDemoLandlordEmail(session?.email);
 
-  const properties = await getAllProperties();
+  const properties = await getPropertiesForLandlord(session?.email);
 
   // Generate bed inventory directly from the landlord's actual portfolio properties
   // so total beds, occupied beds, and vacant beds match Dashboard and Properties!

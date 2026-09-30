@@ -3,15 +3,18 @@ import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth/actions';
 import {
   getAllProperties,
+  getPropertiesForLandlord,
   createProperty,
   normalizePropertyItem,
 } from '@/lib/propertiesStore';
 
 export async function GET() {
   try {
-    // Return the landlord's portfolio from the unified propertiesStore
-    // (excludes the 13 city-wide student search marketplace seed properties)
-    const properties = await getAllProperties();
+    const session = await getSession().catch(() => null);
+    const properties =
+      session?.role === 'LANDLORD'
+        ? await getPropertiesForLandlord(session.email)
+        : await getAllProperties();
     return NextResponse.json({ properties: properties.map(normalizePropertyItem) });
   } catch (error: any) {
     return NextResponse.json(
@@ -50,6 +53,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const session = await getSession().catch(() => null);
+
     const data = {
       name: String(body.name).trim(),
       locality: String(body.locality || 'Ferozepur Road').trim(),
@@ -61,14 +66,15 @@ export async function POST(req: NextRequest) {
       rentPerMonth: Number(body.rentPerMonth || 6000),
       gender: String(body.gender || 'ANY'),
       description: String(body.description || ''),
+      ownerName: session?.name || 'Landlord',
+      ownerEmail: session?.email || 'landlord@uninest.in',
     };
 
-    // Persist to the unified landlord propertiesStore (memory + local disk)
+    // Persist to the unified landlord propertiesStore
     const createdItem = await createProperty(data);
 
     // Also mirror into Prisma DB if available so Student Search can discover it once verified
     try {
-      const session = await getSession().catch(() => null);
       let landlord = null;
 
       if (session?.userId) {

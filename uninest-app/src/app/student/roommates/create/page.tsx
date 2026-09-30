@@ -8,18 +8,20 @@ import {
   Moon, BookOpen, Sun, ShieldCheck, Lock, Eye, Check, Sliders
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '@/components/ui/Shared';
+import { useDashboardUser } from '@/components/layout/DashboardShell';
 
 export default function CreateRoommateRequestPage() {
   const router = useRouter();
+  const contextUser = useDashboardUser();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [userName, setUserName] = useState('Rahul Sharma');
+  const [userName, setUserName] = useState(contextUser.userName || 'Student');
 
   const [formData, setFormData] = useState({
-    name: 'Rahul Sharma',
+    name: contextUser.userName || 'Student',
     gender: 'Male',
-    collegeName: 'PCTE Institute of Technology',
-    course: 'B.Tech CSE',
+    collegeName: contextUser.isDemoUser ? 'PCTE Institute of Technology' : '',
+    course: contextUser.isDemoUser ? 'B.Tech CSE' : '',
     year: 2,
     city: 'Ludhiana',
     locality: 'Ferozepur Road',
@@ -45,7 +47,7 @@ export default function CreateRoommateRequestPage() {
     foodProvidedPreference: true,
     attachedBathroomPreference: true,
     furniturePreference: true,
-    description: 'Focused on studies, clean, non-smoker and prefer a quiet room near PCTE campus.',
+    description: contextUser.isDemoUser ? 'Focused on studies, clean, non-smoker and prefer a quiet room near PCTE campus.' : '',
     showFirstName: true,
     showCollege: true,
     showCourse: true,
@@ -57,14 +59,14 @@ export default function CreateRoommateRequestPage() {
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
-        const fetchedName = data?.user?.name || data?.profile?.name || data?.name;
+        const fetchedName = data?.user?.name || data?.profile?.name || data?.name || contextUser.userName;
         if (fetchedName) {
           setUserName(fetchedName);
           setFormData((prev) => ({ ...prev, name: fetchedName }));
         }
       })
       .catch(() => {});
-  }, []);
+  }, [contextUser.userName]);
 
   const handleChange = (field: string, value: any) => {
     if (field === 'name') setUserName(value);
@@ -92,8 +94,16 @@ export default function CreateRoommateRequestPage() {
 
       const data = await res.json();
       if (data.success) {
+        if (contextUser.userEmail) {
+          try {
+            localStorage.setItem(
+              'uninest_roommate_request_' + contextUser.userEmail,
+              JSON.stringify({ ...formData, status: 'ACTIVE', id: data.request?.id || `req-${Date.now()}` })
+            );
+          } catch {}
+        }
         alert('🎉 Roommate Request Published Successfully!');
-        router.push('/student/roommates');
+        router.push('/student/roommates/my-requests');
       } else {
         alert(`Error: ${data.error}`);
       }

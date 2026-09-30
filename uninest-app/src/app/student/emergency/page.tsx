@@ -24,25 +24,29 @@ const propertyEmergencies = [
   { title: 'Gas / Kitchen Leak', category: 'Hazard', icon: Flame, desc: 'Pantry gas leak, smoke, or urgent hazard', color: 'bg-rose-100 text-rose-700' },
 ];
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function EmergencyPage() {
-  const [isDemo, setIsDemo] = useState(true);
+  const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
+  const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
   const [dispatchedIssue, setDispatchedIssue] = useState<string | null>(null);
   const [isDispatching, setIsDispatching] = useState(false);
 
   useEffect(() => {
+    if (ctxEmail) {
+      setIsDemo(isDemoAccountEmail(ctxEmail));
+      return;
+    }
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
         const email = data?.email || data?.user?.email || '';
-        const demo =
-          !email ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul@uninest.demo' ||
-          email.includes('@uninest.demo');
-        setIsDemo(demo);
+        setIsDemo(isDemoAccountEmail(email));
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+      });
+  }, [ctxEmail]);
 
   async function handleQuickDispatch(title: string) {
     setIsDispatching(true);

@@ -7,15 +7,19 @@ import {
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui/Shared';
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function ElectricityDuesPage() {
+  const { userEmail, isDemoUser } = useDashboardUser();
   const [billStatus, setBillStatus] = useState<'PENDING' | 'PAID'>('PENDING');
   const [paid, setPaid] = useState(false);
   const [paying, setPaying] = useState(false);
 
-  const [isDemo, setIsDemo] = useState(true);
+  const [isDemo, setIsDemo] = useState<boolean>(isDemoUser);
 
   React.useEffect(() => {
     try {
+      localStorage.removeItem('uninest_preview_demo_data');
       const savedStatus = localStorage.getItem('uninest_electricity_paid');
       if (savedStatus === 'PAID' || savedStatus === 'true') {
         setBillStatus('PAID');
@@ -23,21 +27,21 @@ export default function ElectricityDuesPage() {
       }
     } catch {}
 
+    if (userEmail) {
+      setIsDemo(isDemoAccountEmail(userEmail));
+      return;
+    }
+
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
         const email = data?.email || data?.user?.email || '';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        setIsDemo(
-          previewEnabled ||
-          !email ||
-          email.includes('@uninest.demo') ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul.sharma@pcte.edu.in'
-        );
+        setIsDemo(isDemoAccountEmail(email));
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+      });
+  }, [userEmail]);
 
   const currentBill = isDemo ? {
     month: 'Sep 2026',
@@ -88,20 +92,10 @@ export default function ElectricityDuesPage() {
             <Zap className="w-6 h-6 text-amber-600" />
           </div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm space-y-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center shadow-sm">
           <p className="text-sm text-slate-500">
-            Electricity readings will appear here once your smart meter is connected after move-in, or click below to preview sample sub-meter readings.
+            Electricity readings will appear here once your smart meter is connected.
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('uninest_preview_demo_data', 'true');
-              setIsDemo(true);
-            }}
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-sm transition-colors"
-          >
-            Load Sample Active Residency Data
-          </button>
         </div>
       </div>
     );

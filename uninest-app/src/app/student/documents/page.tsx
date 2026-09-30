@@ -63,45 +63,53 @@ const INITIAL_DOCUMENTS: DocumentPDFData[] = [
   },
 ];
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function MyDocumentsPage() {
+  const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
-  const [documents, setDocuments] = useState<DocumentPDFData[]>([]);
+  const [documents, setDocuments] = useState<DocumentPDFData[]>(ctxIsDemo ? INITIAL_DOCUMENTS : []);
   const [selectedDoc, setSelectedDoc] = useState<DocumentPDFData | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [downloadedDoc, setDownloadedDoc] = useState<string | null>(null);
 
   useEffect(() => {
+    const loadDocsForEmail = (email: string) => {
+      const demo = isDemoAccountEmail(email);
+      const storageKey = 'uninest_documents_store_' + (email || 'guest');
+      let docs = demo ? [...INITIAL_DOCUMENTS] : [];
+
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const existingIds = new Set(docs.map(d => d.id));
+            const newDocs = parsed.filter((d: DocumentPDFData) => !existingIds.has(d.id));
+            docs = [...newDocs, ...docs];
+          }
+        }
+      } catch (e) {
+        console.error('Error loading stored documents:', e);
+      }
+      setDocuments(docs);
+    };
+
+    if (ctxEmail) {
+      loadDocsForEmail(ctxEmail);
+      return;
+    }
+
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
         const email = data?.email || data?.user?.email || '';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        const demo =
-          previewEnabled ||
-          !email ||
-          email.includes('@uninest.demo') ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul.sharma@pcte.edu.in';
-        const storageKey = 'uninest_documents_store_' + (email || 'demo');
-        let docs = demo ? [...INITIAL_DOCUMENTS] : [];
-        
-        try {
-          const stored = localStorage.getItem(storageKey);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const existingIds = new Set(docs.map(d => d.id));
-              const newDocs = parsed.filter((d: DocumentPDFData) => !existingIds.has(d.id));
-              docs = [...newDocs, ...docs];
-            }
-          }
-        } catch (e) {
-          console.error('Error loading stored documents:', e);
-        }
-        setDocuments(docs);
+        loadDocsForEmail(email);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setDocuments([]);
+      });
+  }, [ctxEmail]);
 
   const categories = ['ALL', 'AGREEMENT', 'RECEIPT', 'KYC', 'COLLEGE', 'AUDIT'];
 

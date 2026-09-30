@@ -61,44 +61,55 @@ const INITIAL_TICKETS: MaintenanceTicket[] = [
   },
 ];
 
+import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+
 export default function MaintenanceTicketsPage() {
-  const [isDemo, setIsDemo] = useState(true);
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(INITIAL_TICKETS);
+  const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
+  const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
+  const [userEmail, setUserEmail] = useState<string>(ctxEmail || '');
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>(ctxIsDemo ? INITIAL_TICKETS : []);
 
   React.useEffect(() => {
+    const loadTicketsForEmail = (email: string) => {
+      const demo = isDemoAccountEmail(email);
+      setIsDemo(demo);
+      setUserEmail(email);
+
+      let savedTickets: MaintenanceTicket[] = [];
+      try {
+        const raw = localStorage.getItem(`uninest_student_maintenance_${email || 'guest'}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            savedTickets = parsed;
+          }
+        }
+      } catch {}
+
+      if (demo) {
+        const existingIds = new Set(savedTickets.map(t => t.id));
+        setTickets([...savedTickets, ...INITIAL_TICKETS.filter(t => !existingIds.has(t.id))]);
+      } else {
+        setTickets(savedTickets);
+      }
+    };
+
+    if (ctxEmail) {
+      loadTicketsForEmail(ctxEmail);
+      return;
+    }
+
     fetch('/api/profile')
       .then(res => res.json())
       .then(data => {
         const email = data?.email || data?.user?.email || '';
-        const previewEnabled = localStorage.getItem('uninest_preview_demo_data') === 'true';
-        const demo =
-          previewEnabled ||
-          !email ||
-          email.includes('@uninest.demo') ||
-          email === 'rahul@uninest.in' ||
-          email === 'rahul.sharma@pcte.edu.in';
-        setIsDemo(demo);
-
-        let savedTickets: MaintenanceTicket[] = [];
-        try {
-          const raw = localStorage.getItem('uninest_student_maintenance');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              savedTickets = parsed;
-            }
-          }
-        } catch {}
-
-        if (demo) {
-          const existingIds = new Set(savedTickets.map(t => t.id));
-          setTickets([...savedTickets, ...INITIAL_TICKETS.filter(t => !existingIds.has(t.id))]);
-        } else {
-          setTickets(savedTickets);
-        }
+        loadTicketsForEmail(email);
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setIsDemo(false);
+        setTickets([]);
+      });
+  }, [ctxEmail]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [category, setCategory] = useState<'PLUMBING' | 'ELECTRICAL' | 'HVAC' | 'LOCKSMITH' | 'FURNITURE' | 'INTERNET'>('PLUMBING');
@@ -131,10 +142,11 @@ export default function MaintenanceTicketsPage() {
     setDescription('');
 
     try {
-      const raw = localStorage.getItem('uninest_student_maintenance');
+      const storageKey = `uninest_student_maintenance_${userEmail || 'guest'}`;
+      const raw = localStorage.getItem(storageKey);
       const saved = raw ? JSON.parse(raw) : [];
       saved.unshift(newTicket);
-      localStorage.setItem('uninest_student_maintenance', JSON.stringify(saved));
+      localStorage.setItem(storageKey, JSON.stringify(saved));
     } catch {}
 
     // Trigger demo maintenance API persistence
