@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -26,6 +26,8 @@ import {
   Star,
   ChevronDown,
   Building2,
+  Landmark,
+  Check,
   Heart,
   Eye,
   CalendarCheck,
@@ -138,6 +140,21 @@ export default function StudentSearchPage() {
   const [selectedLocality, setSelectedLocality] = useState('');
   const [selectedCollegeId, setSelectedCollegeId] = useState('pcte-ludhiana');
   const [selectedRadius, setSelectedRadius] = useState('3');
+  const [collegeDropdownOpen, setCollegeDropdownOpen] = useState(false);
+  const collegeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        collegeDropdownRef.current &&
+        !collegeDropdownRef.current.contains(event.target as Node)
+      ) {
+        setCollegeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Filter Drawer States
   const [filters, setFilters] = useState({
@@ -383,19 +400,71 @@ export default function StudentSearchPage() {
           </div>
 
           {/* College / Landmark */}
-          <div>
+          <div className="relative" ref={collegeDropdownRef}>
             <label className="block text-slate-600 font-semibold mb-1">College / Landmark</label>
-            <select
-              value={selectedCollegeId}
-              onChange={(e) => setSelectedCollegeId(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-emerald-700 font-bold focus:bg-white focus:border-emerald-500"
+            <button
+              type="button"
+              onClick={() => setCollegeDropdownOpen((prev) => !prev)}
+              className="w-full bg-slate-50 hover:bg-white border border-slate-200 focus:border-emerald-500 rounded-lg px-2.5 py-2 text-emerald-700 font-bold flex items-center justify-between gap-1.5 transition-all text-left"
             >
-              {COLLEGES_DATA.map((col) => (
-                <option key={col.id} value={col.id}>
-                  🎓 {col.name}
-                </option>
-              ))}
-            </select>
+              <span className="flex items-center gap-1.5 min-w-0">
+                {selectedCollege.type === 'LANDMARK' ? (
+                  <MapPin className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                ) : (
+                  <Landmark className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                )}
+                <span className="truncate">{selectedCollege.name}</span>
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-slate-500 shrink-0 transition-transform duration-150 ${
+                  collegeDropdownOpen ? 'rotate-180 text-emerald-600' : ''
+                }`}
+              />
+            </button>
+
+            {collegeDropdownOpen && (
+              <div className="absolute z-50 left-0 right-0 md:w-72 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 max-h-64 overflow-y-auto animate-fade-in">
+                {COLLEGES_DATA.map((col) => {
+                  const isSelected = col.id === selectedCollegeId;
+                  const isLandmark = col.type === 'LANDMARK';
+                  return (
+                    <button
+                      key={col.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCollegeId(col.id);
+                        setCollegeDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left flex items-center gap-2.5 text-xs transition-colors ${
+                        isSelected
+                          ? 'bg-emerald-50 text-emerald-800 font-bold'
+                          : 'text-slate-700 hover:bg-slate-50 font-medium'
+                      }`}
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : isLandmark
+                            ? 'bg-teal-50 text-teal-600 border-teal-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {isLandmark ? (
+                          <MapPin className="w-3.5 h-3.5" />
+                        ) : (
+                          <Landmark className="w-3.5 h-3.5" />
+                        )}
+                      </span>
+                      <span className="truncate flex-1">{col.name}</span>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* F: Radius Search */}
@@ -409,7 +478,7 @@ export default function StudentSearchPage() {
               <option value="0.5">500 meters (0.5 km)</option>
               <option value="1">1 km</option>
               <option value="2">2 km</option>
-              <option value="3">3 km (Rahul Pref)</option>
+              <option value="3">3 km (Recommended)</option>
               <option value="5">5 km</option>
               <option value="10">10 km</option>
             </select>
