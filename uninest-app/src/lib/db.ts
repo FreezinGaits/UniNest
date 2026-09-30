@@ -12,17 +12,21 @@ const rawPrisma =
     log: [],
   });
 
-// If deployed to cloud (Vercel/Render) with a localhost DATABASE_URL, trip circuit immediately
-const isUnreachableLocalUrlInCloud =
-  Boolean(process.env.VERCEL || process.env.RENDER) &&
-  Boolean(!process.env.DATABASE_URL || process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1'));
+// If DATABASE_URL is missing or points to the default unseeded localhost:5432 placeholder
+// (unless UNINEST_LIVE_DB="true" is explicitly set), trip the circuit breaker immediately
+// so Prisma never blocks requests for 2-5 seconds attempting dead TCP retries.
+const dbUrl = process.env.DATABASE_URL || '';
+const isDefaultLocalPlaceholder =
+  !dbUrl ||
+  ((dbUrl.includes('localhost:5432') || dbUrl.includes('127.0.0.1:5432')) &&
+    process.env.UNINEST_LIVE_DB !== 'true');
 
-if (isUnreachableLocalUrlInCloud && !globalForPrisma.dbOfflineUntil) {
-  globalForPrisma.dbOfflineUntil = Date.now() + 3600_000;
+if (isDefaultLocalPlaceholder && !globalForPrisma.dbOfflineUntil) {
+  globalForPrisma.dbOfflineUntil = Number.MAX_SAFE_INTEGER;
 }
 
-const DB_TIMEOUT_MS = 300;
-const CIRCUIT_COOLDOWN_MS = 120_000; // 2 minutes fast-fail cooldown when DB is unreachable
+const DB_TIMEOUT_MS = 200;
+const CIRCUIT_COOLDOWN_MS = 300_000; // 5 minutes fast-fail cooldown when DB is unreachable
 
 function isConnectionError(err: any): boolean {
   if (!err) return false;

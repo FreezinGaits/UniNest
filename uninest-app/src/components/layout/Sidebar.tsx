@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -210,9 +210,16 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
   const { isInstallable } = usePwaInstallState();
   const navItems = roleNavItems[role] || [];
   const bottomItems = mobileBottomTabs[role] || mobileBottomTabs.STUDENT;
+
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
+
+  const activePath = pendingPath || pathname;
 
   const roleLabelMap: Record<string, string> = {
     STUDENT: 'Student',
@@ -325,13 +332,15 @@ export function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = activePath === item.href || activePath.startsWith(item.href + '/');
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                prefetch={false}
-                onClick={() => setIsOpen(false)}
+                onClick={() => {
+                  setPendingPath(item.href);
+                  setIsOpen(false);
+                }}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150',
                   isActive
@@ -419,13 +428,13 @@ export function Sidebar({
       {/* Role-Aware Sticky Mobile Bottom Navigation Bar (< md) */}
       <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface/95 backdrop-blur-md border-t border-border z-40 px-2 flex items-center justify-around md:hidden shadow-lg">
         {bottomItems.map((tab) => {
-          const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
+          const isActive = activePath === tab.href || activePath.startsWith(tab.href + '/');
           if (tab.featured) {
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                prefetch={false}
+                onClick={() => setPendingPath(tab.href)}
                 className="flex flex-col items-center justify-center -mt-4"
               >
                 <div
@@ -454,7 +463,7 @@ export function Sidebar({
             <Link
               key={tab.href}
               href={tab.href}
-              prefetch={false}
+              onClick={() => setPendingPath(tab.href)}
               className={cn(
                 'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors min-w-[56px]',
                 isActive ? 'text-brand-600 font-bold' : 'text-text-tertiary hover:text-text-primary'

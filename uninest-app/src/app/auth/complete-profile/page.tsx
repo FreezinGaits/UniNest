@@ -29,22 +29,58 @@ export default function CompleteGoogleProfilePage() {
   useEffect(() => {
     fetch('/api/profile')
       .then((r) => r.json())
-      .then((data) => {
+      .then(async (data) => {
         if (data?.authenticated && data?.user) {
-          setName(data.user.name || '');
-          setEmail(data.user.email || '');
-          setAvatarUrl(data.user.avatarUrl || '');
-          if (data.user.role === 'LANDLORD' || data.user.role === 'STUDENT') {
-            setRole(data.user.role);
-          }
+          const uEmail = (data.user.email || '').trim().toLowerCase();
+          const uName = data.user.name || '';
+          const uAvatar = data.user.avatarUrl || '';
+          const uRole: 'STUDENT' | 'LANDLORD' =
+            data.user.role === 'LANDLORD' ? 'LANDLORD' : 'STUDENT';
+
+          setName(uName);
+          setEmail(uEmail);
+          setAvatarUrl(uAvatar);
+          setRole(uRole);
+
+          // If server already has their phone number, redirect immediately
           if (data.user.phone) {
-            setPhone(data.user.phone);
+            router.replace(uRole === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
+            return;
+          }
+
+          // Check if this browser already saved this user's phone number previously
+          try {
+            const rawKnown = localStorage.getItem(`uninest_known_user_${uEmail}`);
+            if (rawKnown) {
+              const saved = JSON.parse(rawKnown);
+              if (saved?.phone) {
+                const targetRole = saved.role === 'LANDLORD' ? 'LANDLORD' : uRole;
+                await fetch('/api/profile', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: saved.name || uName,
+                    email: uEmail,
+                    phone: saved.phone,
+                    avatarUrl: uAvatar,
+                    role: targetRole,
+                    organization: saved.organization,
+                  }),
+                });
+                router.replace(
+                  targetRole === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard'
+                );
+                return;
+              }
+            }
+          } catch {
+            // Ignore localStorage parse error
           }
         }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   async function handleComplete(e: React.FormEvent) {
     e.preventDefault();
@@ -59,13 +95,37 @@ export default function CompleteGoogleProfilePage() {
       const cleanPhone = phone.trim().startsWith('+91')
         ? phone.trim()
         : `+91 ${phone.trim().replace(/^0+/, '')}`;
+      const cleanEmail = email.trim().toLowerCase();
+
+      // Save per-email persistent record in localStorage as well
+      const profileData = {
+        name,
+        email: cleanEmail,
+        phone: cleanPhone,
+        avatarUrl,
+        role,
+        organization: organization.trim() || undefined,
+        collegeName: role === 'STUDENT' ? organization.trim() : undefined,
+        college: role === 'STUDENT' ? organization.trim() : undefined,
+        company: role === 'LANDLORD' ? organization.trim() : undefined,
+        companyName: role === 'LANDLORD' && organization.trim() ? organization.trim() : undefined,
+      };
+
+      localStorage.setItem(`uninest_known_user_${cleanEmail}`, JSON.stringify(profileData));
+      localStorage.setItem(
+        role === 'LANDLORD' ? 'uninest_landlord_profile' : 'uninest_student_profile',
+        JSON.stringify(profileData)
+      );
+      if (role === 'STUDENT' && cleanEmail) {
+        localStorage.setItem(`uninest_student_profile_${cleanEmail}`, JSON.stringify(profileData));
+      }
 
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
-          email,
+          email: cleanEmail,
           phone: cleanPhone,
           avatarUrl,
           role,
@@ -75,25 +135,8 @@ export default function CompleteGoogleProfilePage() {
         }),
       });
 
-      const storageKey =
-        role === 'LANDLORD' ? 'uninest_landlord_profile' : 'uninest_student_profile';
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          name,
-          email,
-          phone: cleanPhone,
-          avatarUrl,
-          collegeName: role === 'STUDENT' ? organization.trim() : undefined,
-          college: role === 'STUDENT' ? organization.trim() : undefined,
-          company: role === 'LANDLORD' ? organization.trim() : undefined,
-          companyName: role === 'LANDLORD' && organization.trim() ? organization.trim() : undefined,
-        })
-      );
-
       if (res.ok) {
-        router.push(role === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
-        router.refresh();
+        router.replace(role === 'LANDLORD' ? '/landlord/dashboard' : '/student/dashboard');
       } else {
         setError('Could not save profile. Please try again.');
         setSaving(false);

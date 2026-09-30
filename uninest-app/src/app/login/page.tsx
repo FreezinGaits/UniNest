@@ -144,23 +144,21 @@ function LoginContent() {
         password,
         role: selectedRole,
       });
-      setLoading(false);
       if (regResult.success) {
         saveRecentAccount({
           name: name.trim() || email.split('@')[0],
           email: email.trim(),
           role: selectedRole === 'LANDLORD' ? 'Landlord' : 'Student',
         });
-        router.push(redirectTo || ROLE_DASHBOARD_MAP[regResult.role || 'STUDENT'] || '/student/dashboard');
-        router.refresh();
+        router.replace(redirectTo || ROLE_DASHBOARD_MAP[regResult.role || 'STUDENT'] || '/student/dashboard');
       } else {
+        setLoading(false);
         setError(regResult.error || 'Registration failed. Please check your details.');
       }
       return;
     }
 
     const result = await login(email, password);
-    setLoading(false);
     if (result.success) {
       const inferredName = email
         .split('@')[0]
@@ -180,9 +178,9 @@ function LoginContent() {
             ? 'Provider'
             : 'Student',
       });
-      router.push(redirectTo || ROLE_DASHBOARD_MAP[result.role || 'STUDENT'] || '/student/dashboard');
-      router.refresh();
+      router.replace(redirectTo || ROLE_DASHBOARD_MAP[result.role || 'STUDENT'] || '/student/dashboard');
     } else {
+      setLoading(false);
       setError(result.error || 'Authentication failed. Please check your credentials.');
     }
   }
@@ -210,12 +208,11 @@ function LoginContent() {
         role: account.role,
       });
       const role = result.role || account.roleCode || 'STUDENT';
-      router.push(redirectTo || ROLE_DASHBOARD_MAP[role] || '/student/dashboard');
-      router.refresh();
+      router.replace(redirectTo || ROLE_DASHBOARD_MAP[role] || '/student/dashboard');
     } else {
+      setLoading(false);
       setError(result.error || 'Login failed');
     }
-    setLoading(false);
   }
 
   async function handleRecentAccountClick(acct: RecentAccount) {

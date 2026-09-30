@@ -42,7 +42,6 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
           PROVIDER: '/provider/dashboard',
         };
         router.push(roleRoutes[newRole] || '/');
-        router.refresh();
       }
     } catch (err) {
       console.error('Role switch failed:', err);
@@ -53,8 +52,7 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
 
   async function handleLogout() {
     await logout();
-    router.push('/login');
-    router.refresh();
+    router.replace('/login');
   }
 
   return (
