@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "npx prisma db push --accept-data-loss && next build",
+    "postbuild": "node scripts/link-output.js",
     "start": "next start -p 3001",
     "lint": "eslint",
     "postinstall": "prisma generate",
