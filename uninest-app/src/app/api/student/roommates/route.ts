@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const gender = searchParams.get('gender') || '';
     const maxBudget = searchParams.get('maxBudget') ? parseInt(searchParams.get('maxBudget')!) : null;
     const roomType = searchParams.get('roomType') || '';
+    const availability = searchParams.get('availability') || 'ALL';
     const currentStudentId = searchParams.get('studentId') || '';
     const targetRequestId = searchParams.get('id') || '';
 
@@ -166,6 +167,11 @@ export async function GET(request: Request) {
         description: r.description || 'Focused student looking for a clean, peaceful roommate near PCTE campus.',
         isVerified: r.isVerified ?? true,
         compatibility: comp,
+        isCurrentRoommate: Boolean(r.isCurrentRoommate || r.id === 'req-aman-id'),
+        status: r.status || (r.id === 'req-aman-id' ? 'MATCHED' : 'ACTIVE'),
+        tenancyStatus: r.tenancyStatus || (r.id === 'req-aman-id' ? 'ACCOMMODATED' : 'SEARCHING'),
+        currentProperty: r.currentProperty || (r.id === 'req-aman-id' ? 'PCTE Smart Student Residency' : undefined),
+        currentRoom: r.currentRoom || (r.id === 'req-aman-id' ? 'Room 204-A (Bed 2)' : undefined),
       };
     });
 
@@ -205,6 +211,14 @@ export async function GET(request: Request) {
 
     if (maxBudget) {
       results = results.filter((r) => r.budgetMin <= maxBudget);
+    }
+
+    if (availability && availability !== 'ALL') {
+      if (availability === 'SEARCHING') {
+        results = results.filter((r) => r.tenancyStatus !== 'ACCOMMODATED' && !r.isCurrentRoommate);
+      } else if (availability === 'ACCOMMODATED') {
+        results = results.filter((r) => r.tenancyStatus === 'ACCOMMODATED' || r.isCurrentRoommate);
+      }
     }
 
     // Sort by highest compatibility score first
@@ -266,8 +280,13 @@ function getDemoRoommateRequests() {
       cleanlinessPreference: 'High / Daily Clean',
       smokingPreference: 'Non-Smoker',
       foodPreference: 'Vegetarian',
-      description: 'Looking for a quiet, study-oriented roommate for double sharing PG on Ferozepur Road.',
+      description: 'Currently accommodated with Rahul Sharma at PCTE Smart Student Residency (Room 204-A). Living together in harmony.',
       isVerified: true,
+      isCurrentRoommate: true,
+      status: 'MATCHED',
+      tenancyStatus: 'ACCOMMODATED',
+      currentProperty: 'PCTE Smart Student Residency',
+      currentRoom: 'Room 204-A (Bed 2)',
       compatibility: {
         totalScore: 91,
         breakdown: {

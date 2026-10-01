@@ -33,6 +33,11 @@ interface RoommateRequest {
   foodPreference?: string;
   description?: string;
   isVerified: boolean;
+  isCurrentRoommate?: boolean;
+  status?: string;
+  tenancyStatus?: 'SEARCHING' | 'ACCOMMODATED';
+  currentProperty?: string;
+  currentRoom?: string;
   compatibility: {
     totalScore: number;
     breakdown: Record<string, number>;
@@ -49,6 +54,7 @@ export default function RoommateDiscoveryPage() {
   const [selectedLocality, setSelectedLocality] = useState('ALL');
   const [selectedGender, setSelectedGender] = useState('ALL');
   const [selectedRoomType, setSelectedRoomType] = useState('ALL');
+  const [selectedAvailability, setSelectedAvailability] = useState('ALL');
   const [maxBudget, setMaxBudget] = useState(15000);
   const [expressedInterests, setExpressedInterests] = useState<Record<string, boolean>>({});
   const [showMatchModal, setShowMatchModal] = useState<any>(null);
@@ -56,7 +62,7 @@ export default function RoommateDiscoveryPage() {
 
   useEffect(() => {
     fetchRequests();
-  }, [selectedLocality, selectedGender, selectedRoomType, maxBudget]);
+  }, [selectedLocality, selectedGender, selectedRoomType, maxBudget, selectedAvailability]);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -66,6 +72,7 @@ export default function RoommateDiscoveryPage() {
       if (selectedLocality !== 'ALL') params.set('locality', selectedLocality);
       if (selectedGender !== 'ALL') params.set('gender', selectedGender);
       if (selectedRoomType !== 'ALL') params.set('roomType', selectedRoomType);
+      if (selectedAvailability !== 'ALL') params.set('availability', selectedAvailability);
       if (maxBudget) params.set('maxBudget', maxBudget.toString());
 
       const res = await fetch(`/api/student/roommates?${params.toString()}`);
@@ -194,7 +201,8 @@ export default function RoommateDiscoveryPage() {
                   setSelectedLocality('ALL');
                   setSelectedGender('ALL');
                   setSelectedRoomType('ALL');
-                  setMaxBudget(10000);
+                  setSelectedAvailability('ALL');
+                  setMaxBudget(15000);
                   setSearchQuery('');
                 }}
                 className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold"
@@ -204,6 +212,19 @@ export default function RoommateDiscoveryPage() {
             </div>
 
             <form onSubmit={handleSearchSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1.5">Housing / Match Status</label>
+                <select
+                  value={selectedAvailability}
+                  onChange={(e) => setSelectedAvailability(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-medium"
+                >
+                  <option value="ALL">All Profiles (Searching & Matched)</option>
+                  <option value="SEARCHING">Actively Searching Roommate</option>
+                  <option value="ACCOMMODATED">Already Matched / Accommodated</option>
+                </select>
+              </div>
+
               <div>
                 <label className="font-semibold text-slate-700 block mb-1.5">Keyword Search</label>
                 <div className="relative">
@@ -347,11 +368,23 @@ export default function RoommateDiscoveryPage() {
                     key={req.id}
                     className="bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all duration-200 p-5 rounded-2xl flex flex-col justify-between relative overflow-hidden group shadow-sm"
                   >
-                    {/* Compatibility Score Ribbon */}
-                    <div className="absolute top-4 right-4 flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full text-emerald-700 font-extrabold text-xs">
-                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                      {score}% Match
-                    </div>
+                    {/* Compatibility / Housing Status Ribbon */}
+                    {req.isCurrentRoommate ? (
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-blue-700 font-bold text-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                        Current Roommate
+                      </div>
+                    ) : req.tenancyStatus === 'ACCOMMODATED' ? (
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full text-slate-600 font-semibold text-xs">
+                        <Home className="w-3.5 h-3.5 text-slate-500" />
+                        Accommodated
+                      </div>
+                    ) : (
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full text-emerald-700 font-extrabold text-xs">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        {score}% Match
+                      </div>
+                    )}
 
                     <div>
                       {/* User Header */}
@@ -436,38 +469,79 @@ export default function RoommateDiscoveryPage() {
                           "{req.description}"
                         </p>
                       )}
+
+                      {req.isCurrentRoommate && (
+                        <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-2.5 mb-3.5 text-xs text-blue-900 flex items-center gap-2">
+                          <Home className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span>Living together in <strong>{req.currentRoom || 'Room 204-A'}</strong> at <strong>{req.currentProperty || 'PCTE Smart Student Residency'}</strong></span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Footer */}
                     <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-                      <Link href={`/student/roommates/${req.id}`} className="flex-1">
-                        <Button variant="secondary" className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs py-2 rounded-xl">
-                          <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-600" />
-                          View Profile
-                        </Button>
-                      </Link>
+                      {req.isCurrentRoommate ? (
+                        <>
+                          <Link href="/student/stay" className="flex-1">
+                            <Button variant="secondary" className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs py-2 rounded-xl">
+                              <Home className="w-3.5 h-3.5 mr-1.5 text-slate-600" />
+                              View Stay Hub
+                            </Button>
+                          </Link>
+                          <Link href="/student/roommates/matches/match-rahul-aman/chat" className="flex-1">
+                            <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs py-2 font-bold rounded-xl shadow-sm">
+                              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                              Chat
+                            </Button>
+                          </Link>
+                        </>
+                      ) : req.tenancyStatus === 'ACCOMMODATED' ? (
+                        <>
+                          <Link href={`/student/roommates/${req.id}`} className="flex-1">
+                            <Button variant="secondary" className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs py-2 rounded-xl">
+                              <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-600" />
+                              View Profile
+                            </Button>
+                          </Link>
+                          <Button
+                            disabled
+                            className="flex-1 text-xs py-2 font-medium rounded-xl bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                          >
+                            Room Filled
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Link href={`/student/roommates/${req.id}`} className="flex-1">
+                            <Button variant="secondary" className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 text-xs py-2 rounded-xl">
+                              <Eye className="w-3.5 h-3.5 mr-1.5 text-slate-600" />
+                              View Profile
+                            </Button>
+                          </Link>
 
-                      <Button
-                        onClick={() => handleExpressInterest(req)}
-                        disabled={isSent}
-                        className={`flex-1 text-xs py-2 font-bold rounded-xl ${
-                          isSent
-                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                        }`}
-                      >
-                        {isSent ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                            Interest Sent
-                          </>
-                        ) : (
-                          <>
-                            <Heart className="w-3.5 h-3.5 mr-1 fill-white" />
-                            I'm Interested
-                          </>
-                        )}
-                      </Button>
+                          <Button
+                            onClick={() => handleExpressInterest(req)}
+                            disabled={isSent}
+                            className={`flex-1 text-xs py-2 font-bold rounded-xl ${
+                              isSent
+                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                            }`}
+                          >
+                            {isSent ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                Interest Sent
+                              </>
+                            ) : (
+                              <>
+                                <Heart className="w-3.5 h-3.5 mr-1 fill-white" />
+                                I'm Interested
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );

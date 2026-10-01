@@ -90,8 +90,8 @@ export default function MyStayDetailsPage() {
               <Badge variant="success">ACTIVE TENANCY</Badge>
               <span className="text-xs text-text-tertiary font-mono">ID: TEN-2026-8912</span>
             </div>
-            <h2 className="text-xl font-bold text-text-primary">ABC Student Residence</h2>
-            <p className="text-sm text-text-secondary">Plot 45, Near PCTE Campus Main Gate, Baddowal, Ludhiana</p>
+            <h2 className="text-xl font-bold text-text-primary">PCTE Smart Student Residency</h2>
+            <p className="text-sm text-text-secondary">Plot 42, Opp. PCTE Campus, Ferozepur Road, Ludhiana</p>
             <div className="flex flex-wrap items-center gap-4 text-xs text-text-secondary pt-1">
               <span>Room: <strong>204-A (Double Sharing)</strong></span>
               <span>Bed: <strong>204-A-1</strong></span>
@@ -103,7 +103,7 @@ export default function MyStayDetailsPage() {
           <div className="flex flex-col items-start md:items-end justify-center p-4 bg-brand-50/50 rounded-2xl border border-brand-100 min-w-[220px]">
             <span className="text-xs font-semibold text-brand-800 uppercase tracking-wider">Landlord Contact</span>
             <span className="text-sm font-bold text-text-primary mt-0.5">Vikram Singh</span>
-            <span className="text-xs text-text-secondary">+91 98765 43210</span>
+            <span className="text-xs text-text-secondary">+91 98989 89801</span>
             <Badge variant="outline" className="mt-2 text-[10px]">VERIFIED LANDLORD</Badge>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function MyStayDetailsPage() {
             <p className="text-xs text-text-secondary">Algorithmic preference matching based on student living habits</p>
           </div>
           <Badge variant="success" size="sm" className="bg-emerald-100 text-emerald-800 font-bold">
-            87% MATCH SCORE
+            91% MATCH SCORE
           </Badge>
         </div>
 
@@ -128,11 +128,11 @@ export default function MyStayDetailsPage() {
           <Card className="md:col-span-1 space-y-4 border-l-4 border-l-brand-600">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center font-bold text-brand-700 text-lg">
-                AS
+                AV
               </div>
               <div>
-                <h3 className="font-bold text-text-primary">Aman Sharma</h3>
-                <p className="text-xs text-text-secondary">B.Tech CSE · 3rd Year (PCTE)</p>
+                <h3 className="font-bold text-text-primary">Aman Verma</h3>
+                <p className="text-xs text-text-secondary">B.Tech CSE · 2nd Year (PCTE)</p>
                 <Badge variant="outline" className="text-[10px] mt-1">Bed 204-A-2</Badge>
               </div>
             </div>
@@ -140,7 +140,7 @@ export default function MyStayDetailsPage() {
             <div className="pt-2 border-t border-border space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-text-tertiary">Sleep Schedule</span>
-                <span className="font-semibold text-text-primary">Night Owl (12 AM - 7 AM)</span>
+                <span className="font-semibold text-text-primary">Night Owl (12 AM - 8 AM)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-text-tertiary">Noise Preference</span>
@@ -164,7 +164,7 @@ export default function MyStayDetailsPage() {
           {/* Matching Analysis Breakdown */}
           <Card className="md:col-span-2 space-y-4">
             <h3 className="font-bold text-sm text-text-primary border-b border-border pb-2">
-              Why Rahul & Aman Are an 87% Match
+              Why Rahul & Aman Are a 91% Match
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
