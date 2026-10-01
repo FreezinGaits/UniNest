@@ -168,3 +168,21 @@ export async function createElectricityReading(data: {
 
   return newReading;
 }
+
+export async function markElectricityReadingPaid(identifier: string): Promise<ElectricityReadingItem | null> {
+  const all = await getAllElectricityReadings();
+  const target = all.find(
+    (r) =>
+      r.id === identifier ||
+      r.room.includes(identifier) ||
+      (identifier === 'CURRENT_STUDENT_SHARE' && (r.room.includes('204') || r.tenant === 'Rahul Sharma'))
+  );
+
+  if (target) {
+    target.status = 'PAID';
+    globalForElectricityStore.uninestElectricityMemory = all;
+    writeReadingsToDisk(all);
+    return target;
+  }
+  return null;
+}
