@@ -265,7 +265,7 @@ export default function RoommateDiscoveryPage() {
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="font-semibold text-slate-700">Max Budget</label>
-                  <span className="font-bold text-emerald-600">₹{maxBudget.toLocaleString()}/mo</span>
+                  <span className="font-bold text-emerald-600">₹{maxBudget.toLocaleString('en-IN')}/mo</span>
                 </div>
                 <input
                   type="range"
@@ -276,6 +276,9 @@ export default function RoommateDiscoveryPage() {
                   onChange={(e) => setMaxBudget(parseInt(e.target.value))}
                   className="w-full accent-emerald-600 bg-slate-200 h-1.5 rounded-lg appearance-none cursor-pointer"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Matches roommates whose budget starts at or below ₹{maxBudget.toLocaleString('en-IN')}/mo
+                </p>
               </div>
 
               <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 rounded-xl">
@@ -405,19 +408,25 @@ export default function RoommateDiscoveryPage() {
                         )}
                       </div>
 
-                      {/* Location & Budget Row */}
-                      <div className="grid grid-cols-2 gap-2 text-xs py-2.5 px-3 bg-slate-50 rounded-xl border border-slate-200 mb-3.5">
+                      {/* Location, Room Type & Budget Row */}
+                      <div className="grid grid-cols-3 gap-2 text-xs py-2.5 px-3 bg-slate-50 rounded-xl border border-slate-200 mb-3.5">
                         <div>
-                          <span className="text-slate-500 block text-[11px]">Preferred Area:</span>
-                          <span className="text-slate-800 font-semibold flex items-center mt-0.5">
+                          <span className="text-slate-500 block text-[10px]">Preferred Area:</span>
+                          <span className="text-slate-800 font-semibold flex items-center mt-0.5 truncate">
                             <MapPin className="w-3 h-3 text-emerald-600 mr-1 shrink-0" />
-                            {req.locality}
+                            <span className="truncate">{req.locality}</span>
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500 block text-[11px]">Budget Range:</span>
-                          <span className="text-emerald-700 font-extrabold mt-0.5 block">
-                            ₹{req.budgetMin.toLocaleString()} - ₹{req.budgetMax.toLocaleString()}/mo
+                          <span className="text-slate-500 block text-[10px]">Room Type:</span>
+                          <span className="text-slate-800 font-semibold mt-0.5 block truncate">
+                            {req.roomType || 'Double Sharing'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Budget Range:</span>
+                          <span className="text-emerald-700 font-extrabold mt-0.5 block truncate">
+                            ₹{req.budgetMin.toLocaleString('en-IN')} - ₹{req.budgetMax.toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
