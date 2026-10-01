@@ -530,8 +530,9 @@ export async function authenticateGoogleUser(input: {
 
   const { token, expires } = await setSessionCookie(userRecord);
 
-  // Only ask for phone number on first sign-up when no phone number is saved yet
-  const needsOnboarding = !existingPhone && !mappedDemoRole;
+  // Only ask for phone number on first sign-up when no phone number is saved yet.
+  // Returning registered users (who already exist in DB or have known profiles) NEVER need onboarding again!
+  const needsOnboarding = isNewUser && !existingPhone && !mappedDemoRole;
 
   return {
     success: true,
@@ -624,7 +625,13 @@ export async function updateSessionProfile(input: {
   organization?: string;
   college?: string;
   companyName?: string;
-}): Promise<{ success: boolean; role?: UserRole }> {
+}): Promise<{
+  success: boolean;
+  role?: UserRole;
+  token?: string;
+  expires?: string;
+  profile?: KnownUserProfile;
+}> {
   const current = await getSession();
   if (!current) return { success: false };
 
@@ -687,7 +694,7 @@ export async function updateSessionProfile(input: {
   }
 
   // Persist to 365-day known profiles cookie + server memory so re-logins never ask for phone again!
-  await saveKnownProfile({
+  const profileToSave: KnownUserProfile = {
     id: current.userId,
     email: cleanEmail,
     name: cleanName,
@@ -695,9 +702,11 @@ export async function updateSessionProfile(input: {
     phone: cleanPhone,
     avatarUrl: cleanAvatar,
     organization: orgText || undefined,
-  });
+  };
 
-  await setSessionCookie({
+  await saveKnownProfile(profileToSave);
+
+  const { token, expires } = await setSessionCookie({
     id: current.userId,
     email: cleanEmail,
     name: cleanName,
@@ -706,6 +715,12 @@ export async function updateSessionProfile(input: {
     avatarUrl: cleanAvatar,
   });
 
-  return { success: true, role: targetRole };
+  return {
+    success: true,
+    role: targetRole,
+    token,
+    expires,
+    profile: profileToSave,
+  };
 }
 

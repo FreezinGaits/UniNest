@@ -121,6 +121,26 @@ export async function GET(request: NextRequest) {
       expires: new Date(authResult.expires),
     });
 
+    if (authResult.user.phone) {
+      const knownProfilePayload = {
+        [authResult.user.email]: {
+          id: authResult.user.id,
+          name: authResult.user.name,
+          email: authResult.user.email,
+          role: authResult.user.role,
+          phone: authResult.user.phone,
+          avatarUrl: authResult.user.avatarUrl,
+        },
+      };
+      response.cookies.set('uninest_known_profiles', encodeURIComponent(JSON.stringify(knownProfilePayload)), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 365 * 24 * 60 * 60,
+      });
+    }
+
     return response;
   } catch (err: any) {
     console.error('Google OAuth callback error:', err);

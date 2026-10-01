@@ -96,8 +96,14 @@ export function DashboardShell({ children, role, userName, userEmail }: Dashboar
   }
 
   async function handleLogout() {
-    await logout();
-    router.replace('/login');
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.clear();
+      }
+    } catch {}
+    // Trigger server cookie clearance in background without blocking UI
+    logout().catch(() => {});
+    window.location.href = '/login';
   }
 
   return (

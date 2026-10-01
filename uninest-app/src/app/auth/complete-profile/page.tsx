@@ -50,7 +50,11 @@ export default function CompleteGoogleProfilePage() {
 
           // Check if this browser already saved this user's phone number previously
           try {
-            const rawKnown = localStorage.getItem(`uninest_known_user_${uEmail}`);
+            const rawKnown =
+              localStorage.getItem(`uninest_known_user_${uEmail}`) ||
+              localStorage.getItem(`uninest_student_profile_${uEmail}`) ||
+              localStorage.getItem('uninest_student_profile') ||
+              localStorage.getItem('uninest_landlord_profile');
             if (rawKnown) {
               const saved = JSON.parse(rawKnown);
               if (saved?.phone) {

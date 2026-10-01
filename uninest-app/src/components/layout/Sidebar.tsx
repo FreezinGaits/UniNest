@@ -337,6 +337,7 @@ export function Sidebar({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 onClick={() => {
                   setPendingPath(item.href);
                   setIsOpen(false);
@@ -434,6 +435,7 @@ export function Sidebar({
               <Link
                 key={tab.href}
                 href={tab.href}
+                prefetch={true}
                 onClick={() => setPendingPath(tab.href)}
                 className="flex flex-col items-center justify-center -mt-4"
               >
@@ -463,6 +465,7 @@ export function Sidebar({
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={true}
               onClick={() => setPendingPath(tab.href)}
               className={cn(
                 'flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-colors min-w-[56px]',

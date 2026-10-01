@@ -3,10 +3,28 @@ import { getSession, updateSessionProfile } from '@/lib/auth/actions';
 import { prisma } from '@/lib/db';
 import { UserRole } from '@prisma/client';
 
+interface CachedProfile {
+  data: any;
+  cachedAt: number;
+}
+
+const profileMemoryCache = new Map<string, CachedProfile>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds memory cache for fast tab navigation
+
 export async function GET() {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
+  }
+
+  // Fast-path: return cached profile instantly (< 1ms)
+  const cached = profileMemoryCache.get(session.userId);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return NextResponse.json(cached.data, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+      },
+    });
   }
 
   let dbPhone = session.phone || '';
@@ -59,10 +77,21 @@ export async function GET() {
     companyName: dbCompanyName || undefined,
   };
 
-  return NextResponse.json({
+  const responseData = {
     authenticated: true,
     ...userPayload,
     user: userPayload,
+  };
+
+  profileMemoryCache.set(session.userId, {
+    data: responseData,
+    cachedAt: Date.now(),
+  });
+
+  return NextResponse.json(responseData, {
+    headers: {
+      'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+    },
   });
 }
 
@@ -103,6 +132,16 @@ export async function POST(request: NextRequest) {
         },
       });
       if (dbUser) {
+        await prisma.user.update({
+          where: { id: dbUser.id },
+          data: {
+            name: resolvedName,
+            ...(phone ? { phone: phone.trim() } : {}),
+            ...(avatarUrl ? { avatarUrl } : {}),
+            ...(validRole ? { role: validRole } : {}),
+          },
+        });
+
         if ((validRole || dbUser.role) === 'LANDLORD') {
           await prisma.landlord.upsert({
             where: { userId: dbUser.id },
@@ -128,11 +167,47 @@ export async function POST(request: NextRequest) {
       // Offline fallback handled via session cookie
     }
 
-    return NextResponse.json({
+    if (session?.userId) {
+      profileMemoryCache.delete(session.userId);
+    }
+
+    const response = NextResponse.json({
       success: result.success,
       role: result.role,
       message: 'Profile synchronized with active session.',
     });
+
+    if (result.token && result.expires) {
+      response.cookies.set('session', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        expires: new Date(result.expires),
+      });
+    }
+
+    if (result.profile) {
+      const knownProfiles = {
+        [result.profile.email]: {
+          id: result.profile.id,
+          name: result.profile.name,
+          email: result.profile.email,
+          role: result.profile.role,
+          phone: result.profile.phone,
+          avatarUrl: result.profile.avatarUrl,
+        },
+      };
+      response.cookies.set('uninest_known_profiles', encodeURIComponent(JSON.stringify(knownProfiles)), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 365 * 24 * 60 * 60,
+      });
+    }
+
+    return response;
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || 'Failed to update profile' },

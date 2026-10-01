@@ -76,7 +76,18 @@ async function main() {
   await prisma.student.deleteMany();
   await prisma.landlord.deleteMany();
   await prisma.college.deleteMany();
-  await prisma.user.deleteMany();
+  // Protect real registered users: only delete demo personas
+  await prisma.user.deleteMany({
+    where: {
+      OR: [
+        { email: { endsWith: '@uninest.demo' } },
+        { email: { endsWith: '@uninest.in' } },
+        { email: { endsWith: '@pcte.edu.in' } },
+        { email: { endsWith: '@passiresidency.in' } },
+        { email: { endsWith: '@quickfix.in' } },
+      ],
+    },
+  });
 
   // === USERS & DEMO PERSONAS ===
   const studentUser1 = await prisma.user.create({
