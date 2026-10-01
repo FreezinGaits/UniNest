@@ -1,14 +1,49 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+export async function GET() {
+  try {
+    const dbTickets = await prisma.maintenanceTicket.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { property: true },
+    });
+    return NextResponse.json({
+      success: true,
+      tickets: dbTickets.map((t: any) => ({
+        id: t.id,
+        ticketId: `MNT-2026-0${t.id.slice(-2)}`,
+        category: t.category || 'PLUMBING',
+        title: t.title || t.description || 'Maintenance Request',
+        description: t.description,
+        priority: t.priority || 'MEDIUM',
+        status: t.status || 'OPEN',
+        technician: t.assignedTo || 'Pending Assignment',
+        createdAt: new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        eta: t.priority === 'URGENT' ? 'Within 2 hours' : 'Within 24 hours',
+        photoAttached: Boolean(t.photoUrls && t.photoUrls.length > 0),
+        photoFileName: t.photoUrls?.[0],
+      })),
+    });
+  } catch {
+    return NextResponse.json({ success: true, tickets: [] });
+  }
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
 
-  if (body.ticketId && body.status) {
+  if (body.ticketId && (body.status || body.rating || body.resolutionNote || body.vendor || body.assignedTo)) {
     try {
+      const updateData: any = {};
+      if (body.status) updateData.status = body.status;
+      if (body.status === 'RESOLVED') updateData.resolvedAt = new Date();
+      if (body.vendor || body.assignedTo) updateData.assignedTo = body.vendor || body.assignedTo;
+      if (body.priority) updateData.priority = body.priority;
+      if (body.resolutionNote) updateData.resolutionNote = body.resolutionNote;
+
       await prisma.maintenanceTicket.update({
         where: { id: body.ticketId },
-        data: { status: body.status },
+        data: updateData,
       });
     } catch {
       // Fallback for in-memory / demo ticket IDs
@@ -17,7 +52,7 @@ export async function POST(request: Request) {
       success: true,
       ticketId: body.ticketId,
       status: body.status,
-      message: `Ticket ${body.ticketId} status updated to ${body.status}`,
+      message: `Ticket ${body.ticketId} updated successfully`,
     });
   }
 
@@ -59,7 +94,7 @@ export async function POST(request: Request) {
           description,
           priority,
           status: 'OPEN',
-          photoUrls: [],
+          photoUrls: Array.isArray(body.photoUrls) ? body.photoUrls : (body.photoFileName ? [body.photoFileName] : []),
         },
       });
 
