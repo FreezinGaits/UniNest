@@ -177,6 +177,25 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
     };
   }, [syncLiveBookingState]);
 
+  if (!booking) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Booking Not Found</h2>
+        <p className="text-sm text-slate-500">
+          The requested booking could not be located. It may have expired or been removed.
+        </p>
+        <Link href="/student/bookings">
+          <button className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs">
+            Return to Bookings
+          </button>
+        </Link>
+      </div>
+    );
+  }
+
   const property = booking?.property || {};
   const room = booking?.bed?.room || {};
   const bed = booking?.bed || {};

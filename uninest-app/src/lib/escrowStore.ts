@@ -346,7 +346,14 @@ export function getStoreBookings(): EscrowBookingRecord[] {
 export function findStoreBooking(bookingId?: string): EscrowBookingRecord | undefined {
   const store = getEscrowStore();
   if (!bookingId) return store.bookings[0];
-  return store.bookings.find((b) => b.id === bookingId);
+  const query = bookingId.trim().toLowerCase();
+  return store.bookings.find(
+    (b) =>
+      b.id.toLowerCase() === query ||
+      b.referenceNo?.toLowerCase() === query ||
+      b.id.toLowerCase().includes(query) ||
+      (b.referenceNo && query.includes(b.referenceNo.toLowerCase()))
+  );
 }
 
 export function updateStoreBooking(
