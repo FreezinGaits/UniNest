@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, StatCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatINR } from '@/lib/utils';
@@ -86,13 +86,52 @@ const INITIAL_ORDERS: AncillaryServiceOrder[] = [
 export default function AdminServicesPage() {
   const [orders, setOrders] = useState<AncillaryServiceOrder[]>(INITIAL_ORDERS);
 
+  useEffect(() => {
+    async function loadLiveOrders() {
+      try {
+        const res = await fetch('/api/demo/service');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.orders)) {
+            const mapped: AncillaryServiceOrder[] = json.orders.map((o: any) => ({
+              id: o.id,
+              serviceName: o.name || 'Student Ancillary Service',
+              requester: `${o.customerName || 'Verified Student'} (${o.room || 'Room 204'})`,
+              requesterRole: 'STUDENT',
+              vendor: o.provider || 'QuickFix Services',
+              orderValuePaise: Number(o.price || 80000),
+              commissionPaise: Math.round(Number(o.price || 80000) * 0.10),
+              status: o.status === 'COMPLETED' ? 'COMPLETED' : 'IN_PROGRESS',
+              date: o.orderedAt || 'Just now',
+            }));
+
+            setOrders((prev) => {
+              const existingIds = new Set(prev.map((ord) => ord.id));
+              const additions = mapped.filter((m) => !existingIds.has(m.id));
+              return [...additions, ...prev];
+            });
+          }
+        }
+      } catch {}
+    }
+
+    loadLiveOrders();
+  }, []);
+
   const totalOrderVolumePaise = orders.reduce((sum, o) => sum + o.orderValuePaise, 0);
   const totalCommissionPaise = orders.reduce((sum, o) => sum + o.commissionPaise, 0);
 
-  const markOrderCompleted = (id: string) => {
+  const markOrderCompleted = async (id: string) => {
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, status: 'COMPLETED' } : o))
     );
+    try {
+      await fetch('/api/demo/service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, status: 'COMPLETED' }),
+      });
+    } catch {}
   };
 
   return (

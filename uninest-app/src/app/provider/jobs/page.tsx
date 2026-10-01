@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatINR } from '@/lib/utils';
@@ -16,6 +16,7 @@ import {
   Play,
   Check,
   Building2,
+  X,
 } from 'lucide-react';
 
 interface JobItem {
@@ -49,7 +50,7 @@ const INITIAL_JOBS: JobItem[] = [
     contactPhone: '+91 98765 43210',
     scheduledSlot: 'Today • Within 90 Mins (Emergency SLA)',
     assignedTech: 'Gurdeep Singh (Sr. Electrician)',
-    amount: 55000, // ₹550 in paise
+    amount: 55000,
     status: 'NEW_REQUEST',
   },
   {
@@ -65,7 +66,7 @@ const INITIAL_JOBS: JobItem[] = [
     contactPhone: '+91 98989 89801',
     scheduledSlot: 'Today • 02:00 PM – 04:00 PM',
     assignedTech: 'Sukhwinder Gill (HVAC Lead)',
-    amount: 80000, // ₹800 in paise
+    amount: 80000,
     status: 'IN_PROGRESS',
   },
   {
@@ -81,7 +82,7 @@ const INITIAL_JOBS: JobItem[] = [
     contactPhone: '+91 98555 44321',
     scheduledSlot: 'Tomorrow • 10:00 AM – 12:00 PM',
     assignedTech: 'Rakesh Verma (Sanitization Lead)',
-    amount: 50000, // ₹500 in paise
+    amount: 50000,
     status: 'NEW_REQUEST',
   },
   {
@@ -97,7 +98,7 @@ const INITIAL_JOBS: JobItem[] = [
     contactPhone: '+91 98765 43210',
     scheduledSlot: 'Completed • 24 Sep 2026',
     assignedTech: 'Manoj Kumar (Master Plumber)',
-    amount: 50000, // ₹500 in paise
+    amount: 50000,
     status: 'COMPLETED',
   },
   {
@@ -113,7 +114,7 @@ const INITIAL_JOBS: JobItem[] = [
     contactPhone: '+91 98142 55667',
     scheduledSlot: 'Completed • 22 Sep 2026',
     assignedTech: 'Manoj Kumar (Master Plumber)',
-    amount: 120000, // ₹1,200 in paise
+    amount: 120000,
     status: 'COMPLETED',
   },
 ];
@@ -121,10 +122,51 @@ const INITIAL_JOBS: JobItem[] = [
 export default function ServiceJobsPage() {
   const [jobs, setJobs] = useState<JobItem[]>(INITIAL_JOBS);
   const [filter, setFilter] = useState<'ALL' | 'NEW_REQUEST' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Load live DB orders & merge
+  useEffect(() => {
+    async function loadLiveOrders() {
+      try {
+        const res = await fetch('/api/demo/service');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.orders)) {
+            const mappedOrders: JobItem[] = json.orders.map((o: any, idx: number) => ({
+              id: o.id || `live-${idx}`,
+              jobCode: `JOB-SRV-${String(o.id).slice(-4).toUpperCase()}`,
+              title: o.name || 'Student Ancillary Service',
+              category: o.category || 'Student Services',
+              priority: 'MEDIUM' as const,
+              property: 'PCTE Smart Student Residency',
+              room: o.room || 'Room 204 (Bed A)',
+              locality: 'Passi Nagar, Ludhiana',
+              requestedBy: `${o.customerName || 'Verified Student'} (Tenant)`,
+              contactPhone: '+91 98765 43210',
+              scheduledSlot: o.scheduledDate
+                ? `Delivery: ${new Date(o.scheduledDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                : 'Within 24 Hours SLA',
+              assignedTech: 'QuickFix Duty Technician',
+              amount: Number(o.price || 80000),
+              status: o.status === 'COMPLETED' ? 'COMPLETED' : o.status === 'IN_PROGRESS' ? 'IN_PROGRESS' : 'NEW_REQUEST',
+            }));
+
+            setJobs((prev) => {
+              const existingIds = new Set(prev.map((j) => j.id));
+              const additions = mappedOrders.filter((mo) => !existingIds.has(mo.id));
+              return [...additions, ...prev];
+            });
+          }
+        }
+      } catch {}
+    }
+
+    loadLiveOrders();
+  }, []);
 
   const filteredJobs = jobs.filter((j) => (filter === 'ALL' ? true : j.status === filter));
 
-  const handleAdvanceStatus = (id: string, nextStatus: 'IN_PROGRESS' | 'COMPLETED') => {
+  const handleAdvanceStatus = async (id: string, nextStatus: 'IN_PROGRESS' | 'COMPLETED') => {
     setJobs((prev) =>
       prev.map((j) =>
         j.id === id
@@ -136,10 +178,35 @@ export default function ServiceJobsPage() {
           : j
       )
     );
+
+    // Sync status with API
+    try {
+      await fetch('/api/demo/service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, status: nextStatus }),
+      });
+    } catch {}
+
+    setToastMessage(`Job ${id} updated to ${nextStatus.replace('_', ' ')}.`);
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between animate-slide-down">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

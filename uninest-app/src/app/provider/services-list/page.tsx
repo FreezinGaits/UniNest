@@ -1,28 +1,69 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { ShoppingBag, Wrench, Zap, Wind, Sparkles, Hammer, Bug, Clock, Star } from 'lucide-react';
+import { ShoppingBag, Wrench, Zap, Wind, Sparkles, Hammer, Bug, Clock, Star, CheckCircle2, X } from 'lucide-react';
 
 const initialServices = [
   { id: 1, name: 'Plumbing', description: 'Pipe repairs, leak fixes, tap replacements', avgTime: '1.5 hrs', rating: 4.8, active: true, icon: Wrench },
   { id: 2, name: 'Electrical', description: 'Wiring, switchboards, appliance installation', avgTime: '2 hrs', rating: 4.9, active: true, icon: Zap },
   { id: 3, name: 'AC/HVAC', description: 'AC servicing, gas refill, installation', avgTime: '1 hr', rating: 4.7, active: true, icon: Wind },
   { id: 4, name: 'Cleaning', description: 'Deep cleaning for single rooms or full PGs', avgTime: '3 hrs', rating: 4.6, active: true, icon: Sparkles },
-  { id: 5, name: 'Carpentry', description: 'Furniture repair, door locks, woodwork', avgTime: '2 hrs', rating: 0, active: false, icon: Hammer },
-  { id: 6, name: 'Pest Control', description: 'General pest control, termite treatment', avgTime: '1.5 hrs', rating: 0, active: false, icon: Bug },
+  { id: 5, name: 'Carpentry', description: 'Furniture repair, door locks, woodwork', avgTime: '2 hrs', rating: 4.5, active: true, icon: Hammer },
+  { id: 6, name: 'Pest Control', description: 'General pest control, termite treatment', avgTime: '1.5 hrs', rating: 4.4, active: false, icon: Bug },
 ];
 
 export default function ServiceOfferingsPage() {
   const [services, setServices] = useState(initialServices);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('uninest_provider_services');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setServices((prev) =>
+            prev.map((s) => {
+              const matched = parsed.find((p: any) => p.id === s.id);
+              return matched ? { ...s, active: matched.active } : s;
+            })
+          );
+        }
+      }
+    } catch {}
+  }, []);
 
   const toggleService = (id: number) => {
-    setServices(services.map(s => s.id === id ? { ...s, active: !s.active } : s));
+    const updated = services.map((s) => (s.id === id ? { ...s, active: !s.active } : s));
+    setServices(updated);
+
+    try {
+      localStorage.setItem('uninest_provider_services', JSON.stringify(updated.map((s) => ({ id: s.id, active: s.active }))));
+    } catch {}
+
+    const target = updated.find((s) => s.id === id);
+    if (target) {
+      setToastMessage(`${target.name} is now ${target.active ? 'Available for PG Booking' : 'Paused'}.`);
+      setTimeout(() => setToastMessage(null), 3000);
+    }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-12">
+      {toastMessage && (
+        <div className="bg-slate-900 text-white text-xs font-bold px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between animate-slide-down">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text-primary">My Service Offerings</h1>

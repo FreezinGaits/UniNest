@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Clock, CheckCircle2, Zap, MapPin, Users, Calendar, Save, Check } from 'lucide-react';
@@ -28,6 +28,17 @@ export default function ProviderAvailabilityPage() {
   const [emergency24x7, setEmergency24x7] = useState(true);
   const [savedToast, setSavedToast] = useState(false);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('uninest_provider_availability');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.schedule) setSchedule(parsed.schedule);
+        if (typeof parsed.emergency24x7 === 'boolean') setEmergency24x7(parsed.emergency24x7);
+      }
+    } catch {}
+  }, []);
+
   const toggleSlot = (idx: number, slot: 'morning' | 'afternoon' | 'evening') => {
     setSchedule((prev) =>
       prev.map((item, i) => (i === idx ? { ...item, [slot]: !item[slot] } : item))
@@ -35,6 +46,12 @@ export default function ProviderAvailabilityPage() {
   };
 
   const handleSaveSchedule = () => {
+    try {
+      localStorage.setItem(
+        'uninest_provider_availability',
+        JSON.stringify({ schedule, emergency24x7 })
+      );
+    } catch {}
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 3000);
   };

@@ -45,19 +45,20 @@ export default async function PartnerServicesPage() {
 
   try {
     const dbOrders = await prisma.serviceOrder.findMany({
+      include: { provider: true },
       orderBy: { createdAt: 'desc' },
     });
     if (dbOrders && dbOrders.length > 0) {
       services = dbOrders.map((o: any) => {
         const rawAmount = o.totalAmount || o.amount || 0;
         const totalAmount = rawAmount < 10000 ? rawAmount * 100 : rawAmount;
-        const rawShare = o.landlordShare || o.landlordCommission || Math.round(totalAmount * 0.1);
+        const rawShare = o.landlordShare || o.landlordCommission || Math.round(totalAmount * 0.05);
         const landlordShare = rawShare < 1000 && totalAmount >= 10000 ? rawShare * 100 : rawShare;
         return {
           id: o.id,
           serviceName: o.serviceName || 'PG Maintenance',
-          provider: 'Ludhiana Home Services',
-          property: 'PCTE Smart Student Residency',
+          provider: o.provider?.businessName || 'QuickFix Services',
+          property: o.property?.name || 'PCTE Smart Student Residency',
           requestedBy: o.customerName || 'Rahul Sharma',
           amount: totalAmount,
           totalAmount,
