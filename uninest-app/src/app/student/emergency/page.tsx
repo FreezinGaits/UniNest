@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import {
   Phone, AlertTriangle, Flame, HeartPulse, ShieldAlert, Wrench,
-  Droplets, Zap, KeyRound, Wind, Building2, CheckCircle2
+  Droplets, Zap, KeyRound, Wind, Building2, CheckCircle2, Clock,
 } from 'lucide-react';
 
 const officialEmergencies = [
@@ -25,43 +25,92 @@ const propertyEmergencies = [
 ];
 
 import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+import { EmergencyDispatchRecord } from '@/lib/emergencyStore';
 
 export default function EmergencyPage() {
   const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
   const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
   const [dispatchedIssue, setDispatchedIssue] = useState<string | null>(null);
+  const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatchRecord | null>(null);
   const [isDispatching, setIsDispatching] = useState(false);
 
   useEffect(() => {
     if (ctxEmail) {
       setIsDemo(isDemoAccountEmail(ctxEmail));
-      return;
+    } else {
+      fetch('/api/profile')
+        .then((res) => res.json())
+        .then((data) => {
+          const email = data?.email || data?.user?.email || '';
+          setIsDemo(isDemoAccountEmail(email));
+        })
+        .catch(() => {
+          setIsDemo(false);
+        });
     }
-    fetch('/api/profile')
+
+    // Load active emergencies
+    fetch('/api/demo/emergency?role=STUDENT')
       .then((res) => res.json())
       .then((data) => {
-        const email = data?.email || data?.user?.email || '';
-        setIsDemo(isDemoAccountEmail(email));
+        if (data.emergencies && Array.isArray(data.emergencies)) {
+          const active = data.emergencies.find((e: EmergencyDispatchRecord) => e.status !== 'RESOLVED');
+          if (active) {
+            setActiveDispatch(active);
+            setDispatchedIssue(active.title);
+          }
+        }
       })
-      .catch(() => {
-        setIsDemo(false);
-      });
+      .catch(() => {});
   }, [ctxEmail]);
 
   async function handleQuickDispatch(title: string) {
     setIsDispatching(true);
     setDispatchedIssue(title);
     try {
-      await fetch('/api/demo/emergency', {
+      const res = await fetch('/api/demo/emergency', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: title }),
+        body: JSON.stringify({
+          type: title,
+          property: isDemo ? 'PCTE Smart Student Residency' : 'Student Accommodation Unit',
+          unit: 'Room 204 (Bed A)',
+          tenantName: isDemo ? 'Rahul Sharma' : 'Student Resident',
+          tenantPhone: '+91 98765 43210',
+          tenantEmail: ctxEmail || 'rahul@uninest.in',
+        }),
       });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.emergency) {
+          setActiveDispatch(data.emergency);
+        }
+      }
     } catch {
       // ignore fallback errors
     } finally {
       setIsDispatching(false);
     }
+  }
+
+  async function handleResolveDispatch(id: string) {
+    try {
+      const res = await fetch('/api/demo/emergency', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_STATUS',
+          id,
+          status: 'RESOLVED',
+          notes: 'Marked resolved by tenant.',
+        }),
+      });
+      if (res.ok) {
+        setActiveDispatch(null);
+        setDispatchedIssue(null);
+      }
+    } catch {}
   }
 
   const landlordPhone = '+91 98140 12345';
@@ -172,7 +221,95 @@ export default function EmergencyPage() {
           Urgent 15-Min Property Emergency Dispatch
         </h2>
 
-        {dispatchedIssue && (
+        {activeDispatch ? (
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-500 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
+            <div className="flex items-start justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CheckCircle2 className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded">
+                      {activeDispatch.dispatchNo}
+                    </span>
+                    <Badge variant={activeDispatch.status === 'RESOLVED' ? 'success' : 'warning'} size="sm">
+                      {activeDispatch.status === 'EN_ROUTE' ? 'TECHNICIAN EN ROUTE' : activeDispatch.status}
+                    </Badge>
+                    <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                      15-MIN SLA ACTIVE
+                    </span>
+                  </div>
+                  <h3 className="text-base font-extrabold text-slate-900 mt-1">
+                    {activeDispatch.title}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleResolveDispatch(activeDispatch.id)}
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1.5 rounded-xl transition-colors shadow-2xs"
+                >
+                  Mark Resolved
+                </button>
+              </div>
+            </div>
+
+            {/* Tri-Party Live Status Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-xs">
+              {/* Box 1: On-Call SLA Vendor */}
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Assigned Vendor & Tech
+                </span>
+                <p className="font-extrabold text-slate-900">{activeDispatch.assignedVendor}</p>
+                <p className="text-slate-600 font-medium">{activeDispatch.assignedTech}</p>
+                <div className="pt-1.5">
+                  <a
+                    href={`tel:${activeDispatch.techPhone}`}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Phone className="w-3 h-3" /> Call Tech ({activeDispatch.techPhone})
+                  </a>
+                </div>
+              </div>
+
+              {/* Box 2: Landlord & Caretaker */}
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Property Caretaker Desk
+                </span>
+                <p className="font-extrabold text-slate-900">{activeDispatch.landlordName}</p>
+                <p className="text-emerald-700 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Caretaker Notified via SMS
+                </p>
+                <div className="pt-1.5">
+                  <a
+                    href={`tel:${activeDispatch.landlordPhone}`}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    <Phone className="w-3 h-3" /> Call Caretaker ({activeDispatch.landlordPhone})
+                  </a>
+                </div>
+              </div>
+
+              {/* Box 3: Live ETA & Unit */}
+              <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Location & Arrival ETA
+                </span>
+                <p className="font-extrabold text-slate-900">{activeDispatch.unit}</p>
+                <p className="text-slate-500">{activeDispatch.property}</p>
+                <div className="pt-1.5 text-slate-800 font-bold flex items-center gap-1 text-[11px]">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>ETA: ~{activeDispatch.etaMins} mins (Target Arrival)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : dispatchedIssue ? (
           <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-fade-in">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -189,7 +326,7 @@ export default function EmergencyPage() {
               15-MIN SLA ACTIVE
             </Badge>
           </div>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {propertyEmergencies.map((item) => {

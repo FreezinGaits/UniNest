@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Select, Textarea } from '@/components/ui/Input';
-import { Wrench, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { Wrench, CheckCircle2, Clock, AlertCircle, AlertTriangle, Phone } from 'lucide-react';
 
 export interface TicketItem {
   id: string;
@@ -30,8 +30,20 @@ interface LandlordMaintenanceClientProps {
 export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanceClientProps) {
   const [tickets, setTickets] = useState<TicketItem[]>(initialTickets);
   const [selectedTicket, setSelectedTicket] = useState<TicketItem | null>(null);
+  const [emergencies, setEmergencies] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/demo/emergency?role=LANDLORD')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.emergencies && Array.isArray(data.emergencies)) {
+          setEmergencies(data.emergencies);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const [assignedVendor, setAssignedVendor] = useState('Ludhiana Home Services');
   const [updatedPriority, setUpdatedPriority] = useState('MEDIUM');
@@ -118,6 +130,60 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
           <Wrench className="w-6 h-6 text-amber-600" />
         </div>
       </div>
+
+      {/* Active Emergency Alert Banner */}
+      {emergencies.filter((e) => e.status !== 'RESOLVED').length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-500 rounded-2xl p-5 shadow-md space-y-3 animate-pulse">
+          <div className="flex items-start justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded">
+                    {emergencies.filter((e) => e.status !== 'RESOLVED')[0].dispatchNo}
+                  </span>
+                  <span className="text-[11px] font-bold text-rose-800 bg-rose-200/80 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Critical Property Hazard (15-Min SLA)
+                  </span>
+                </div>
+                <h3 className="text-base font-extrabold text-slate-900 mt-0.5">
+                  {emergencies.filter((e) => e.status !== 'RESOLVED')[0].title} — {emergencies.filter((e) => e.status !== 'RESOLVED')[0].property} ({emergencies.filter((e) => e.status !== 'RESOLVED')[0].unit})
+                </h3>
+              </div>
+            </div>
+
+            <Badge variant="danger" size="sm">
+              {emergencies.filter((e) => e.status !== 'RESOLVED')[0].status === 'EN_ROUTE' ? 'DUTY TECH EN ROUTE' : emergencies.filter((e) => e.status !== 'RESOLVED')[0].status}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-white/80 p-3.5 rounded-xl border border-rose-200 text-xs">
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tenant Reporting</span>
+              <p className="font-extrabold text-slate-900">{emergencies.filter((e) => e.status !== 'RESOLVED')[0].tenantName}</p>
+              <a href={`tel:${emergencies.filter((e) => e.status !== 'RESOLVED')[0].tenantPhone}`} className="text-blue-700 font-bold hover:underline flex items-center gap-1 mt-1">
+                <Phone className="w-3 h-3" /> Call Tenant ({emergencies.filter((e) => e.status !== 'RESOLVED')[0].tenantPhone})
+              </a>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assigned QuickFix Vendor</span>
+              <p className="font-extrabold text-slate-900">{emergencies.filter((e) => e.status !== 'RESOLVED')[0].assignedTech}</p>
+              <a href={`tel:${emergencies.filter((e) => e.status !== 'RESOLVED')[0].techPhone}`} className="text-emerald-700 font-bold hover:underline flex items-center gap-1 mt-1">
+                <Phone className="w-3 h-3" /> Call Tech ({emergencies.filter((e) => e.status !== 'RESOLVED')[0].techPhone})
+              </a>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Caretaker Action</span>
+              <p className="text-slate-700 font-medium">On-site caretaker notified via SMS to grant electrical/pipe valve access.</p>
+              <p className="text-[11px] text-amber-700 font-bold mt-1">ETA: ~{emergencies.filter((e) => e.status !== 'RESOLVED')[0].etaMins} mins</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <Card padding="none">

@@ -14,7 +14,9 @@ import {
   Wrench,
   ArrowRight,
   User,
+  AlertTriangle,
 } from 'lucide-react';
+import { getEmergenciesForRole } from '@/lib/emergencyStore';
 
 const FALLBACK_JOBS = [
   {
@@ -117,6 +119,9 @@ export default async function ProviderDashboard() {
     serviceOrders = FALLBACK_JOBS;
   }
 
+  const emergencies = getEmergenciesForRole('PROVIDER', session.email);
+  const activeEmergencies = emergencies.filter((e) => e.status !== 'RESOLVED');
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -140,6 +145,36 @@ export default async function ProviderDashboard() {
           </Link>
         </div>
       </div>
+
+      {activeEmergencies.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-500 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded">
+                  {activeEmergencies[0].dispatchNo}
+                </span>
+                <span className="text-xs font-bold text-rose-900 uppercase">
+                  Active 15-Min Property Emergency
+                </span>
+              </div>
+              <p className="text-sm font-black text-rose-950 mt-0.5">
+                {activeEmergencies[0].title} — {activeEmergencies[0].property} ({activeEmergencies[0].unit})
+              </p>
+              <p className="text-xs text-rose-700 mt-0.5">
+                Assigned Tech: <strong>{activeEmergencies[0].assignedTech}</strong> • ETA: ~{activeEmergencies[0].etaMins} mins • Tenant: {activeEmergencies[0].tenantName} ({activeEmergencies[0].tenantPhone})
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/provider/jobs"
+            className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-2 rounded-xl shrink-0 shadow-sm transition-colors"
+          >
+            Open Dispatch Board →
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard

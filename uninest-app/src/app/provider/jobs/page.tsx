@@ -124,10 +124,49 @@ export default function ServiceJobsPage() {
   const [filter, setFilter] = useState<'ALL' | 'NEW_REQUEST' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Load live DB orders & merge
+  // Load live DB orders & emergency dispatches & merge
   useEffect(() => {
     async function loadLiveOrders() {
       try {
+        // 1. Fetch live emergency dispatches
+        const emgRes = await fetch('/api/demo/emergency?role=PROVIDER');
+        if (emgRes.ok) {
+          const emgJson = await emgRes.json();
+          if (emgJson.emergencies && Array.isArray(emgJson.emergencies)) {
+            const mappedEmg: JobItem[] = emgJson.emergencies.map((e: any) => ({
+              id: e.id,
+              jobCode: e.dispatchNo,
+              title: `🚨 ${e.title}`,
+              category: `${e.category} Emergency`,
+              priority: 'URGENT' as const,
+              property: e.property,
+              room: e.unit,
+              locality: 'Passi Nagar, Ludhiana',
+              requestedBy: `${e.tenantName} (Student Resident)`,
+              contactPhone: e.tenantPhone,
+              scheduledSlot:
+                e.status === 'RESOLVED'
+                  ? 'Resolved within SLA'
+                  : `Emergency 15-Min SLA (${e.etaMins}m ETA) • Reported ${e.reportedAt}`,
+              assignedTech: e.assignedTech,
+              amount: 65000,
+              status:
+                e.status === 'RESOLVED'
+                  ? 'COMPLETED'
+                  : e.status === 'ON_SITE' || e.status === 'EN_ROUTE'
+                  ? 'IN_PROGRESS'
+                  : 'NEW_REQUEST',
+            }));
+
+            setJobs((prev) => {
+              const existingIds = new Set(prev.map((j) => j.id));
+              const additions = mappedEmg.filter((me) => !existingIds.has(me.id));
+              return [...additions, ...prev];
+            });
+          }
+        }
+
+        // 2. Fetch service orders
         const res = await fetch('/api/demo/service');
         if (res.ok) {
           const json = await res.json();
@@ -180,13 +219,27 @@ export default function ServiceJobsPage() {
     );
 
     // Sync status with API
-    try {
-      await fetch('/api/demo/service', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id, status: nextStatus }),
-      });
-    } catch {}
+    if (id.startsWith('emg-') || id.startsWith('EMG-')) {
+      try {
+        await fetch('/api/demo/emergency', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'UPDATE_STATUS',
+            id,
+            status: nextStatus === 'COMPLETED' ? 'RESOLVED' : 'ON_SITE',
+          }),
+        });
+      } catch {}
+    } else {
+      try {
+        await fetch('/api/demo/service', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: id, status: nextStatus }),
+        });
+      } catch {}
+    }
 
     setToastMessage(`Job ${id} updated to ${nextStatus.replace('_', ' ')}.`);
     setTimeout(() => setToastMessage(null), 4000);
@@ -224,6 +277,26 @@ export default function ServiceJobsPage() {
           </Badge>
         </div>
       </div>
+
+      {/* Urgent Emergency Dispatch SLA Alert */}
+      {jobs.some((j) => j.priority === 'URGENT' && j.status !== 'COMPLETED') && (
+        <div className="bg-rose-50 border-2 border-rose-500 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
+            <div>
+              <p className="text-sm font-black text-rose-900">
+                ACTIVE 15-MIN EMERGENCY SLA DISPATCH IN EFFECT
+              </p>
+              <p className="text-xs text-rose-700 mt-0.5">
+                Priority P0 dispatch active at PCTE Smart Student Residency. On-call technician must confirm arrival within 15 minutes.
+              </p>
+            </div>
+          </div>
+          <span className="bg-rose-600 text-white font-black text-xs px-3 py-1.5 rounded-xl uppercase tracking-wider shrink-0">
+            URGENT SLA
+          </span>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-bold">

@@ -17,7 +17,9 @@ import {
   ShieldCheck,
   Clock,
   Eye,
+  AlertTriangle,
 } from 'lucide-react';
+import { getEmergenciesForRole } from '@/lib/emergencyStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +83,9 @@ export default async function LandlordDashboard() {
   );
   const ancillaryEarningsRupees = isDemoUser ? 8500 : 0;
 
+  const emergencies = getEmergenciesForRole('LANDLORD', session.email);
+  const activeEmergencies = emergencies.filter((e) => e.status !== 'RESOLVED');
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -107,6 +112,37 @@ export default async function LandlordDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Active Property Emergency Alert */}
+      {activeEmergencies.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-500 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded">
+                  {activeEmergencies[0].dispatchNo}
+                </span>
+                <span className="text-xs font-bold text-rose-900 uppercase">
+                  Critical Property Hazard Alert (15-Min SLA)
+                </span>
+              </div>
+              <p className="text-sm font-black text-rose-950 mt-0.5">
+                {activeEmergencies[0].title} — {activeEmergencies[0].property} ({activeEmergencies[0].unit})
+              </p>
+              <p className="text-xs text-rose-700 mt-0.5">
+                Tenant: <strong>{activeEmergencies[0].tenantName}</strong> ({activeEmergencies[0].tenantPhone}) • QuickFix Duty Tech: <strong>{activeEmergencies[0].assignedTech}</strong> (ETA ~{activeEmergencies[0].etaMins}m)
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/landlord/maintenance"
+            className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-2 rounded-xl shrink-0 shadow-sm transition-colors"
+          >
+            Review & Coordinate Caretaker →
+          </Link>
+        </div>
+      )}
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
