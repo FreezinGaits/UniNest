@@ -16,9 +16,9 @@ const DEMO_REWARDS = [
 ];
 
 const DEMO_SERVICE_ORDERS = [
-  { id: 'so1', serviceName: 'Deep Cleaning & Sanitization', customerName: 'Rahul Sharma (Room 204)', amount: 120000, landlordShare: 12000, status: 'COMPLETED' },
-  { id: 'so2', serviceName: 'High-Speed Wi-Fi Router Setup', customerName: 'Aman Verma (Room 102)', amount: 80000, landlordShare: 8000, status: 'COMPLETED' },
-  { id: 'so3', serviceName: 'Bathroom Tap Leak Repair', customerName: 'Passi PG Manager', amount: 70000, landlordShare: 7000, status: 'IN_PROGRESS' },
+  { id: 'so1', serviceName: 'PG Deep Cleaning & Disinfection', customerName: 'Rahul Sharma (Room 204)', amount: 150000, landlordShare: 15000, status: 'COMPLETED' },
+  { id: 'so2', serviceName: 'Commercial Laundry Pick-up', customerName: 'Aman Verma (Room 204)', amount: 80000, landlordShare: 8000, status: 'IN_PROGRESS' },
+  { id: 'so3', serviceName: 'Room AC Filter Servicing', customerName: 'Rohit Verma (Room 205)', amount: 70000, landlordShare: 7000, status: 'COMPLETED' },
 ];
 
 export default async function LandlordEarningsPage() {
@@ -30,8 +30,8 @@ export default async function LandlordEarningsPage() {
 
   let rewards = isDemoUser ? DEMO_REWARDS : [];
   let serviceOrders = isDemoUser ? DEMO_SERVICE_ORDERS : [];
-  let totalRentCollected = isDemoUser ? 16800000 : 0;
-  let totalRentDue = isDemoUser ? 18000000 : 0;
+  let totalRentCollected = isDemoUser ? 2100000 : 0;
+  let totalRentDue = isDemoUser ? 3350000 : 0;
 
   try {
     const landlord = await prisma.landlord.findUnique({ where: { userId: session.userId } });
@@ -160,22 +160,30 @@ export default async function LandlordEarningsPage() {
 
       {/* Commission Split Model */}
       <section>
-        <h2 className="text-lg font-bold text-text-primary mb-3">Commission Revenue Model</h2>
+        <h2 className="text-lg font-bold text-text-primary mb-3">Commission & Ancillary Revenue Model</h2>
         <Card className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-2xl border-none">
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Automated Revenue Split</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Automated Revenue Split & Payout Breakdown</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2">
               <div className="bg-white/10 p-4 rounded-xl">
-                <p className="text-xs text-slate-300">Total Vendor Service Orders</p>
+                <p className="text-xs text-slate-300">Total Vendor Orders</p>
                 <p className="text-xl font-bold text-white mt-1">{formatINR(totalServiceRevenue)}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Cleaning, Laundry & AC</p>
               </div>
-              <div className="bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-xl">
-                <p className="text-xs text-emerald-300">Landlord Net Payout</p>
-                <p className="text-xl font-bold text-emerald-400 mt-1">{formatINR(totalRewards + totalCommissions)}</p>
+              <div className="bg-white/10 p-4 rounded-xl">
+                <p className="text-xs text-slate-300">Your 10% Commission</p>
+                <p className="text-xl font-bold text-emerald-400 mt-1">{formatINR(totalCommissions)}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Vendor share to landlord</p>
               </div>
-              <div className="bg-blue-500/20 border border-blue-500/30 p-4 rounded-xl">
-                <p className="text-xs text-blue-300">UniNest Platform Fee</p>
-                <p className="text-xl font-bold text-blue-400 mt-1">{formatINR(Math.round(totalServiceRevenue * 0.1))}</p>
+              <div className="bg-white/10 p-4 rounded-xl">
+                <p className="text-xs text-slate-300">Monthly Fixed Affiliates</p>
+                <p className="text-xl font-bold text-purple-400 mt-1">{formatINR(totalRewards)}</p>
+                <p className="text-[10px] text-slate-400 mt-1">WiFi, Food & Referrals</p>
+              </div>
+              <div className="bg-emerald-500/20 border border-emerald-500/40 p-4 rounded-xl">
+                <p className="text-xs text-emerald-300 font-bold uppercase">Combined Ancillary Payout</p>
+                <p className="text-xl font-black text-emerald-300 mt-1">{formatINR(totalRewards + totalCommissions)}</p>
+                <p className="text-[10px] text-emerald-400 mt-1">Direct bank payout</p>
               </div>
             </div>
           </div>

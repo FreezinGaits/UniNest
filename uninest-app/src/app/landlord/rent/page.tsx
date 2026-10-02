@@ -8,7 +8,7 @@ const DEMO_RENT_RECORDS = [
   {
     id: 'rr-1',
     tenantName: 'Rahul Sharma',
-    property: 'PCTE Smart Student Residency (Room 204)',
+    property: 'PCTE Smart Student Residency (Room 204 - Bed A)',
     dueDate: '05 Sep 2026',
     amountDue: 600000,
     amountPaid: 600000,
@@ -19,18 +19,40 @@ const DEMO_RENT_RECORDS = [
   {
     id: 'rr-2',
     tenantName: 'Aman Verma',
-    property: 'Passi Luxury PG (Room 102)',
+    property: 'PCTE Smart Student Residency (Room 204 - Bed B)',
     dueDate: '05 Sep 2026',
-    amountDue: 750000,
-    amountPaid: 750000,
+    amountDue: 600000,
+    amountPaid: 600000,
     status: 'PAID',
     paymentMethod: 'NetBanking (HDFC)',
     txnId: 'TXN-HDF-88102',
   },
   {
     id: 'rr-3',
+    tenantName: 'Rohit Verma',
+    property: 'PCTE Smart Student Residency (Room 205 - Single)',
+    dueDate: '05 Sep 2026',
+    amountDue: 900000,
+    amountPaid: 900000,
+    status: 'PAID',
+    paymentMethod: 'UPI (PhonePe)',
+    txnId: 'TXN-PPI-33104',
+  },
+  {
+    id: 'rr-4',
+    tenantName: 'Karanveer Gill',
+    property: 'Passi Luxury PG & Co-Living (Room 105 - Bed B)',
+    dueDate: '01 Sep 2026',
+    amountDue: 600000,
+    amountPaid: 0,
+    status: 'OVERDUE',
+    paymentMethod: 'Pending Payment',
+    txnId: '—',
+  },
+  {
+    id: 'rr-5',
     tenantName: 'Priya Sharma',
-    property: 'Campus Edge Girls Hostel (Room 301)',
+    property: 'Campus Edge Girls Hostel (Room 301 - Bed A)',
     dueDate: '01 Sep 2026',
     amountDue: 650000,
     amountPaid: 0,
@@ -77,6 +99,8 @@ export default async function RentCollectionPage() {
 
   const totalCollected = records.filter(r => r.status === 'PAID').reduce((sum, r) => sum + r.amountPaid, 0);
   const totalOverdue = records.filter(r => r.status === 'OVERDUE' || r.status === 'PENDING').reduce((sum, r) => sum + r.amountDue, 0);
+  const paidCount = records.filter(r => r.status === 'PAID').length;
+  const efficiencyPct = records.length > 0 ? Math.round((paidCount / records.length) * 100) : 100;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -106,7 +130,7 @@ export default async function RentCollectionPage() {
         </Card>
         <Card className="bg-slate-50 border border-slate-200">
           <p className="text-xs font-bold text-slate-600 uppercase">Collection Efficiency</p>
-          <p className="text-2xl font-black text-slate-900 mt-1">82% On-Time</p>
+          <p className="text-2xl font-black text-slate-900 mt-1">{efficiencyPct}% On-Time</p>
         </Card>
       </div>
 
