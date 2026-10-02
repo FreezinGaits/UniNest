@@ -4,19 +4,42 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Building2, ShieldCheck, CheckCircle2, XCircle, Clock, MapPin, Search } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { Building2, ShieldCheck, CheckCircle2, XCircle, Clock, MapPin, Search, MessageSquare } from 'lucide-react';
 import { PropertyItem } from '@/lib/propertiesStore';
 
 interface AdminPropertiesClientProps {
   initialProperties: PropertyItem[];
 }
 
+const REJECTION_REASONS = [
+  'Safety compliance not met',
+  'Incomplete documentation',
+  'Location verification failed',
+  'Building code violations',
+  'Misleading listing details',
+  'Fire safety non-compliant',
+  'Inadequate sanitation facilities'
+];
+
 export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClientProps) {
   const [properties, setProperties] = useState<PropertyItem[]>(initialProperties || []);
-  const [activeTab, setActiveTab] = useState<'ALL' | 'UNDER_REVIEW' | 'VERIFIED'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'UNDER_REVIEW' | 'VERIFIED' | 'REJECTED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Rejection Modal State
+  const [rejectionModalOpen, setRejectionModalOpen] = useState(false);
+  const [rejectionPropertyId, setRejectionPropertyId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  
+  // Messages Modal State
+  const [messagesModalOpen, setMessagesModalOpen] = useState(false);
+  const [messagePropertyId, setMessagePropertyId] = useState<string | null>(null);
+  const [messagesList, setMessagesList] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState('');
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   useEffect(() => {
     fetch('/api/properties', { cache: 'no-store' })
@@ -36,24 +59,35 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
       p.verificationStatus === 'SUBMITTED'
   ).length;
 
-  const handleStatusChange = async (propertyId: string, newStatus: 'VERIFIED' | 'REJECTED') => {
+  const handleStatusChange = async (propertyId: string, newStatus: 'VERIFIED' | 'REJECTED', reason?: string) => {
+    if (newStatus === 'REJECTED' && !reason && !rejectionModalOpen) {
+      setRejectionPropertyId(propertyId);
+      setRejectionReason('');
+      setRejectionModalOpen(true);
+      return;
+    }
+
     setActionLoadingId(propertyId);
     try {
       const res = await fetch('/api/admin/properties/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, status: newStatus }),
+        body: JSON.stringify({ propertyId, status: newStatus, rejectionReason: reason }),
       });
 
       if (res.ok) {
         setProperties((prev) =>
-          prev.map((p) => (p.id === propertyId ? { ...p, verificationStatus: newStatus } : p))
+          prev.map((p) => (p.id === propertyId ? { ...p, verificationStatus: newStatus, rejectionReason: reason } : p))
         );
         setToastMessage(
           newStatus === 'VERIFIED'
             ? 'Property verified successfully! It is now published live for student booking.'
             : 'Property listing has been marked as Rejected.'
         );
+        if (newStatus === 'REJECTED') {
+          setRejectionModalOpen(false);
+          setRejectionPropertyId(null);
+        }
       } else {
         alert('Failed to update status.');
       }
@@ -66,15 +100,53 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
     }
   };
 
+  const openMessages = async (propertyId: string) => {
+    setMessagePropertyId(propertyId);
+    setMessagesModalOpen(true);
+    setMessagesLoading(true);
+    setMessagesList([]);
+    try {
+      const res = await fetch(`/api/admin/messages?propertyId=${propertyId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMessagesList(data.messages || []);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if (!newMessageText.trim() || !messagePropertyId) return;
+    try {
+      const res = await fetch('/api/admin/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toPropertyId: messagePropertyId, message: newMessageText }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessagesList((prev) => [...prev, data.message]);
+        setNewMessageText('');
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+    }
+  };
+
   const filteredProperties = properties.filter((p) => {
     const isUnderReview =
       p.verificationStatus === 'UNDER_REVIEW' ||
       p.verificationStatus === 'PENDING' ||
       p.verificationStatus === 'SUBMITTED';
     const isVerified = p.verificationStatus === 'VERIFIED';
+    const isRejected = p.verificationStatus === 'REJECTED' || p.verificationStatus === 'SUSPENDED';
 
     if (activeTab === 'UNDER_REVIEW' && !isUnderReview) return false;
     if (activeTab === 'VERIFIED' && !isVerified) return false;
+    if (activeTab === 'REJECTED' && !isRejected) return false;
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -91,7 +163,6 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Toast Banner */}
       {toastMessage && (
         <div className="bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between animate-slide-down">
           <div className="flex items-center gap-2 font-medium text-sm">
@@ -104,7 +175,6 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
         </div>
       )}
 
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Admin Property Management & Verification</h1>
@@ -121,9 +191,8 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
         )}
       </div>
 
-      {/* Tabs & Search */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('ALL')}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
@@ -142,7 +211,7 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            Pending Review ({underReviewCount})
+            Pending ({underReviewCount})
           </button>
 
           <button
@@ -152,6 +221,15 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
             }`}
           >
             Verified ({properties.filter((p) => p.verificationStatus === 'VERIFIED').length})
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('REJECTED')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              activeTab === 'REJECTED' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Rejected ({properties.filter((p) => p.verificationStatus === 'REJECTED' || p.verificationStatus === 'SUSPENDED').length})
           </button>
         </div>
 
@@ -167,7 +245,6 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
         </div>
       </div>
 
-      {/* Property Table */}
       <Card padding="none">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -189,7 +266,7 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
                     p.verificationStatus === 'PENDING' ||
                     p.verificationStatus === 'SUBMITTED';
                   const isVerified = p.verificationStatus === 'VERIFIED';
-                  const isRejected = p.verificationStatus === 'REJECTED';
+                  const isRejected = p.verificationStatus === 'REJECTED' || p.verificationStatus === 'SUSPENDED';
                   const rentVal = Number(p.rentPerMonth || 6000);
                   const displayRent = rentVal >= 100000 ? Math.round(rentVal / 100) : rentVal;
 
@@ -231,14 +308,31 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
                           </span>
                         )}
                         {isRejected && (
-                          <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full">
-                            <XCircle className="w-3.5 h-3.5" /> REJECTED
-                          </span>
+                          <div className="flex flex-col items-start">
+                            <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs font-bold px-2.5 py-1 rounded-full">
+                              <XCircle className="w-3.5 h-3.5" /> REJECTED
+                            </span>
+                            {p.rejectionReason && (
+                              <span className="text-[10px] text-red-600 mt-1 max-w-[120px] leading-tight">
+                                {p.rejectionReason}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
                       <td className="px-4 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openMessages(p.id)}
+                            className="text-slate-600 hover:bg-slate-100 text-xs font-bold"
+                            title="Send Note"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </Button>
+                          
                           {isUnderReview ? (
                             <>
                               <Button
@@ -248,7 +342,7 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                Approve & Verify
+                                Approve
                               </Button>
                               <Button
                                 size="sm"
@@ -296,6 +390,105 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
           </table>
         </div>
       </Card>
+
+      <Modal
+        isOpen={rejectionModalOpen}
+        onClose={() => setRejectionModalOpen(false)}
+        title="Reject Property Listing"
+      >
+        <div className="space-y-4 text-sm">
+          <p className="text-slate-600">
+            Please provide a reason for rejecting this property. This will be visible to the landlord.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {REJECTION_REASONS.map((reason) => (
+              <button
+                key={reason}
+                onClick={() => setRejectionReason(reason)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                  rejectionReason === reason
+                    ? 'bg-red-100 border-red-200 text-red-800'
+                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Additional Notes</label>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              rows={3}
+              placeholder="Provide more details..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setRejectionModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                if (rejectionPropertyId) {
+                  handleStatusChange(rejectionPropertyId, 'REJECTED', rejectionReason);
+                }
+              }}
+              disabled={!rejectionReason.trim()}
+            >
+              Confirm Rejection
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={messagesModalOpen}
+        onClose={() => setMessagesModalOpen(false)}
+        title="Communication & Notes"
+      >
+        <div className="space-y-4 text-sm flex flex-col h-[60vh]">
+          <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
+            {messagesLoading ? (
+              <p className="text-slate-500 text-center py-4">Loading messages...</p>
+            ) : messagesList.length > 0 ? (
+              messagesList.map((msg, idx) => (
+                <div key={idx} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="font-bold text-slate-800 text-xs">{msg.fromName} ({msg.fromRole})</span>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(msg.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-xs whitespace-pre-wrap">{msg.message}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-slate-500 text-center py-4">No notes or messages yet.</p>
+            )}
+          </div>
+          <div className="mt-4">
+            <textarea
+              value={newMessageText}
+              onChange={(e) => setNewMessageText(e.target.value)}
+              className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              rows={3}
+              placeholder="Type your message or note here..."
+            />
+            <div className="flex justify-end mt-2">
+              <Button
+                onClick={sendMessage}
+                disabled={!newMessageText.trim()}
+                className="bg-brand-600 hover:bg-brand-700 text-white"
+              >
+                Send Note
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

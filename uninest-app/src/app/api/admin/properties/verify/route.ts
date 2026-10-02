@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { propertyId, status } = body;
+    const { propertyId, status, rejectionReason } = body;
 
     if (!propertyId || !status) {
       return NextResponse.json({ error: 'propertyId and status are required' }, { status: 400 });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         ? 'UNDER_REVIEW'
         : status;
 
-    await verifyProperty(propertyId, storeStatus as 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW');
+    await verifyProperty(propertyId, storeStatus as 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW', rejectionReason);
 
     try {
       const prismaStatus =
@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
         data: {
           verificationStatus: prismaStatus as any,
           ...(prismaStatus === 'VERIFIED' ? { verifiedAt: new Date() } : {}),
+          ...(rejectionReason ? { verificationNotes: rejectionReason } : {}),
         },
       });
     } catch {

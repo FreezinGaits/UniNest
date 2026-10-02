@@ -17,6 +17,7 @@ export interface PropertyItem {
   createdAt?: string;
   description?: string;
   images?: string[];
+  rejectionReason?: string;
 }
 
 export function isDemoLandlordEmail(email?: string | null): boolean {
@@ -174,6 +175,7 @@ export function normalizePropertyItem(raw: any): PropertyItem {
           'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
           'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
         ],
+    rejectionReason: raw.rejectionReason || (raw.verificationStatus === 'SUSPENDED' ? raw.verificationNotes : undefined),
   };
 }
 
@@ -252,7 +254,8 @@ export async function createProperty(data: {
 
 export async function verifyProperty(
   propertyId: string,
-  status: 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW'
+  status: 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW',
+  reason?: string
 ): Promise<boolean> {
   const all = await getAllProperties();
   let found = false;
@@ -260,7 +263,7 @@ export async function verifyProperty(
   const updated = all.map((p) => {
     if (p.id === propertyId) {
       found = true;
-      return { ...p, verificationStatus: status };
+      return { ...p, verificationStatus: status, rejectionReason: reason };
     }
     return p;
   });

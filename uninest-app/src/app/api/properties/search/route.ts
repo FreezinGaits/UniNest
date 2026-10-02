@@ -346,7 +346,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Build Prisma query where clause
-      const where: any = { isActive: true };
+      const where: any = { 
+        isActive: true,
+        verificationStatus: { notIn: ['SUSPENDED', 'REJECTED'] }
+      };
 
       if (state) where.state = { equals: state, mode: 'insensitive' };
       if (city) where.city = { equals: city, mode: 'insensitive' };
@@ -455,7 +458,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply Filters across both DB and DEMO_PROPERTIES
-    let filtered = propertiesList;
+    let filtered = propertiesList.filter(p => p.verificationStatus !== 'REJECTED' && p.verificationStatus !== 'SUSPENDED');
 
     if (state) {
       filtered = filtered.filter((p) => p.state?.toLowerCase() === state.toLowerCase());
