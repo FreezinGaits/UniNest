@@ -227,11 +227,15 @@ export function ElectricityMeteringClient({ initialReadings }: ElectricityMeteri
             label="Property Unit *"
             value={formData.property}
             onChange={(e) => setFormData({ ...formData, property: e.target.value })}
-            options={[
-              { value: 'PCTE Smart Student Residency', label: 'PCTE Smart Student Residency' },
-              { value: 'Passi Luxury PG & Co-Living', label: 'Passi Luxury PG & Co-Living' },
-              { value: 'Campus Edge Girls Hostel', label: 'Campus Edge Girls Hostel' },
-            ]}
+            options={
+              readings.length > 0
+                ? Array.from(new Set(readings.map((r) => r.property))).map((p) => ({ value: p, label: p }))
+                : [
+                    { value: 'PCTE Smart Student Residency', label: 'PCTE Smart Student Residency' },
+                    { value: 'Passi Luxury PG & Co-Living', label: 'Passi Luxury PG & Co-Living' },
+                    { value: 'Campus Edge Girls Hostel', label: 'Campus Edge Girls Hostel' },
+                  ]
+            }
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -16,6 +16,7 @@ export interface PropertyItem {
   ownerEmail?: string;
   createdAt?: string;
   description?: string;
+  images?: string[];
 }
 
 export function isDemoLandlordEmail(email?: string | null): boolean {
@@ -167,6 +168,12 @@ export function normalizePropertyItem(raw: any): PropertyItem {
         : new Date(raw.createdAt).toISOString()
       : new Date().toISOString(),
     description: String(raw.description || ''),
+    images: Array.isArray(raw.images) && raw.images.length > 0
+      ? raw.images
+      : [
+          'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+          'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
+        ],
   };
 }
 
@@ -211,6 +218,7 @@ export async function createProperty(data: {
   description?: string;
   ownerName?: string;
   ownerEmail?: string;
+  images?: string[];
 }): Promise<PropertyItem> {
   const propId = `prop-new-${Date.now()}`;
   const totalBeds = Number(data.totalRooms || 4) * Number(data.bedsPerRoom || 2);
@@ -232,6 +240,7 @@ export async function createProperty(data: {
     ownerEmail: data.ownerEmail || 'landlord@uninest.in',
     createdAt: new Date().toISOString(),
     description: data.description || '',
+    images: data.images,
   });
 
   const existing = await getAllProperties();

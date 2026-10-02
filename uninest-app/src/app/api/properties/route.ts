@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
 
     const session = await getSession().catch(() => null);
 
+    const defaultImages = [
+      'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
+    ];
+    const propertyImages = Array.isArray(body.images) && body.images.length > 0 ? body.images : defaultImages;
+
     const data = {
       name: String(body.name).trim(),
       locality: String(body.locality || 'Ferozepur Road').trim(),
@@ -68,6 +74,7 @@ export async function POST(req: NextRequest) {
       description: String(body.description || ''),
       ownerName: session?.name || 'Landlord',
       ownerEmail: session?.email || 'landlord@uninest.in',
+      images: propertyImages,
     };
 
     // Persist to the unified landlord propertiesStore
@@ -121,10 +128,7 @@ export async function POST(req: NextRequest) {
               description: data.description,
               landlordId: landlord.id,
               verificationStatus: 'UNDER_REVIEW',
-              images: [
-                'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-                'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
-              ],
+              images: propertyImages,
             },
           });
 
