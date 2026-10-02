@@ -3,8 +3,10 @@ import { formatRupees } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { MapPin, ArrowLeft, Plus } from 'lucide-react';
+import { MapPin, ArrowLeft, Plus, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { getAdminMessages } from '@/lib/adminMessagesStore';
+import { PropertyNotesThread } from './PropertyNotesThread';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,7 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
 
   const storeProperties = await getAllProperties();
   const matched = storeProperties.find((p) => p.id === id) || storeProperties[0];
+  const adminNotes = getAdminMessages(matched?.id);
 
   const totalRooms = Math.max(1, Number(matched?.totalRooms || 6));
   const totalBedsTarget = Math.max(1, Number(matched?.totalBeds || totalRooms * 2));
@@ -88,8 +91,18 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
             <h1 className="text-2xl font-bold text-text-primary">
               {matched?.name || 'PCTE Smart Student Residency'}
             </h1>
-            <Badge variant={matched?.verificationStatus === 'VERIFIED' ? 'success' : 'warning'}>
-              {matched?.verificationStatus || 'VERIFIED'}
+            <Badge
+              variant={
+                matched?.verificationStatus === 'VERIFIED'
+                  ? 'success'
+                  : matched?.verificationStatus === 'REJECTED' || matched?.verificationStatus === 'SUSPENDED'
+                  ? 'danger'
+                  : 'warning'
+              }
+            >
+              {matched?.verificationStatus === 'REJECTED' || matched?.verificationStatus === 'SUSPENDED'
+                ? '❌ REJECTED BY ADMIN'
+                : matched?.verificationStatus || 'VERIFIED'}
             </Badge>
           </div>
           <p className="text-text-secondary text-sm flex items-center gap-1.5 mt-1">
@@ -110,6 +123,23 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
           </Link>
         </div>
       </div>
+
+      {/* Rejection Alert Box */}
+      {(matched?.verificationStatus === 'REJECTED' || matched?.verificationStatus === 'SUSPENDED') && (
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 text-xs space-y-1.5 shadow-sm animate-slide-down">
+          <div className="flex items-center gap-2 font-extrabold text-rose-800 text-sm">
+            <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+            Property Listing Suspended / Rejected by UniNest Admin
+          </div>
+          <p className="text-slate-800 text-xs">
+            <strong className="text-rose-900 font-bold">Reason Provided:</strong>{' '}
+            {matched.rejectionReason || 'Building compliance or safety verification standards not met.'}
+          </p>
+          <p className="text-slate-600 text-[11px]">
+            Please review the compliance audit notes below, address the requirements, and reply to request a re-inspection.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="text-center">
@@ -166,6 +196,13 @@ export default async function LandlordPropertyDetailPage({ params }: { params: P
           </p>
         )}
       </Card>
+
+      {/* Admin Notes & Communication Thread */}
+      <PropertyNotesThread
+        propertyId={matched?.id}
+        propertyName={matched?.name || 'Property'}
+        initialMessages={adminNotes}
+      />
     </div>
   );
 }

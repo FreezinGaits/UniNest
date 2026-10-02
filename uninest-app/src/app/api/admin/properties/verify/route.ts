@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/actions';
 import { prisma } from '@/lib/db';
 import { verifyProperty } from '@/lib/propertiesStore';
+import { addAdminMessage } from '@/lib/adminMessagesStore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +32,25 @@ export async function POST(req: NextRequest) {
         : status;
 
     await verifyProperty(propertyId, storeStatus as 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW', rejectionReason);
+
+    // Auto-create an official notification message for the landlord
+    if (status === 'REJECTED' || status === 'SUSPENDED') {
+      addAdminMessage({
+        fromRole: 'ADMIN',
+        fromName: 'UniNest Compliance Officer',
+        toPropertyId: propertyId,
+        message: `Official Notice: Listing has been rejected/suspended by Admin. Reason: ${
+          rejectionReason || 'Safety compliance documentation or verification required.'
+        }. Please update your property details or submit required compliance documents and reply here to request re-audit.`,
+      });
+    } else if (status === 'VERIFIED' || status === 'APPROVED') {
+      addAdminMessage({
+        fromRole: 'ADMIN',
+        fromName: 'UniNest Verification Team',
+        toPropertyId: propertyId,
+        message: `Official Notice: Property listing has been APPROVED and verified by UniNest Admin! It is now published live for student bed reservations.`,
+      });
+    }
 
     try {
       const prismaStatus =

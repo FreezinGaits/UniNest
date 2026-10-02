@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/actions';
-
-const globalMessagesStore = globalThis as unknown as {
-  __uninest_admin_messages?: any[];
-};
+import { getAdminMessages, addAdminMessage, markAdminMessagesAsRead } from '@/lib/adminMessagesStore';
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,12 +12,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const propertyId = searchParams.get('propertyId');
 
-    const allMessages = globalMessagesStore.__uninest_admin_messages || [];
-    let messages = allMessages;
-
-    if (propertyId) {
-      messages = messages.filter(m => m.toPropertyId === propertyId);
-    }
+    const messages = getAdminMessages(propertyId || undefined);
 
     return NextResponse.json({ messages });
   } catch (error: any) {
@@ -36,30 +28,47 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { toPropertyId, message } = body;
+    const { toPropertyId, message, propertyName } = body;
 
-    if (!message) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+    if (!message || !toPropertyId) {
+      return NextResponse.json({ error: 'toPropertyId and message are required' }, { status: 400 });
     }
 
-    const newMessage = {
-      id: `msg-${Date.now()}`,
-      fromRole: session.role || 'ADMIN',
-      fromName: session.name || 'Admin',
+    const fromRole = (session.role as 'ADMIN' | 'LANDLORD' | 'SYSTEM') || 'ADMIN';
+    const fromName =
+      session.name ||
+      (session.role === 'ADMIN' ? 'UniNest Admin' : session.role === 'LANDLORD' ? 'Landlord' : 'User');
+
+    const newMessage = addAdminMessage({
+      fromRole,
+      fromName,
       toPropertyId,
+      propertyName,
       message,
-      timestamp: new Date().toISOString(),
-      read: false
-    };
-
-    if (!globalMessagesStore.__uninest_admin_messages) {
-      globalMessagesStore.__uninest_admin_messages = [];
-    }
-    
-    globalMessagesStore.__uninest_admin_messages.push(newMessage);
+    });
 
     return NextResponse.json({ success: true, message: newMessage });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { propertyId } = body;
+
+    if (propertyId) {
+      markAdminMessagesAsRead(propertyId);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Failed to update messages' }, { status: 500 });
   }
 }

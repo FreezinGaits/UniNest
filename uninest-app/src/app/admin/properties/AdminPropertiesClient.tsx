@@ -121,10 +121,15 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
   const sendMessage = async () => {
     if (!newMessageText.trim() || !messagePropertyId) return;
     try {
+      const targetProp = properties.find((p) => p.id === messagePropertyId);
       const res = await fetch('/api/admin/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toPropertyId: messagePropertyId, message: newMessageText }),
+        body: JSON.stringify({
+          toPropertyId: messagePropertyId,
+          propertyName: targetProp?.name || 'Property',
+          message: newMessageText,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -447,43 +452,78 @@ export function AdminPropertiesClient({ initialProperties }: AdminPropertiesClie
       <Modal
         isOpen={messagesModalOpen}
         onClose={() => setMessagesModalOpen(false)}
-        title="Communication & Notes"
+        title={`Communication & Notes — ${properties.find((p) => p.id === messagePropertyId)?.name || 'Property'}`}
       >
-        <div className="space-y-4 text-sm flex flex-col h-[60vh]">
-          <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50 p-4 rounded-lg border border-slate-100">
+        <div className="space-y-4 text-sm flex flex-col h-[65vh]">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-center justify-between">
+            <span>Direct compliance channel with property owner/landlord</span>
+            <span className="font-semibold text-slate-800">
+              {properties.find((p) => p.id === messagePropertyId)?.ownerName || 'Landlord'}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
             {messagesLoading ? (
-              <p className="text-slate-500 text-center py-4">Loading messages...</p>
+              <p className="text-slate-500 text-center py-8">Loading official message log...</p>
             ) : messagesList.length > 0 ? (
-              messagesList.map((msg, idx) => (
-                <div key={idx} className="bg-white p-3 rounded-lg shadow-sm border border-slate-100">
-                  <div className="flex justify-between items-start mb-1">
-                    <span className="font-bold text-slate-800 text-xs">{msg.fromName} ({msg.fromRole})</span>
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(msg.timestamp).toLocaleString()}
-                    </span>
+              messagesList.map((msg, idx) => {
+                const isLandlord = msg.fromRole === 'LANDLORD';
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3.5 rounded-xl shadow-sm border ${
+                      isLandlord
+                        ? 'bg-emerald-50/90 border-emerald-200 ml-4'
+                        : 'bg-white border-indigo-100 mr-4'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1.5 gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            isLandlord
+                              ? 'bg-emerald-200 text-emerald-900'
+                              : 'bg-indigo-100 text-indigo-900'
+                          }`}
+                        >
+                          {msg.fromRole}
+                        </span>
+                        <span className="font-bold text-slate-900 text-xs">{msg.fromName}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {new Date(msg.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 text-xs whitespace-pre-wrap leading-relaxed">
+                      {msg.message}
+                    </p>
                   </div>
-                  <p className="text-slate-600 text-xs whitespace-pre-wrap">{msg.message}</p>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <p className="text-slate-500 text-center py-4">No notes or messages yet.</p>
+              <p className="text-slate-500 text-center py-8 text-xs">
+                No official communication logged yet. Type a note or request below.
+              </p>
             )}
           </div>
-          <div className="mt-4">
+          <div className="mt-2 space-y-2">
             <textarea
               value={newMessageText}
               onChange={(e) => setNewMessageText(e.target.value)}
-              className="w-full border border-slate-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none shadow-sm"
               rows={3}
-              placeholder="Type your message or note here..."
+              placeholder="Type official notification, compliance request, or note to landlord..."
             />
-            <div className="flex justify-end mt-2">
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] text-slate-400">
+                Landlord will see this in their Property Portfolio & Dashboard.
+              </span>
               <Button
                 onClick={sendMessage}
                 disabled={!newMessageText.trim()}
-                className="bg-brand-600 hover:bg-brand-700 text-white"
+                className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
               >
-                Send Note
+                Send Official Note
               </Button>
             </div>
           </div>

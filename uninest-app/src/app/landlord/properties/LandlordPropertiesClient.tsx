@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input, Select, Textarea } from '@/components/ui/Input';
-import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X } from 'lucide-react';
+import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X, MessageSquare, AlertTriangle, XCircle, Send, Clock, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export interface PropertyItem {
@@ -23,6 +23,7 @@ export interface PropertyItem {
   rentPerMonth: number;
   openTickets: number;
   images?: string[];
+  rejectionReason?: string;
 }
 
 interface LandlordPropertiesClientProps {
@@ -72,6 +73,11 @@ function sanitizeProperty(raw: any): PropertyItem {
     rentPerMonth,
     openTickets,
     images: Array.isArray(raw?.images) && raw.images.length > 0 ? raw.images : defaultImages,
+    rejectionReason:
+      raw?.rejectionReason ||
+      (rawStatus === 'REJECTED' || rawStatus === 'SUSPENDED'
+        ? raw?.verificationNotes || 'Listing requires compliance review or documentation update'
+        : undefined),
   };
 }
 
@@ -84,6 +90,15 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
+
+  // Admin Communication & Notes State
+  const [adminMessages, setAdminMessages] = useState<any[]>([]);
+  const [messagesModalOpen, setMessagesModalOpen] = useState(false);
+  const [activePropertyForNotes, setActivePropertyForNotes] = useState<PropertyItem | null>(null);
+  const [notesThread, setNotesThread] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -102,6 +117,18 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
     ] as string[],
   });
 
+  const fetchAdminMessages = async () => {
+    try {
+      const res = await fetch('/api/admin/messages', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setAdminMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.warn('Error fetching admin messages:', err);
+    }
+  };
+
   useEffect(() => {
     if (searchParams?.get('add') === 'true') {
       setIsModalOpen(true);
@@ -116,7 +143,62 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
         }
       })
       .catch((err) => console.warn('Error syncing properties from API:', err));
+
+    fetchAdminMessages();
   }, [searchParams]);
+
+  const openPropertyNotes = async (prop: PropertyItem) => {
+    setActivePropertyForNotes(prop);
+    setMessagesModalOpen(true);
+    setLoadingNotes(true);
+    setReplyText('');
+    try {
+      const res = await fetch(`/api/admin/messages?propertyId=${prop.id}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        setNotesThread(data.messages || []);
+        // Mark as read
+        fetch('/api/admin/messages', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ propertyId: prop.id }),
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Error fetching property notes:', err);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !activePropertyForNotes) return;
+    setSendingReply(true);
+    try {
+      const res = await fetch('/api/admin/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toPropertyId: activePropertyForNotes.id,
+          propertyName: activePropertyForNotes.name,
+          message: replyText.trim(),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotesThread((prev) => [...prev, data.message]);
+        setAdminMessages((prev) => [...prev, data.message]);
+        setReplyText('');
+      } else {
+        alert('Failed to send reply.');
+      }
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      alert('Network error sending reply.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,6 +264,52 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
         </div>
       )}
 
+      {/* Official Admin Communication Banner */}
+      {(() => {
+        const adminNotes = adminMessages.filter((m) => m.fromRole === 'ADMIN');
+        const latestNote = adminNotes.length > 0 ? adminNotes[adminNotes.length - 1] : null;
+        if (!latestNote) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-down">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-200/90 px-2 py-0.5 rounded-full">
+                    Official Notice from UniNest Admin
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    Regarding: <strong className="text-slate-950 font-black">{latestNote.propertyName || 'Property Portfolio'}</strong>
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {new Date(latestNote.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                </div>
+                <p className="text-xs font-semibold text-slate-800 mt-1 bg-white/80 px-3 py-1.5 rounded-lg border border-amber-200/60 inline-block shadow-2xs">
+                  "{latestNote.message}"
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                size="sm"
+                onClick={() => {
+                  const targetProp = properties.find((p) => p.id === latestNote.toPropertyId) || properties[0];
+                  if (targetProp) openPropertyNotes(targetProp);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm"
+              >
+                <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                Open Discussion & Reply
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -198,16 +326,26 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
         {properties.map((rawProp) => {
           const p = sanitizeProperty(rawProp);
           const coverImage = p.images && p.images[0];
+          const isRejected = p.verificationStatus === 'REJECTED' || p.verificationStatus === 'SUSPENDED';
+          const isVerified = p.verificationStatus === 'VERIFIED';
+          const propMessages = adminMessages.filter((m) => m.toPropertyId === p.id);
+          const hasUnread = propMessages.some((m) => m.fromRole === 'ADMIN' && !m.read);
 
           return (
-            <Card key={p.id} className="overflow-hidden rounded-2xl border border-slate-200 hover:border-brand-300 transition-all shadow-sm flex flex-col justify-between">
+            <Card key={p.id} className={`overflow-hidden rounded-2xl border transition-all shadow-sm flex flex-col justify-between ${
+              isRejected ? 'border-rose-300 bg-rose-50/10' : 'border-slate-200 hover:border-brand-300'
+            }`}>
               {/* Cover Photo Banner */}
               {coverImage && (
                 <div className="h-36 w-full relative bg-slate-100 overflow-hidden">
                   <img src={coverImage} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-black/20 flex items-between justify-between p-3">
-                    <Badge variant={p.verificationStatus === 'VERIFIED' ? 'success' : 'warning'} size="sm" className="self-start shadow-sm">
-                      {p.verificationStatus}
+                    <Badge
+                      variant={isVerified ? 'success' : isRejected ? 'danger' : 'warning'}
+                      size="sm"
+                      className="self-start shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                    >
+                      {isRejected ? '❌ REJECTED BY ADMIN' : isVerified ? '✓ VERIFIED' : '⏳ UNDER REVIEW'}
                     </Badge>
                     <span className="self-end text-[11px] font-bold text-white bg-slate-900/80 px-2.5 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
                       <Camera className="w-3 h-3" /> {p.images?.length || 1} Photos
@@ -220,7 +358,14 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900">{p.name}</h2>
+                      <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        {p.name}
+                        {hasUnread && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                            New Note
+                          </span>
+                        )}
+                      </h2>
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" /> {p.address}
                       </p>
@@ -229,6 +374,30 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                       <Building2 className="w-4 h-4" />
                     </div>
                   </div>
+
+                  {/* Rejection Alert Box */}
+                  {isRejected && (
+                    <div className="my-3 bg-rose-50 border-2 border-rose-200 rounded-xl p-3 text-xs space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-rose-800 flex items-center gap-1.5">
+                          <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          Listing Suspended / Rejected by Admin
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-rose-700 bg-rose-200/80 px-2 py-0.5 rounded">Action Required</span>
+                      </div>
+                      <p className="text-slate-800 text-[11px] leading-relaxed">
+                        <strong className="text-rose-900 font-bold">Admin Feedback:</strong>{' '}
+                        {p.rejectionReason || 'Building compliance or safety verification standards not met.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openPropertyNotes(p)}
+                        className="text-brand-600 hover:text-brand-800 font-bold text-[11px] underline flex items-center gap-1 pt-1"
+                      >
+                        <MessageSquare className="w-3 h-3" /> View Admin Feedback & Request Re-Audit →
+                      </button>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-3 gap-2 my-4 p-3 bg-slate-50 rounded-xl text-center">
                     <div>
@@ -251,7 +420,26 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
-                  <span className="text-xs text-slate-500 font-semibold">{p.totalRooms} rooms configured</span>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openPropertyNotes(p)}
+                      className={`text-xs font-bold flex items-center gap-1.5 ${
+                        propMessages.length > 0
+                          ? 'border-brand-500 text-brand-700 bg-brand-50/60 hover:bg-brand-100'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-brand-600" />
+                      Admin Notes
+                      {propMessages.length > 0 && (
+                        <span className="bg-brand-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                          {propMessages.length}
+                        </span>
+                      )}
+                    </Button>
+                  </div>
                   <Link href={`/landlord/properties/${p.id}`}>
                     <Button size="sm" variant="outline" className="text-xs font-bold">
                       Manage Property →
@@ -449,6 +637,116 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Landlord Communication & Notes Modal */}
+      <Modal
+        isOpen={messagesModalOpen}
+        onClose={() => setMessagesModalOpen(false)}
+        title={`Admin Communication & Compliance — ${activePropertyForNotes?.name || 'Property'}`}
+        description="Official correspondence with UniNest Admin & verification audit team"
+        size="lg"
+      >
+        <div className="space-y-4 text-sm flex flex-col h-[65vh]">
+          {/* Status banner */}
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-700">Verification Status:</span>
+              <Badge
+                variant={
+                  activePropertyForNotes?.verificationStatus === 'VERIFIED'
+                    ? 'success'
+                    : activePropertyForNotes?.verificationStatus === 'REJECTED' || activePropertyForNotes?.verificationStatus === 'SUSPENDED'
+                    ? 'danger'
+                    : 'warning'
+                }
+                size="sm"
+                className="font-bold uppercase tracking-wider text-[10px]"
+              >
+                {activePropertyForNotes?.verificationStatus || 'UNDER REVIEW'}
+              </Badge>
+            </div>
+            {activePropertyForNotes?.rejectionReason && (
+              <span className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
+                Issue: {activePropertyForNotes.rejectionReason}
+              </span>
+            )}
+          </div>
+
+          {/* Messages list */}
+          <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+            {loadingNotes ? (
+              <p className="text-slate-500 text-center py-8 text-xs">Loading correspondence history...</p>
+            ) : notesThread.length > 0 ? (
+              notesThread.map((msg, idx) => {
+                const isAdmin = msg.fromRole === 'ADMIN';
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3.5 rounded-xl shadow-sm border ${
+                      isAdmin
+                        ? 'bg-amber-50/70 border-amber-200/80 mr-4'
+                        : 'bg-white border-emerald-200 ml-4'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1.5 gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            isAdmin
+                              ? 'bg-amber-200 text-amber-900'
+                              : 'bg-emerald-100 text-emerald-900'
+                          }`}
+                        >
+                          {isAdmin ? '🛡️ UNINEST ADMIN' : '🏠 LANDLORD (YOU)'}
+                        </span>
+                        <span className="font-bold text-slate-900 text-xs">{msg.fromName}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {new Date(msg.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 text-xs whitespace-pre-wrap leading-relaxed">
+                      {msg.message}
+                    </p>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-xs text-slate-500 space-y-1">
+                <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+                <p className="font-bold text-slate-700">No message history for this property yet.</p>
+                <p className="text-[11px] text-slate-400">
+                  Type a message below to contact the UniNest admin team regarding listing approvals or verification.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Reply Form */}
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none shadow-sm"
+              rows={3}
+              placeholder="Reply to UniNest Admin (e.g. 'I have updated the fire extinguisher certificates and fixed Room 204')..."
+            />
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] text-slate-400">
+                Directly alerts the platform compliance team for re-audit.
+              </span>
+              <Button
+                onClick={handleSendReply}
+                disabled={sendingReply || !replyText.trim()}
+                className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                {sendingReply ? 'Sending...' : 'Send Reply to Admin'}
+              </Button>
+            </div>
+          </div>
+        </div>
       </Modal>
     </div>
   );
