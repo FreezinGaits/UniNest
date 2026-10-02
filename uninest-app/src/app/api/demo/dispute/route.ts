@@ -105,11 +105,26 @@ export async function POST(request: Request) {
         }
       }
 
+      let updatedEvidence = [...current.evidence];
+      if (Array.isArray(body.newEvidence) && body.newEvidence.length > 0) {
+        for (const file of body.newEvidence) {
+          if (file && !updatedEvidence.includes(file)) {
+            updatedEvidence.push(file);
+            newTimelineEvents.push({
+              date: `${nowStr}, ${timeStr}`,
+              event: `Counter-evidence submitted by Landlord: ${file}`,
+              author: actorName,
+            });
+          }
+        }
+      }
+
       const updated = updateDisputeCase(current.id, {
         status: updatedStatus,
         landlordResponse,
         resolution,
         settlementOffer,
+        evidence: updatedEvidence,
         timeline: newTimelineEvents,
       });
 
@@ -124,6 +139,10 @@ export async function POST(request: Request) {
     const complainantName = session?.name || body.reporter || 'Rahul Sharma (Student)';
     const complainantEmail = session?.email || 'rahul@uninest.in';
     const amount = Number(body.amount) || Number(body.disputedAmount) || 0;
+    const evidenceList: string[] =
+      Array.isArray(body.evidence) && body.evidence.length > 0
+        ? body.evidence
+        : ['DOC-MIN-2026_Handover_Audit.pdf', 'Move_In_Photo_01.jpg'];
 
     const newCase = addDisputeCase({
       title: body.title || 'Dispute regarding accommodation',
@@ -134,7 +153,7 @@ export async function POST(request: Request) {
       property: body.property || 'PCTE Smart Student Residency',
       roomDetails: body.roomDetails || 'Room 204 (Bed A)',
       description: body.description || 'Dispute submitted for digital mediation.',
-      evidence: body.evidence || ['Tenant_Statement_Declaration.pdf'],
+      evidence: evidenceList,
     });
 
     return NextResponse.json(

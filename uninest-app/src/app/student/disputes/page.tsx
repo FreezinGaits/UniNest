@@ -23,6 +23,10 @@ import {
   Scale,
   Split,
   Eye,
+  Image as ImageIcon,
+  FileCheck,
+  ShieldCheck,
+  Paperclip,
 } from 'lucide-react';
 import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
 import { DisputeCase } from '@/lib/disputesStore';
@@ -47,7 +51,18 @@ export default function DisputesComplaintsPage() {
     description: '',
     priority: 'HIGH',
   });
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([
+    'DOC-MIN-2026_Handover_Audit.pdf',
+    'Move_In_Photo_01.jpg',
+  ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const names = Array.from(e.target.files).map((f) => f.name);
+      setAttachedFiles((prev) => Array.from(new Set([...prev, ...names])));
+    }
+  };
 
   const fetchDisputes = async (email: string) => {
     setLoading(true);
@@ -110,6 +125,7 @@ export default function DisputesComplaintsPage() {
           reporter: userName,
           property: 'PCTE Smart Student Residency',
           roomDetails: 'Room 204 (Bed A)',
+          evidence: attachedFiles,
         }),
       });
 
@@ -126,6 +142,10 @@ export default function DisputesComplaintsPage() {
             description: '',
             priority: 'HIGH',
           });
+          setAttachedFiles([
+            'DOC-MIN-2026_Handover_Audit.pdf',
+            'Move_In_Photo_01.jpg',
+          ]);
         }
       } else {
         alert('Failed to submit dispute.');
@@ -550,6 +570,104 @@ export default function DisputesComplaintsPage() {
               required
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-medium text-slate-900"
             />
+          </div>
+
+          {/* Evidentiary Files & Photographic Proof Attachment */}
+          <div className="space-y-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Evidentiary Files & Photographic Proof
+              </label>
+              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" /> Tamper-Proof Chain
+              </span>
+            </div>
+
+            {/* Platform Auto-Attached Notice */}
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-bold text-slate-800">Move-In Handover Audit (DOC-MIN-2026)</span>
+                  <p className="text-[11px] text-slate-500">Auto-linked from check-in agreement signed on 15 Aug 2026</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+                Verified
+              </span>
+            </div>
+
+            {/* Uploaded / Attached Pills */}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {attachedFiles.map((fileName, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-xs font-semibold"
+                  >
+                    {fileName.endsWith('.jpg') || fileName.endsWith('.png') ? (
+                      <ImageIcon className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    ) : (
+                      <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingEvidence(fileName)}
+                      className="underline-offset-2 hover:underline text-left truncate max-w-[180px]"
+                      title="Click to inspect this evidence"
+                    >
+                      {fileName}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFiles(attachedFiles.filter((_, i) => i !== idx))}
+                      className="text-blue-400 hover:text-rose-600 p-0.5 rounded ml-1 transition-colors"
+                      title="Remove file"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* File Upload Trigger & Quick Presets */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:border-brand-500 hover:bg-brand-50/30 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-xs">
+                <UploadCloud className="w-3.5 h-3.5 text-brand-600" />
+                <span>Upload Photos / Documents</span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!attachedFiles.includes('Meter_Photo_June_30.jpg')) {
+                    setAttachedFiles([...attachedFiles, 'Meter_Photo_June_30.jpg']);
+                  }
+                }}
+                className="text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+              >
+                + Meter_Photo_June_30.jpg
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!attachedFiles.includes('WhatsApp_Chat_Screenshot.png')) {
+                    setAttachedFiles([...attachedFiles, 'WhatsApp_Chat_Screenshot.png']);
+                  }
+                }}
+                className="text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+              >
+                + WhatsApp_Chat_Log.png
+              </button>
+            </div>
           </div>
 
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">

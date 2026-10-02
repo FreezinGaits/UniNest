@@ -22,6 +22,10 @@ import {
   Split,
   Undo2,
   Eye,
+  UploadCloud,
+  X,
+  Image as ImageIcon,
+  Paperclip,
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 import { DisputeCase } from '@/lib/disputesStore';
@@ -45,8 +49,16 @@ export function TenantDisputesClient({
   // Form states
   const [settlementAmount, setSettlementAmount] = useState<number>(750);
   const [responseNote, setResponseNote] = useState('');
+  const [landlordAttachedFiles, setLandlordAttachedFiles] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const handleLandlordFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const names = Array.from(e.target.files).map((f) => f.name);
+      setLandlordAttachedFiles((prev) => Array.from(new Set([...prev, ...names])));
+    }
+  };
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -57,6 +69,7 @@ export function TenantDisputesClient({
     setSelectedDispute(d);
     setSettlementAmount(d.settlementOffer?.offeredAmount || Math.round(d.disputedAmount / 2) || 500);
     setResponseNote(d.landlordResponse || '');
+    setLandlordAttachedFiles([]);
     setIsModalOpen(true);
   };
 
@@ -73,6 +86,7 @@ export function TenantDisputesClient({
           action,
           settlementAmount: action === 'PROPOSE_SETTLEMENT' ? settlementAmount : undefined,
           responseNote: responseNote.trim(),
+          newEvidence: landlordAttachedFiles,
         }),
       });
 
@@ -83,6 +97,7 @@ export function TenantDisputesClient({
             prev.map((d) => (d.id === selectedDispute.id ? { ...d, ...data.dispute } : d))
           );
           setSelectedDispute(data.dispute);
+          setLandlordAttachedFiles([]);
           showToast(
             action === 'ACCEPT_FULL'
               ? 'Dispute settled! Full refund released from Escrow to tenant.'
@@ -401,6 +416,81 @@ export function TenantDisputesClient({
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-medium text-slate-800 bg-white"
                       placeholder="Explain the compromise offer (e.g. The scratch was present but unpolished; offering 50% split refund)."
                     />
+                  </div>
+
+                  {/* Landlord Counter-Evidence / Invoices Attachment */}
+                  <div className="space-y-1.5 pt-2 border-t border-brand-200/60">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Attach Counter-Evidence / Repair Invoices (Optional)
+                    </label>
+
+                    {landlordAttachedFiles.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pb-1">
+                        {landlordAttachedFiles.map((fn, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 shadow-2xs"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                            <span className="truncate max-w-[170px]">{fn}</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLandlordAttachedFiles(
+                                  landlordAttachedFiles.filter((_, i) => i !== idx)
+                                )
+                              }
+                              className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors ml-0.5"
+                              title="Remove file"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 hover:border-brand-500 rounded-xl text-xs font-bold text-slate-700 transition-colors shadow-xs">
+                        <UploadCloud className="w-3.5 h-3.5 text-brand-600" />
+                        <span>Upload Bill / Photo</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          className="hidden"
+                          onChange={handleLandlordFileUpload}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!landlordAttachedFiles.includes('Landlord_Deduction_Receipt.pdf')) {
+                            setLandlordAttachedFiles([
+                              ...landlordAttachedFiles,
+                              'Landlord_Deduction_Receipt.pdf',
+                            ]);
+                          }
+                        }}
+                        className="text-[11px] font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        + Landlord_Deduction_Receipt.pdf
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!landlordAttachedFiles.includes('Carpenter_Repair_Invoice.pdf')) {
+                            setLandlordAttachedFiles([
+                              ...landlordAttachedFiles,
+                              'Carpenter_Repair_Invoice.pdf',
+                            ]);
+                          }
+                        }}
+                        className="text-[11px] font-semibold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        + Carpenter_Repair_Invoice.pdf
+                      </button>
+                    </div>
                   </div>
 
                   <Button
