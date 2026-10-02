@@ -8,253 +8,209 @@ import { Modal } from '@/components/ui/Modal';
 import { Select, Input } from '@/components/ui/Input';
 import { formatINR } from '@/lib/utils';
 import {
-  AlertTriangle, Shield, Clock, FileText, CheckCircle2, MessageSquare,
-  ChevronRight, Plus, ArrowUpRight, UploadCloud, X
+  AlertTriangle,
+  Shield,
+  Clock,
+  FileText,
+  CheckCircle2,
+  MessageSquare,
+  ChevronRight,
+  Plus,
+  ArrowUpRight,
+  UploadCloud,
+  X,
+  Lock,
+  Scale,
+  Split,
 } from 'lucide-react';
-
-interface DisputeItem {
-  id: string;
-  caseId: string;
-  category: string;
-  title: string;
-  amount: number;
-  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'ESCALATED';
-  reporter: string;
-  respondent: string;
-  description: string;
-  priority?: string;
-  evidence: string[];
-  timeline: { date: string; event: string }[];
-  otherPartyResponse: string;
-  resolution: string | null;
-}
-
-const DEMO_DISPUTES: DisputeItem[] = [
-  {
-    id: 'dsp-1',
-    caseId: 'UN-DMG-00452',
-    category: 'DAMAGE',
-    title: 'Disputed Security Deposit Deduction for Pre-existing Door Scratch',
-    amount: 150000, // ₹1,500
-    status: 'UNDER_REVIEW',
-    reporter: 'Rahul Sharma (Student)',
-    respondent: 'Vikram Singh (Landlord)',
-    description: 'Landlord deducted ₹1,500 from security deposit for door scratch. However, Move-in Condition Report (DOC-MIN-2026) proves this scratch existed prior to move-in date.',
-    evidence: ['Move_In_Photo_01.jpg', 'Landlord_Deduction_Receipt.pdf', 'Move_In_Report_Signed.pdf'],
-    timeline: [
-      { date: '10 Jul 2026', event: 'Dispute filed by Tenant (Rahul Sharma)' },
-      { date: '11 Jul 2026', event: 'Evidence submitted: Move-in condition report DOC-MIN-2026' },
-      { date: '12 Jul 2026', event: 'Landlord responded: "Scratch appeared larger during move-out"' },
-      { date: '13 Jul 2026', event: 'Escalated to UniNest Independent Arbitrator' },
-    ],
-    otherPartyResponse: '"The door scratch was present during initial inspection but tenant failed to polish it. Requesting 50% split."',
-    resolution: null,
-  },
-  {
-    id: 'dsp-2',
-    caseId: 'UN-ELE-00219',
-    category: 'ELECTRICITY',
-    title: 'Sub-Meter Reading Mismatch for June 2026',
-    amount: 80000, // ₹800
-    status: 'RESOLVED',
-    reporter: 'Rahul Sharma (Student)',
-    respondent: 'Vikram Singh (Landlord)',
-    description: 'June sub-meter reading logged 140 units, but meter photo shows 110 units. Disputed excess ₹800 bill.',
-    evidence: ['Meter_Photo_June_30.jpg'],
-    timeline: [
-      { date: '01 Jul 2026', event: 'Dispute filed by Tenant' },
-      { date: '02 Jul 2026', event: 'Landlord verified meter photo and acknowledged typo' },
-      { date: '02 Jul 2026', event: 'Resolution issued: ₹800 credited to student wallet' },
-    ],
-    otherPartyResponse: '"Acknowledged typo during manual entry. Correct reading is 110 units."',
-    resolution: 'Case Closed: ₹800 excess charge refunded to student ledger. Sub-meter reading updated to 110 units.',
-  },
-  {
-    id: 'dsp-3',
-    caseId: 'UN-SRV-00104',
-    category: 'SERVICE',
-    title: 'Wi-Fi Downtime Refund Claim (3 Days Unusable)',
-    amount: 30000, // ₹300
-    status: 'RESOLVED',
-    reporter: 'Rahul Sharma (Student)',
-    respondent: 'Airtel Broadband (Provider)',
-    description: 'High-speed Wi-Fi boost service had 72 hours downtime during semester exams.',
-    evidence: ['Speedtest_Logs.pdf', 'ISP_Ticket_Reference.txt'],
-    timeline: [
-      { date: '15 Jun 2026', event: 'Dispute filed against Service Provider' },
-      { date: '16 Jun 2026', event: 'SLA breach confirmed by ISP automated monitor' },
-      { date: '17 Jun 2026', event: 'Pro-rata refund processed' },
-    ],
-    otherPartyResponse: '"Fibre cut detected near campus gate. SLA credit issued automatically."',
-    resolution: 'Case Closed: Pro-rata refund of ₹300 credited for 3 days outage.',
-  },
-];
-
 import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
+import { DisputeCase } from '@/lib/disputesStore';
 
 export default function DisputesComplaintsPage() {
   const { userEmail: ctxEmail, userName: ctxName, isDemoUser: ctxIsDemo } = useDashboardUser();
   const [isDemo, setIsDemo] = useState<boolean>(ctxIsDemo);
   const [userEmail, setUserEmail] = useState(ctxEmail || '');
   const [userName, setUserName] = useState(ctxName || 'Student');
-  const [disputes, setDisputes] = useState<DisputeItem[]>(ctxIsDemo ? DEMO_DISPUTES : []);
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(ctxIsDemo ? DEMO_DISPUTES[0] : null);
-
-  useEffect(() => {
-    const loadDisputesForEmail = (email: string, name: string) => {
-      const demo = isDemoAccountEmail(email);
-      setIsDemo(demo);
-      setUserEmail(email || 'guest');
-      setUserName(demo ? 'Rahul Sharma' : name || 'Student');
-
-      const storageKey = 'uninest_student_disputes_' + (email || 'guest');
-      let savedDisputes: DisputeItem[] = [];
-      try {
-        const raw = localStorage.getItem(storageKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            savedDisputes = parsed;
-          }
-        }
-      } catch {}
-
-      if (demo) {
-        const existingIds = new Set(savedDisputes.map((d) => d.id));
-        const merged = [
-          ...savedDisputes,
-          ...DEMO_DISPUTES.filter((d) => !existingIds.has(d.id)),
-        ];
-        setDisputes(merged);
-        setSelectedDispute(merged[0] || null);
-      } else {
-        setDisputes(savedDisputes);
-        setSelectedDispute(savedDisputes[0] || null);
-      }
-    };
-
-    if (ctxEmail) {
-      loadDisputesForEmail(ctxEmail, ctxName);
-      return;
-    }
-
-    fetch('/api/profile')
-      .then((res) => res.json())
-      .then((data) => {
-        const email = data?.email || data?.user?.email || '';
-        const name = data?.name || data?.user?.name || 'Student';
-        loadDisputesForEmail(email, name);
-      })
-      .catch(() => {
-        setIsDemo(false);
-        setDisputes([]);
-        setSelectedDispute(null);
-      });
-  }, [ctxEmail, ctxName]);
+  const [disputes, setDisputes] = useState<DisputeCase[]>([]);
+  const [selectedDispute, setSelectedDispute] = useState<DisputeCase | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [newDispute, setNewDispute] = useState({
-    category: 'DEPOSIT',
+    category: 'DAMAGE',
     title: '',
+    amount: '1500',
     description: '',
     priority: 'HIGH',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const categories = ['ALL', 'PAYMENT', 'DEPOSIT', 'DAMAGE', 'ELECTRICITY', 'MAINTENANCE', 'LISTING', 'BOOKING', 'AGREEMENT', 'RULES', 'SAFETY', 'SERVICE'];
-
-  const filteredDisputes = selectedCategory === 'ALL'
-    ? disputes
-    : disputes.filter(d => d.category === selectedCategory);
-
-  async function handleCreateDispute() {
-    if (!newDispute.title) return;
-    const descriptionText =
-      newDispute.description.trim() ||
-      `New dispute logged under ${newDispute.category} category for review by UniNest tribunal.`;
-
-    const newCase: DisputeItem = {
-      id: `dsp-${Date.now()}`,
-      caseId: `UN-${newDispute.category.slice(0, 3)}-${Math.floor(10000 + Math.random() * 90000)}`,
-      category: newDispute.category,
-      title: newDispute.title,
-      amount: 50000,
-      status: 'OPEN',
-      reporter: `${userName} (Student)`,
-      respondent: 'Landlord / Service Vendor',
-      description: descriptionText,
-      priority: newDispute.priority,
-      evidence: ['Student_Evidence_Statement.pdf'],
-      timeline: [{ date: 'Today', event: `Dispute submitted by Tenant (${userName})` }],
-      otherPartyResponse: 'Pending response from respondent (24 hr SLA)',
-      resolution: null,
-    };
-
-    const updatedList = [newCase, ...disputes];
-    setDisputes(updatedList);
-    setSelectedDispute(newCase);
-    setModalOpen(false);
-
-    // Persist in localStorage
+  const fetchDisputes = async (email: string) => {
+    setLoading(true);
     try {
-      const storageKey = 'uninest_student_disputes_' + (userEmail || 'demo');
-      const existingRaw = localStorage.getItem(storageKey);
-      const existingSaved = existingRaw ? JSON.parse(existingRaw) : [];
-      existingSaved.unshift(newCase);
-      localStorage.setItem(storageKey, JSON.stringify(existingSaved));
-    } catch {}
+      const res = await fetch(`/api/demo/dispute?role=STUDENT&email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.disputes && Array.isArray(data.disputes)) {
+          setDisputes(data.disputes);
+          setSelectedDispute(data.disputes[0] || null);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load disputes from API:', err);
+    }
+    setLoading(false);
+  };
 
-    // Send POST /api/demo/dispute
+  useEffect(() => {
+    const email = ctxEmail || 'rahul@uninest.in';
+    const name = ctxName || 'Rahul Sharma';
+    setUserEmail(email);
+    setUserName(name);
+    fetchDisputes(email);
+  }, [ctxEmail, ctxName]);
+
+  const categories = [
+    'ALL',
+    'DAMAGE',
+    'DEPOSIT',
+    'ELECTRICITY',
+    'MAINTENANCE',
+    'RULES',
+    'SERVICE',
+    'LISTING',
+    'SAFETY',
+  ];
+
+  const filteredDisputes =
+    selectedCategory === 'ALL'
+      ? disputes
+      : disputes.filter((d) => d.category === selectedCategory);
+
+  async function handleCreateDispute(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newDispute.title.trim()) return;
+    setIsSubmitting(true);
+
     try {
-      await fetch('/api/demo/dispute', {
+      const res = await fetch('/api/demo/dispute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category: newDispute.category,
-          title: newDispute.title,
-          description: descriptionText,
-          priority: newDispute.priority,
+          title: newDispute.title.trim(),
+          amount: Number(newDispute.amount) || 0,
+          description: newDispute.description.trim(),
+          reporter: userName,
+          property: 'PCTE Smart Student Residency',
+          roomDetails: 'Room 204 (Bed A)',
         }),
       });
-    } catch {}
 
-    setNewDispute({
-      category: 'DEPOSIT',
-      title: '',
-      description: '',
-      priority: 'HIGH',
-    });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.dispute) {
+          setDisputes([data.dispute, ...disputes]);
+          setSelectedDispute(data.dispute);
+          setModalOpen(false);
+          setNewDispute({
+            category: 'DAMAGE',
+            title: '',
+            amount: '1500',
+            description: '',
+            priority: 'HIGH',
+          });
+        }
+      } else {
+        alert('Failed to submit dispute.');
+      }
+    } catch (err) {
+      console.error('Error creating dispute:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  function handleEscalate(caseId: string) {
-    setDisputes(disputes.map(d => d.caseId === caseId ? { ...d, status: 'ESCALATED' } : d));
-    if (selectedDispute && selectedDispute.caseId === caseId) {
-      setSelectedDispute({ ...selectedDispute, status: 'ESCALATED' });
+  async function handleAcceptSettlementOffer(caseId: string) {
+    try {
+      const res = await fetch('/api/demo/dispute', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          disputeId: caseId,
+          action: 'ACCEPT_OFFER',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.dispute) {
+          setDisputes(disputes.map((d) => (d.caseId === caseId ? data.dispute : d)));
+          setSelectedDispute(data.dispute);
+        }
+      }
+    } catch (err) {
+      console.error('Accept offer error:', err);
+    }
+  }
+
+  async function handleEscalate(caseId: string) {
+    try {
+      const res = await fetch('/api/demo/dispute', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          disputeId: caseId,
+          action: 'ESCALATE_TRIBUNAL',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.dispute) {
+          setDisputes(disputes.map((d) => (d.caseId === caseId ? data.dispute : d)));
+          setSelectedDispute(data.dispute);
+        }
+      }
+    } catch (err) {
+      console.error('Escalate dispute error:', err);
     }
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Dispute Resolution Portal</h1>
-          <p className="text-text-secondary mt-1">Formal deposit, maintenance, rent & service dispute arbitration center</p>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            Dispute Resolution Portal
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Formal deposit, sub-meter, maintenance & rent arbitration center backed by Escrow Protection.
+          </p>
         </div>
-        <Button variant="primary" onClick={() => setModalOpen(true)}>
+        <Button
+          variant="primary"
+          onClick={() => setModalOpen(true)}
+          className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+        >
           <Plus className="w-4 h-4 mr-1" /> File Formal Dispute
         </Button>
       </div>
 
       {/* Category Filter Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-colors border ${
               selectedCategory === cat
-                ? 'bg-brand-600 text-white'
-                : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
+                ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
             {cat}
@@ -266,11 +222,15 @@ export default function DisputesComplaintsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Dispute List */}
         <div className="lg:col-span-1 space-y-3">
-          <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">Active & Past Cases</h2>
+          <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Active & Past Cases
+          </h2>
 
-          {filteredDisputes.length === 0 ? (
-            <div className="bg-surface-secondary border border-border p-8 rounded-2xl text-center shadow-sm">
-              <p className="text-sm text-text-secondary">No disputes filed.</p>
+          {loading ? (
+            <div className="p-8 text-center text-xs text-slate-400">Loading dispute records...</div>
+          ) : filteredDisputes.length === 0 ? (
+            <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center shadow-xs">
+              <p className="text-xs text-slate-500">No disputes filed in this category.</p>
             </div>
           ) : (
             filteredDisputes.map((item) => (
@@ -279,30 +239,53 @@ export default function DisputesComplaintsPage() {
                 onClick={() => setSelectedDispute(item)}
                 className="cursor-pointer"
               >
-                <Card
-                  className={`p-4 transition-all ${
-                    selectedDispute?.id === item.id ? 'border-brand-600 ring-1 ring-brand-600 bg-brand-50/20' : 'hover:border-brand-300'
+                <div
+                  className={`p-4 rounded-2xl border transition-all ${
+                    selectedDispute?.id === item.id
+                      ? 'border-brand-600 bg-brand-50/20 shadow-xs ring-1 ring-brand-600'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs font-bold text-brand-700">{item.caseId}</span>
-                      <Badge variant={
-                        item.status === 'RESOLVED' ? 'success' :
-                        item.status === 'ESCALATED' ? 'danger' : 'warning'
-                      } size="sm">
-                        {item.status}
-                      </Badge>
+                      <span className="font-mono text-xs font-bold text-brand-700">
+                        {item.caseId}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {item.escrowFrozen && item.status !== 'RESOLVED' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                            <Lock className="w-2.5 h-2.5" /> Frozen
+                          </span>
+                        )}
+                        <Badge
+                          variant={
+                            item.status === 'RESOLVED'
+                              ? 'success'
+                              : item.status === 'ESCALATED'
+                              ? 'danger'
+                              : 'warning'
+                          }
+                          size="sm"
+                        >
+                          {item.status}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <h3 className="font-bold text-xs text-text-primary line-clamp-2">{item.title}</h3>
+                    <h3 className="font-extrabold text-xs text-slate-900 line-clamp-2">
+                      {item.title}
+                    </h3>
 
-                    <div className="flex items-center justify-between text-[11px] text-text-tertiary pt-1 border-t border-border">
-                      <span>Category: <strong>{item.category}</strong></span>
-                      <span className="font-semibold text-text-primary">{formatINR(item.amount)}</span>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+                      <span>
+                        Category: <strong className="text-slate-700">{item.category}</strong>
+                      </span>
+                      <span className="font-black text-slate-900">
+                        {item.disputedAmount > 0 ? `₹${item.disputedAmount.toLocaleString('en-IN')}` : 'Rule / Notice'}
+                      </span>
                     </div>
                   </div>
-                </Card>
+                </div>
               </div>
             ))
           )}
@@ -311,62 +294,144 @@ export default function DisputesComplaintsPage() {
         {/* Right Column: Case Details Viewer */}
         <div className="lg:col-span-2 space-y-6">
           {selectedDispute ? (
-            <Card className="space-y-6">
+            <Card className="space-y-6 p-6">
               {/* Header */}
-              <div className="border-b border-border pb-4 space-y-2">
+              <div className="border-b border-slate-200 pb-4 space-y-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold text-brand-700">{selectedDispute.caseId}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-black text-brand-700">
+                      {selectedDispute.caseId}
+                    </span>
                     <Badge variant="outline">{selectedDispute.category}</Badge>
-                    <Badge variant={
-                      selectedDispute.status === 'RESOLVED' ? 'success' :
-                      selectedDispute.status === 'ESCALATED' ? 'danger' : 'warning'
-                    }>
+                    <Badge
+                      variant={
+                        selectedDispute.status === 'RESOLVED'
+                          ? 'success'
+                          : selectedDispute.status === 'ESCALATED'
+                          ? 'danger'
+                          : 'warning'
+                      }
+                    >
                       {selectedDispute.status}
                     </Badge>
                   </div>
 
-                  {selectedDispute.status !== 'RESOLVED' && selectedDispute.status !== 'ESCALATED' && (
-                    <Button variant="outline" size="sm" onClick={() => handleEscalate(selectedDispute.caseId)}>
-                      Escalate to Tribunal
-                    </Button>
-                  )}
+                  {selectedDispute.status !== 'RESOLVED' &&
+                    selectedDispute.status !== 'ESCALATED' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEscalate(selectedDispute.caseId)}
+                        className="text-xs font-bold border-purple-300 text-purple-700 hover:bg-purple-50"
+                      >
+                        <Scale className="w-3.5 h-3.5 mr-1" /> Escalate to Tribunal
+                      </Button>
+                    )}
                 </div>
 
-                <h2 className="text-lg font-bold text-text-primary">{selectedDispute.title}</h2>
+                <h2 className="text-lg font-black text-slate-900 leading-snug">
+                  {selectedDispute.title}
+                </h2>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs text-text-secondary pt-1">
-                  <span>Disputed Amount: <strong className="text-text-primary font-bold">{formatINR(selectedDispute.amount)}</strong></span>
-                  <span>Reporter: <strong>{selectedDispute.reporter}</strong></span>
-                  <span>Respondent: <strong>{selectedDispute.respondent}</strong></span>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-1">
+                  <span>
+                    Disputed Sum:{' '}
+                    <strong className="text-emerald-700 font-bold">
+                      ₹{selectedDispute.disputedAmount.toLocaleString('en-IN')}
+                    </strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Reporter: <strong>{selectedDispute.complainantName}</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Respondent: <strong>{selectedDispute.respondentName}</strong>
+                  </span>
                 </div>
               </div>
 
-              {/* Description */}
-              <div className="space-y-2 text-xs">
-                <h3 className="font-bold text-text-primary uppercase tracking-wider text-[11px]">Case Description</h3>
-                <p className="text-text-secondary bg-surface-secondary p-3 rounded-xl border border-border">
+              {/* Escrow Freeze Notice */}
+              {selectedDispute.escrowFrozen && selectedDispute.status !== 'RESOLVED' && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-xs text-rose-900 font-medium">
+                  <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>
+                    <strong>Escrow Protection Active:</strong> ₹{selectedDispute.disputedAmount.toLocaleString('en-IN')} is locked in the UniNest Tri-Party Vault. The landlord cannot withdraw this sum until resolution.
+                  </span>
+                </div>
+              )}
+
+              {/* Settlement Offer Banner if Landlord proposed a compromise */}
+              {selectedDispute.settlementOffer &&
+                selectedDispute.settlementOffer.status === 'PENDING' &&
+                selectedDispute.status !== 'RESOLVED' && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl space-y-2.5 animate-slide-down">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="font-black text-xs text-emerald-950 flex items-center gap-1.5">
+                        <Split className="w-4 h-4 text-emerald-600" />
+                        Mutual Settlement Offer from Landlord
+                      </span>
+                      <span className="text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                        ₹{selectedDispute.settlementOffer.offeredAmount} Refund
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-800 italic bg-white/70 p-2.5 rounded-lg border border-emerald-200">
+                      &quot;{selectedDispute.settlementOffer.note}&quot;
+                    </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={() => handleAcceptSettlementOffer(selectedDispute.caseId)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs"
+                      >
+                        Accept ₹{selectedDispute.settlementOffer.offeredAmount} Refund & Settle
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEscalate(selectedDispute.caseId)}
+                        className="border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-100"
+                      >
+                        Reject & Escalate to Tribunal
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+              {/* Case Description */}
+              <div className="space-y-1.5 text-xs">
+                <h3 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Case Description
+                </h3>
+                <p className="text-slate-700 bg-slate-50 p-3.5 rounded-xl border border-slate-200 leading-relaxed">
                   {selectedDispute.description}
                 </p>
               </div>
 
-              {/* Evidence Attachments */}
-              <div className="space-y-2 text-xs">
-                <h3 className="font-bold text-text-primary uppercase tracking-wider text-[11px]">Submitted Evidence</h3>
+              {/* Submitted Evidence */}
+              <div className="space-y-1.5 text-xs">
+                <h3 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Submitted Evidence
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {selectedDispute.evidence.map((ev, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 px-3 py-2 bg-brand-50 border border-brand-100 rounded-lg text-brand-800 font-medium text-xs">
-                      <FileText className="w-4 h-4 text-brand-600" /> {ev}
+                    <div
+                      key={idx}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 font-semibold text-xs"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-600" /> {ev}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Other Party Response */}
-              <div className="space-y-2 text-xs">
-                <h3 className="font-bold text-text-primary uppercase tracking-wider text-[11px]">Respondent Official Reply</h3>
-                <p className="text-text-secondary italic bg-amber-50/50 p-3 rounded-xl border border-amber-200">
-                  {selectedDispute.otherPartyResponse}
+              {/* Respondent Official Reply */}
+              <div className="space-y-1.5 text-xs">
+                <h3 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Respondent Official Reply
+                </h3>
+                <p className="text-slate-700 italic bg-amber-50/50 p-3.5 rounded-xl border border-amber-200">
+                  {selectedDispute.landlordResponse || 'Awaiting landlord mediation response (48 hr SLA active).'}
                 </p>
               </div>
 
@@ -381,15 +446,19 @@ export default function DisputesComplaintsPage() {
               )}
 
               {/* Audit Timeline */}
-              <div className="space-y-3 text-xs border-t border-border pt-4">
-                <h3 className="font-bold text-text-primary uppercase tracking-wider text-[11px]">Case Audit Timeline</h3>
+              <div className="space-y-2 text-xs pt-2 border-t border-slate-200">
+                <h3 className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+                  Case Audit Timeline
+                </h3>
                 <div className="space-y-2">
-                  {selectedDispute.timeline.map((tl, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-brand-600 shrink-0 mt-1" />
+                  {selectedDispute.timeline.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-2.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0" />
                       <div>
-                        <span className="font-semibold text-text-primary mr-2">{tl.date}:</span>
-                        <span className="text-text-secondary">{tl.event}</span>
+                        <div className="text-slate-800 font-semibold">{item.event}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          {item.date} • {item.author}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -397,69 +466,104 @@ export default function DisputesComplaintsPage() {
               </div>
             </Card>
           ) : (
-            <Card className="flex flex-col items-center justify-center py-16 text-center">
-              <Shield className="w-8 h-8 text-brand-600 mb-2" />
-              <h3 className="font-bold text-text-primary">Select a dispute case</h3>
-              <p className="text-xs text-text-secondary mt-1">Select a dispute from the left to view evidence, replies, and resolution verdicts.</p>
-            </Card>
+            <div className="text-center py-16 bg-white border border-slate-200 rounded-2xl p-6 text-sm text-slate-400">
+              Select a case from the left to view details and mediation options.
+            </div>
           )}
         </div>
       </div>
 
-      {/* FILE DISPUTE MODAL USING STANDARDIZED MODAL COMPONENT */}
+      {/* File Formal Dispute Modal */}
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="File New Dispute Claim"
-        description="Submit a formal deposit, rent, damage, or service dispute to the UniNest arbitration tribunal"
+        title="File Formal Tenancy Dispute"
         size="md"
       >
-        <div className="space-y-4">
-          <Select
-            label="Dispute Category"
-            value={newDispute.category}
-            onChange={(e) => setNewDispute({ ...newDispute, category: e.target.value })}
-            options={categories.filter(c => c !== 'ALL').map(c => ({ value: c, label: c }))}
-          />
+        <form onSubmit={handleCreateDispute} className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Category *
+              </label>
+              <select
+                value={newDispute.category}
+                onChange={(e) => setNewDispute({ ...newDispute, category: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl font-medium text-slate-900"
+              >
+                <option value="DAMAGE">Security Deposit / Damage</option>
+                <option value="ELECTRICITY">Sub-Meter Electricity</option>
+                <option value="MAINTENANCE">Maintenance SLA Breach</option>
+                <option value="RULES">Quiet Hours / Co-Living Rules</option>
+                <option value="SERVICE">Vendor Service Quality</option>
+                <option value="SAFETY">Safety & Door Lock</option>
+              </select>
+            </div>
 
-          <Input
-            label="Dispute Subject / Title *"
-            placeholder="e.g. Unjustified deposit deduction for room painting"
-            value={newDispute.title}
-            onChange={(e) => setNewDispute({ ...newDispute, title: e.target.value })}
-          />
-
-          <Input
-            label="Case Description / Details"
-            placeholder="Provide brief context about the issue..."
-            value={newDispute.description}
-            onChange={(e) => setNewDispute({ ...newDispute, description: e.target.value })}
-          />
-
-          <Select
-            label="Priority"
-            value={newDispute.priority}
-            onChange={(e) => setNewDispute({ ...newDispute, priority: e.target.value })}
-            options={[
-              { value: 'URGENT', label: 'URGENT' },
-              { value: 'HIGH', label: 'HIGH' },
-              { value: 'MEDIUM', label: 'MEDIUM' },
-              { value: 'LOW', label: 'LOW' },
-            ]}
-          />
-
-          <div className="p-3 bg-brand-50 border border-brand-100 rounded-xl flex items-center gap-2 text-xs text-brand-900">
-            <UploadCloud className="w-4 h-4 text-brand-600 shrink-0" />
-            <span>Demo Evidence file attached: <strong>Student_Claim_Photos_Receipts.pdf</strong></span>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Disputed Amount (₹)
+              </label>
+              <input
+                type="number"
+                value={newDispute.amount}
+                onChange={(e) => setNewDispute({ ...newDispute, amount: e.target.value })}
+                placeholder="e.g. 1500"
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl font-bold text-slate-900"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button disabled={!newDispute.title} onClick={handleCreateDispute} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
-              Submit to Arbitrator
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Case Subject *
+            </label>
+            <input
+              type="text"
+              value={newDispute.title}
+              onChange={(e) => setNewDispute({ ...newDispute, title: e.target.value })}
+              placeholder="e.g., Unfair deposit deduction for pre-existing door scratch"
+              required
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl font-medium text-slate-900"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Detailed Stated Grievance *
+            </label>
+            <textarea
+              value={newDispute.description}
+              onChange={(e) => setNewDispute({ ...newDispute, description: e.target.value })}
+              rows={3}
+              placeholder="Explain the background, why this charge or issue is disputed, and references to your Move-In Inspection Report..."
+              required
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl font-medium text-slate-900"
+            />
+          </div>
+
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+            <span className="font-bold flex items-center gap-1">
+              <Lock className="w-3.5 h-3.5 text-blue-700" /> Automatic Escrow Freeze
+            </span>
+            <p className="text-[11px] text-blue-800">
+              If an amount is disputed, that sum is immediately frozen in the Escrow vault. The landlord will have 48 hours to negotiate or offer a mutual compromise.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+            <Button type="button" variant="outline" size="sm" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+            >
+              {isSubmitting ? 'Submitting...' : 'File Dispute & Freeze Funds'}
             </Button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );
