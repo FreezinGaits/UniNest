@@ -113,7 +113,75 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
 
   const activeEmergency = emergencies.find((e) => e.status !== 'RESOLVED');
 
+  const [tableFilter, setTableFilter] = useState<'ALL' | 'EMERGENCY' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
+  const [tableSearch, setTableSearch] = useState('');
+
+  // Map emergency dispatches so they show in the Property Maintenance Queue table
+  const mappedEmergencies: TicketItem[] = emergencies.map((e) => ({
+    id: e.id,
+    ticketNo: e.dispatchNo,
+    property: e.property,
+    room: e.unit,
+    tenant: e.tenantName,
+    tenantPhone: e.tenantPhone,
+    issue: e.title,
+    category: `${e.category} Emergency`,
+    priority: 'URGENT',
+    status:
+      e.status === 'RESOLVED'
+        ? 'COMPLETED'
+        : e.status === 'AWAITING_TENANT_CONFIRMATION'
+        ? 'AWAITING_OTP'
+        : e.status === 'EN_ROUTE'
+        ? 'EN_ROUTE'
+        : 'ASSIGNED',
+    vendor:
+      e.resolvedBy === 'LANDLORD_IN_HOUSE'
+        ? 'Passi In-House Caretaker'
+        : `${e.assignedVendor} (${e.assignedTech})`,
+    createdAt: e.reportedAt || new Date().toISOString(),
+    resolutionNote: e.notes || e.landlordResolutionNotes,
+    tenantEvidencePhoto: e.proofPhoto || SAMPLE_BREAKER_FIX_PHOTO,
+    resolutionPhoto: e.proofPhoto,
+    costIncurred: e.resolvedBy === 'LANDLORD_IN_HOUSE' ? 0 : 550,
+    tenantSignedOff: e.status === 'RESOLVED',
+  }));
+
+  const allTickets: TicketItem[] = [
+    ...mappedEmergencies,
+    ...tickets.filter((t) => !mappedEmergencies.some((m) => m.ticketNo === t.ticketNo || m.id === t.id)),
+  ];
+
+  const filteredTickets = allTickets.filter((t) => {
+    const isEmg = t.ticketNo.startsWith('EMG-') || t.id.startsWith('emg-');
+    const matchesFilter =
+      tableFilter === 'ALL'
+        ? true
+        : tableFilter === 'EMERGENCY'
+        ? isEmg
+        : tableFilter === 'COMPLETED'
+        ? t.status === 'COMPLETED'
+        : t.status !== 'COMPLETED';
+
+    const matchesSearch =
+      t.issue.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      t.ticketNo.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      t.property.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      t.tenant.toLowerCase().includes(tableSearch.toLowerCase()) ||
+      t.room.toLowerCase().includes(tableSearch.toLowerCase());
+
+    return matchesFilter && matchesSearch;
+  });
+
   const handleOpenTicket = (ticket: TicketItem) => {
+    if (ticket.ticketNo.startsWith('EMG-') || ticket.id.startsWith('emg-')) {
+      const emg = emergencies.find((e) => e.id === ticket.id || e.dispatchNo === ticket.ticketNo);
+      if (emg) {
+        handleOpenSelfResolve(emg);
+        return;
+      }
+    }
+
     setSelectedTicket(ticket);
     setAssignedVendor(ticket.vendor || 'Ludhiana Home Services');
     setResolutionType(ticket.vendor.includes('In-House') ? 'IN_HOUSE' : 'VENDOR');
@@ -386,14 +454,48 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
 
       {/* Tickets Table */}
       <Card padding="none">
-        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-extrabold text-slate-900">Property Maintenance Queue</h2>
-            <p className="text-xs text-slate-500">Live requests submitted by student residents across your properties.</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-extrabold text-slate-900">Property Maintenance Queue</h2>
+              <Badge variant="info" size="sm">Total Tickets: {allTickets.length}</Badge>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Live requests submitted by student residents across your properties, including P0 critical emergency dispatches.
+            </p>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold text-slate-500">Total Tickets:</span>
-            <Badge variant="info" size="sm">{tickets.length}</Badge>
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            {/* Search Input */}
+            <input
+              type="text"
+              placeholder="Search tickets, rooms, tenants..."
+              value={tableSearch}
+              onChange={(e) => setTableSearch(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+            />
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 text-xs">
+              {[
+                { key: 'ALL', label: `All (${allTickets.length})` },
+                { key: 'EMERGENCY', label: `🚨 P0 (${allTickets.filter((t) => t.ticketNo.startsWith('EMG-')).length})` },
+                { key: 'IN_PROGRESS', label: `Active (${allTickets.filter((t) => t.status !== 'COMPLETED').length})` },
+                { key: 'COMPLETED', label: `Completed (${allTickets.filter((t) => t.status === 'COMPLETED').length})` },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setTableFilter(tab.key as any)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all whitespace-nowrap ${
+                    tableFilter === tab.key
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -401,8 +503,8 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
           <table className="w-full text-sm">
             <thead className="bg-surface-tertiary border-b border-border">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Ticket & Issue</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Property & Room</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Ticket &amp; Issue</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Property &amp; Room</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Tenant</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Fulfillment Partner</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Priority</th>
@@ -411,53 +513,107 @@ export function LandlordMaintenanceClient({ initialTickets }: LandlordMaintenanc
               </tr>
             </thead>
             <tbody className="divide-y divide-border-light">
-              {tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-surface-secondary/50 transition-colors">
-                  <td className="px-4 py-3 font-bold text-slate-900">
-                    <div className="flex items-center gap-1.5">
-                      <span>{t.issue}</span>
-                      {t.tenantEvidencePhoto && (
-                        <span className="text-[10px] text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded font-bold border border-cyan-200">
-                          Photo Attached
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs font-mono text-slate-400">{t.ticketNo}</div>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary text-xs">
-                    <span className="font-semibold text-slate-800">{t.property}</span>
-                    <div className="text-slate-500">{t.room}</div>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary text-xs font-medium">{t.tenant}</td>
-                  <td className="px-4 py-3 text-text-secondary text-xs font-semibold text-brand-700">
-                    {t.vendor}
-                    {t.costIncurred ? (
-                      <span className="block text-[11px] text-slate-400 font-normal">Cost: ₹{t.costIncurred}</span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-bold ${
-                        t.priority === 'HIGH' || t.priority === 'URGENT'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {t.priority}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={t.status === 'COMPLETED' ? 'success' : t.status === 'IN_PROGRESS' ? 'info' : 'warning'} size="sm">
-                      {t.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Button size="sm" variant="outline" onClick={() => handleOpenTicket(t)} className="text-xs font-bold hover:bg-slate-100">
-                      Manage →
-                    </Button>
+              {filteredTickets.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-xs text-slate-500 font-medium">
+                    No tickets match the selected filter or search term.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredTickets.map((t) => {
+                  const isEmg = t.ticketNo.startsWith('EMG-');
+                  return (
+                    <tr
+                      key={t.id}
+                      className={`transition-colors ${
+                        isEmg
+                          ? t.status === 'COMPLETED'
+                            ? 'bg-emerald-50/20 hover:bg-emerald-50/30'
+                            : 'bg-rose-50/30 hover:bg-rose-50/50 border-l-4 border-l-rose-500'
+                          : 'hover:bg-surface-secondary/50'
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-bold text-slate-900">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{t.issue}</span>
+                          {isEmg && (
+                            <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded border border-rose-300">
+                              🚨 15-Min P0
+                            </span>
+                          )}
+                          {t.tenantEvidencePhoto && !isEmg && (
+                            <span className="text-[10px] text-cyan-700 bg-cyan-50 px-1.5 py-0.5 rounded font-bold border border-cyan-200">
+                              Photo Attached
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs font-mono text-slate-500 flex items-center gap-1 mt-0.5">
+                          <span className="font-bold">{t.ticketNo}</span>
+                          <span>• {t.category}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary text-xs">
+                        <span className="font-semibold text-slate-800">{t.property}</span>
+                        <div className="text-slate-500">{t.room}</div>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary text-xs font-medium">{t.tenant}</td>
+                      <td className="px-4 py-3 text-text-secondary text-xs font-semibold text-brand-700">
+                        <div>{t.vendor}</div>
+                        {t.costIncurred ? (
+                          <span className="text-[11px] text-slate-400 font-normal">Cost: ₹{t.costIncurred}</span>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            t.priority === 'URGENT'
+                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                              : t.priority === 'HIGH'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {t.priority}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={
+                            t.status === 'COMPLETED'
+                              ? 'success'
+                              : t.status === 'AWAITING_OTP'
+                              ? 'warning'
+                              : t.status === 'EN_ROUTE' || t.status === 'IN_PROGRESS'
+                              ? 'info'
+                              : 'warning'
+                          }
+                          size="sm"
+                        >
+                          {t.status === 'AWAITING_OTP'
+                            ? 'AWAITING TENANT OTP'
+                            : t.status === 'EN_ROUTE'
+                            ? 'TECH EN ROUTE'
+                            : t.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenTicket(t)}
+                          className={`text-xs font-bold ${
+                            isEmg && t.status !== 'COMPLETED'
+                              ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                              : 'hover:bg-slate-100'
+                          }`}
+                        >
+                          {isEmg && t.status !== 'COMPLETED' ? 'Action P0 →' : 'Manage →'}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
