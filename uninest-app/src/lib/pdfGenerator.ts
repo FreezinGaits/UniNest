@@ -1,7 +1,7 @@
 export interface DocumentPDFData {
   id: string;
   title: string;
-  category: 'AGREEMENT' | 'RECEIPT' | 'KYC' | 'COLLEGE' | 'AUDIT' | 'POLICE';
+  category: 'AGREEMENT' | 'RECEIPT' | 'KYC' | 'COLLEGE' | 'AUDIT' | 'POLICE' | 'PROPERTY';
   referenceNo: string;
   issueDate: string;
   fileSize?: string;
@@ -208,6 +208,45 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
 
         <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #065f46;">
           <strong>VERIFICATION ACKNOWLEDGMENT:</strong> This document certifies that tenant particulars and landlord declarations have been digitally submitted to the jurisdictional Police Authority via UniNest Compliance Portal.
+        </div>
+      </div>
+    `;
+  } else if (doc.category === 'PROPERTY') {
+    bodyContent = `
+      <div style="border: 2px solid #7c3aed; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #faf5ff;">
+        <div style="text-align: center; border-bottom: 2px solid #ddd6fe; padding-bottom: 16px; margin-bottom: 20px;">
+          <span style="background-color: #7c3aed; color: #fff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 4px; letter-spacing: 0.1em; text-transform: uppercase;">PROPERTY MANAGEMENT COMPLIANCE & RULES</span>
+          <h2 style="margin: 8px 0 4px 0; font-size: 20px; font-weight: 900; color: #581c87;">${title}</h2>
+          <p style="margin: 0; font-size: 12px; color: #6b21a8;">Official Property Notice & Resident Guidelines</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
+          <tr style="border-bottom: 1px solid #e9d5ff;">
+            <td style="padding: 8px 0; color: #6b21a8; font-weight: 600; width: 40%;">Property Premises:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">${room}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e9d5ff;">
+            <td style="padding: 8px 0; color: #6b21a8; font-weight: 600;">Issuing Authority / Landlord:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">${issuer}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e9d5ff;">
+            <td style="padding: 8px 0; color: #6b21a8; font-weight: 600;">Document Reference:</td>
+            <td style="padding: 8px 0; color: #7c3aed; font-family: monospace; font-weight: 800;">${referenceNo}</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #e9d5ff;">
+            <td style="padding: 8px 0; color: #6b21a8; font-weight: 600;">Target Audience:</td>
+            <td style="padding: 8px 0; color: #0f172a; font-weight: 800;">All Verified Student Residents & Tenancy Occupants</td>
+          </tr>
+        </table>
+
+        <div style="background-color: #ffffff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 16px; font-size: 13px; color: #374151; line-height: 1.7;">
+          <p style="margin-top: 0; font-weight: 700; color: #581c87;">Summary of Regulations & Standing Instructions:</p>
+          <ul style="padding-left: 20px; margin: 8px 0;">
+            <li style="margin-bottom: 6px;">Compliance with sub-meter electricity readings, smart tariff calculation, and billing cycles.</li>
+            <li style="margin-bottom: 6px;">Adherence to quiet hours (10:30 PM - 6:00 AM) and campus student residency safety protocols.</li>
+            <li style="margin-bottom: 6px;">Zero unauthorized subletting; biometric entry log records maintained with UniNest Trust Engine.</li>
+            <li style="margin-bottom: 6px;">Prompt reporting of maintenance tickets through the UniNest Mobile/Web portal.</li>
+          </ul>
         </div>
       </div>
     `;

@@ -3,115 +3,56 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Download, ShieldCheck, CheckCircle2, Eye, Search, Filter,
-  Building2, ExternalLink, Sparkles, FolderLock, PlusCircle
+  Building2, ExternalLink, Sparkles, FolderLock, PlusCircle, Lock, Users
 } from 'lucide-react';
 import { Card, Badge, Button } from '@/components/ui/Shared';
 import { downloadDocumentPDF, DocumentPDFData } from '@/lib/pdfGenerator';
 import { DocumentViewerModal } from '@/components/documents/DocumentViewerModal';
-
-const INITIAL_DOCUMENTS: DocumentPDFData[] = [
-  {
-    id: 'doc-1',
-    title: 'Student PG Rental Agreement (PCTE Smart Residency)',
-    category: 'AGREEMENT',
-    referenceNo: 'UN-AGR-2026-8801',
-    issueDate: '15 Aug 2026',
-    fileSize: '1.4 MB',
-    status: 'SIGNED',
-    issuer: 'Passi Residency Properties Ltd. & Rahul Sharma',
-  },
-  {
-    id: 'doc-2',
-    title: 'August 2026 Monthly Rent Receipt (₹6,000 Paid)',
-    category: 'RECEIPT',
-    referenceNo: 'UN-RCT-2026-0814',
-    issueDate: '01 Sep 2026',
-    fileSize: '340 KB',
-    status: 'ISSUED',
-    issuer: 'Razorpay / UniNest Automated Billing',
-    amount: '₹6,000.00',
-  },
-  {
-    id: 'doc-3',
-    title: 'Government Aadhaar KYC Identity Verification',
-    category: 'KYC',
-    referenceNo: 'UN-KYC-2026-4402',
-    issueDate: '10 Aug 2026',
-    fileSize: '820 KB',
-    status: 'VERIFIED',
-    issuer: 'UIDAI / UniNest Identity Trust Engine',
-  },
-  {
-    id: 'doc-4',
-    title: 'College Residence & Local Hostel NOC Certificate',
-    category: 'COLLEGE',
-    referenceNo: 'PCTE-NOC-2026-092',
-    issueDate: '12 Aug 2026',
-    fileSize: '510 KB',
-    status: 'VERIFIED',
-    issuer: 'PCTE Institute Student Affairs Desk',
-  },
-  {
-    id: 'doc-5',
-    title: 'Move-In Condition & Amenities Handover Audit (Room 204)',
-    category: 'AUDIT',
-    referenceNo: 'UN-MIN-2026-204A',
-    issueDate: '15 Aug 2026',
-    fileSize: '2.1 MB',
-    status: 'SIGNED',
-    issuer: 'UniNest Digital Inspection Team',
-  },
-];
-
 import { useDashboardUser, isDemoAccountEmail } from '@/components/layout/DashboardShell';
 
 export default function MyDocumentsPage() {
   const { userEmail: ctxEmail, isDemoUser: ctxIsDemo } = useDashboardUser();
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
-  const [documents, setDocuments] = useState<DocumentPDFData[]>(ctxIsDemo ? INITIAL_DOCUMENTS : []);
+  const [documents, setDocuments] = useState<DocumentPDFData[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentPDFData | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [downloadedDoc, setDownloadedDoc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadDocsForEmail = (email: string) => {
-      const demo = isDemoAccountEmail(email);
-      const storageKey = 'uninest_documents_store_' + (email || 'guest');
-      let docs = demo ? [...INITIAL_DOCUMENTS] : [];
-
+    async function loadDocuments() {
+      setLoading(true);
       try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const existingIds = new Set(docs.map(d => d.id));
-            const newDocs = parsed.filter((d: DocumentPDFData) => !existingIds.has(d.id));
-            docs = [...newDocs, ...docs];
+        const res = await fetch('/api/demo/documents?role=STUDENT');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.documents && Array.isArray(data.documents)) {
+            setDocuments(data.documents);
+            setLoading(false);
+            return;
           }
         }
-      } catch (e) {
-        console.error('Error loading stored documents:', e);
+      } catch (err) {
+        console.error('Error fetching student documents from API:', err);
       }
-      setDocuments(docs);
-    };
 
-    if (ctxEmail) {
-      loadDocsForEmail(ctxEmail);
-      return;
+      // Fallback if API fails
+      setDocuments([]);
+      setLoading(false);
     }
 
-    fetch('/api/profile')
-      .then(res => res.json())
-      .then(data => {
-        const email = data?.email || data?.user?.email || '';
-        loadDocsForEmail(email);
-      })
-      .catch(() => {
-        setDocuments([]);
-      });
+    loadDocuments();
   }, [ctxEmail]);
 
-  const categories = ['ALL', 'AGREEMENT', 'RECEIPT', 'KYC', 'COLLEGE', 'AUDIT'];
+  const categories = [
+    { key: 'ALL', label: 'All Documents' },
+    { key: 'AGREEMENT', label: 'Leases & Agreements' },
+    { key: 'RECEIPT', label: 'Rent & Deposits' },
+    { key: 'KYC', label: 'Identity & KYC' },
+    { key: 'COLLEGE', label: 'College NOC' },
+    { key: 'AUDIT', label: 'Move-In Audits' },
+    { key: 'PROPERTY', label: 'Landlord Notices & Rules' },
+  ];
 
   const filteredDocs = selectedCat === 'ALL'
     ? documents
@@ -137,10 +78,18 @@ export default function MyDocumentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Student Documents Vault</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Secure, tamper-proof repository for rental agreements, rent receipts, and KYC certificates.</p>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Tamper-proof repository for rental agreements, escrow deposit receipts, KYC audits, and landlord notices.
+          </p>
         </div>
-        <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
-          <FolderLock className="w-6 h-6 text-emerald-600" />
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-lg">
+            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+            Blockchain / Hash Verified
+          </span>
+          <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl shrink-0">
+            <FolderLock className="w-6 h-6 text-emerald-600" />
+          </div>
         </div>
       </div>
 
@@ -148,15 +97,15 @@ export default function MyDocumentsPage() {
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {categories.map((cat) => (
           <button
-            key={cat}
-            onClick={() => setSelectedCat(cat)}
+            key={cat.key}
+            onClick={() => setSelectedCat(cat.key)}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-colors border ${
-              selectedCat === cat
+              selectedCat === cat.key
                 ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                 : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`}
           >
-            {cat}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -173,13 +122,17 @@ export default function MyDocumentsPage() {
       )}
 
       {/* Documents Grid */}
-      {filteredDocs.length === 0 ? (
+      {loading ? (
+        <div className="p-12 text-center text-slate-500 text-sm">
+          Loading verified student documents...
+        </div>
+      ) : filteredDocs.length === 0 ? (
         <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center shadow-sm">
-          <p className="text-sm text-slate-500">No documents yet.</p>
+          <p className="text-sm text-slate-500">No documents found in this category.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredDocs.map((doc) => (
+          {filteredDocs.map((doc: any) => (
             <div
               key={doc.id}
               onClick={() => handleOpenViewer(doc)}
@@ -190,15 +143,29 @@ export default function MyDocumentsPage() {
                   <span className="font-mono text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                     {doc.referenceNo}
                   </span>
-                  <Badge variant={doc.status === 'VERIFIED' || doc.status === 'SIGNED' ? 'success' : 'default'} size="sm">
-                    {doc.status}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {doc.uploadedByRole === 'LANDLORD' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-md">
+                        <Users className="w-3 h-3" /> Shared by Landlord
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md">
+                        <Lock className="w-3 h-3 text-emerald-600" /> Platform Verified
+                      </span>
+                    )}
+                    <Badge variant={doc.status === 'VERIFIED' || doc.status === 'SIGNED' || doc.status === 'ACTIVE' ? 'success' : 'default'} size="sm">
+                      {doc.status}
+                    </Badge>
+                  </div>
                 </div>
 
                 <h3 className="font-extrabold text-sm text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors">
                   {doc.title}
                 </h3>
-                <p className="text-[11px] text-slate-500">Issuer: {doc.issuer}</p>
+                <p className="text-[11px] text-slate-500">
+                  Issuer: <span className="font-semibold text-slate-700">{doc.issuer}</span>
+                  {doc.property && <span className="ml-1 text-slate-400">({doc.property})</span>}
+                </p>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -238,5 +205,3 @@ export default function MyDocumentsPage() {
     </div>
   );
 }
-
-
