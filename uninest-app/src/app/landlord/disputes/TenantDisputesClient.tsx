@@ -21,9 +21,11 @@ import {
   ChevronRight,
   Split,
   Undo2,
+  Eye,
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 import { DisputeCase } from '@/lib/disputesStore';
+import { EvidenceViewerModal } from '@/components/disputes/EvidenceViewerModal';
 
 interface TenantDisputesClientProps {
   initialDisputes: DisputeCase[];
@@ -37,6 +39,7 @@ export function TenantDisputesClient({
   const [disputes, setDisputes] = useState<DisputeCase[]>(initialDisputes);
   const [selectedDispute, setSelectedDispute] = useState<DisputeCase | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewingEvidence, setViewingEvidence] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'PROPOSE_SETTLEMENT' | 'ACCEPT_FULL' | 'OFFICIAL_REPLY' | 'ESCALATE'>('PROPOSE_SETTLEMENT');
 
   // Form states
@@ -298,13 +301,19 @@ export function TenantDisputesClient({
               </label>
               <div className="flex flex-wrap gap-2">
                 {selectedDispute.evidence.map((ev, idx) => (
-                  <div
+                  <button
                     key={idx}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 text-xs font-semibold"
+                    type="button"
+                    onClick={() => setViewingEvidence(ev)}
+                    className="group flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 hover:border-blue-400 hover:bg-blue-100/70 rounded-lg text-blue-900 text-xs font-semibold transition-all shadow-xs active:scale-95 cursor-pointer text-left"
+                    title={`Click to inspect and preview ${ev}`}
                   >
-                    <FileText className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{ev}</span>
-                  </div>
+                    <FileText className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform shrink-0" />
+                    <span className="underline-offset-2 group-hover:underline">{ev}</span>
+                    <span className="ml-1 inline-flex items-center gap-0.5 text-[10px] text-blue-700 bg-blue-200/60 px-1.5 py-0.5 rounded font-bold group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Eye className="w-2.5 h-2.5" /> View
+                    </span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -439,6 +448,15 @@ export function TenantDisputesClient({
           </div>
         </Modal>
       )}
+
+      {/* Tamper-Proof Evidence Inspection & PDF Viewer Modal */}
+      <EvidenceViewerModal
+        isOpen={Boolean(viewingEvidence)}
+        onClose={() => setViewingEvidence(null)}
+        fileName={viewingEvidence}
+        caseId={selectedDispute?.caseId}
+        property={selectedDispute?.property}
+      />
     </div>
   );
 }
