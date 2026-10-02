@@ -5,6 +5,8 @@ import {
   getEmergenciesForRole,
   addEmergencyDispatch,
   updateEmergencyStatus,
+  landlordSelfResolveEmergency,
+  confirmEmergencyByTenant,
   getEmergencyStore,
 } from '@/lib/emergencyStore';
 import { EmergencyCategory } from '@prisma/client';
@@ -51,7 +53,44 @@ export async function POST(request: Request) {
       });
     }
 
-    // Action 2: New Emergency Dispatch triggered by Student
+    // Action 2: Landlord Self-Resolution with Photo Proof & OTP Generation
+    if (body.action === 'LANDLORD_SELF_RESOLVE' && body.id) {
+      const updated = landlordSelfResolveEmergency(body.id, {
+        notes: body.notes || 'Resolved in-house by property manager/caretaker.',
+        proofPhoto: body.proofPhoto,
+        otp: body.otp || '4192',
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Emergency marked resolved in-house. OTP ${body.otp || '4192'} issued for tenant confirmation.`,
+        emergency: updated,
+      });
+    }
+
+    // Action 3: Tenant Verification via OTP
+    if (body.action === 'TENANT_CONFIRM_OTP' && body.id && body.otp) {
+      const result = confirmEmergencyByTenant(body.id, body.otp);
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      return NextResponse.json({
+        success: true,
+        message: 'Resolution confirmed by tenant. Emergency closed successfully.',
+        emergency: result.emergency,
+      });
+    }
+
+    // Action 4: Reopen Dispatch if Tenant indicates issue persists
+    if (body.action === 'REOPEN_DISPATCH' && body.id) {
+      const updated = updateEmergencyStatus(body.id, 'DISPATCHED', body.notes || 'Reopened by tenant: issue unresolved on-site.');
+      return NextResponse.json({
+        success: true,
+        message: 'Emergency reopened. QuickFix dispatch notified.',
+        emergency: updated,
+      });
+    }
+
+    // Action 5: New Emergency Dispatch triggered by Student
     const title = body.type || body.title || 'Main Fuse / Power Outage';
     const property = body.property || 'PCTE Smart Student Residency';
     const unit = body.unit || 'Room 204 (Bed A)';
@@ -112,9 +151,9 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating emergency dispatch:', error);
+    console.error('Error handling emergency in POST:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error while logging emergency' },
+      { success: false, error: 'Internal Server Error' },
       { status: 500 }
     );
   }

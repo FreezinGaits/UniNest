@@ -115,31 +115,65 @@ export default async function LandlordDashboard() {
 
       {/* Active Property Emergency Alert */}
       {activeEmergencies.length > 0 && (
-        <div className="bg-rose-50 border-2 border-rose-500 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-md animate-pulse">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
+        <div
+          className={`border-2 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md transition-all ${
+            activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+              ? 'bg-amber-50 border-amber-500'
+              : 'bg-rose-50 border-rose-500 animate-pulse'
+          }`}
+        >
+          <div className="flex items-start sm:items-center gap-3">
+            <AlertTriangle
+              className={`w-6 h-6 shrink-0 mt-0.5 sm:mt-0 ${
+                activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+                  ? 'text-amber-600'
+                  : 'text-rose-600'
+              }`}
+            />
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs font-bold text-slate-800 bg-white/80 border border-slate-300 px-2 py-0.5 rounded">
                   {activeEmergencies[0].dispatchNo}
                 </span>
-                <span className="text-xs font-bold text-rose-900 uppercase">
-                  Critical Property Hazard Alert (15-Min SLA)
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider ${
+                    activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+                      ? 'text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-full'
+                      : 'text-rose-900 bg-rose-200/80 px-2 py-0.5 rounded-full'
+                  }`}
+                >
+                  {activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+                    ? 'In-House Resolution Awaiting Tenant OTP'
+                    : 'Critical Property Hazard Alert (15-Min SLA)'}
                 </span>
               </div>
-              <p className="text-sm font-black text-rose-950 mt-0.5">
+              <p className="text-sm font-black text-slate-950 mt-0.5">
                 {activeEmergencies[0].title} — {activeEmergencies[0].property} ({activeEmergencies[0].unit})
               </p>
-              <p className="text-xs text-rose-700 mt-0.5">
-                Tenant: <strong>{activeEmergencies[0].tenantName}</strong> ({activeEmergencies[0].tenantPhone}) • QuickFix Duty Tech: <strong>{activeEmergencies[0].assignedTech}</strong> (ETA ~{activeEmergencies[0].etaMins}m)
+              <p className="text-xs text-slate-700 mt-0.5">
+                {activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION' ? (
+                  <span>
+                    Tenant OTP Code: <strong className="font-mono font-black text-indigo-700">{activeEmergencies[0].resolutionOtp || '4192'}</strong> • Share with resident {activeEmergencies[0].tenantName} to close ticket.
+                  </span>
+                ) : (
+                  <span>
+                    Tenant: <strong>{activeEmergencies[0].tenantName}</strong> ({activeEmergencies[0].tenantPhone}) • QuickFix Duty Tech: <strong>{activeEmergencies[0].assignedTech}</strong> (ETA ~{activeEmergencies[0].etaMins}m)
+                  </span>
+                )}
               </p>
             </div>
           </div>
           <Link
             href="/landlord/maintenance"
-            className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs px-4 py-2 rounded-xl shrink-0 shadow-sm transition-colors"
+            className={`font-extrabold text-xs px-4 py-2 rounded-xl shrink-0 shadow-sm transition-colors text-white ${
+              activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+                ? 'bg-amber-700 hover:bg-amber-800'
+                : 'bg-rose-600 hover:bg-rose-700'
+            }`}
           >
-            Review & Coordinate Caretaker →
+            {activeEmergencies[0].status === 'AWAITING_TENANT_CONFIRMATION'
+              ? 'View In-House Status →'
+              : 'Review & Coordinate Caretaker →'}
           </Link>
         </div>
       )}

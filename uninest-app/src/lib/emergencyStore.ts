@@ -14,11 +14,15 @@ export interface EmergencyDispatchRecord {
   assignedTech: string;
   techPhone: string;
   priority: 'CRITICAL_15MIN' | 'HIGH_90MIN';
-  status: 'DISPATCHED' | 'EN_ROUTE' | 'ON_SITE' | 'RESOLVED';
+  status: 'DISPATCHED' | 'EN_ROUTE' | 'ON_SITE' | 'AWAITING_TENANT_CONFIRMATION' | 'RESOLVED';
   etaMins: number;
   reportedAt: string;
   resolvedAt?: string;
   notes?: string;
+  resolutionOtp?: string;
+  resolvedBy?: 'VENDOR' | 'LANDLORD_IN_HOUSE';
+  proofPhoto?: string;
+  landlordResolutionNotes?: string;
 }
 
 const INITIAL_EMERGENCIES: EmergencyDispatchRecord[] = [
@@ -42,6 +46,7 @@ const INITIAL_EMERGENCIES: EmergencyDispatchRecord[] = [
     etaMins: 12,
     reportedAt: 'Today, 05:15 PM',
     notes: 'Power breaker tripped across 2nd floor corridor socket cluster.',
+    resolutionOtp: '4192',
   },
   {
     id: 'emg-2',
@@ -64,6 +69,7 @@ const INITIAL_EMERGENCIES: EmergencyDispatchRecord[] = [
     reportedAt: 'Yesterday, 02:30 PM',
     resolvedAt: 'Yesterday, 03:45 PM',
     notes: 'Replaced ceramic cartridge diverter. Water flow normalized.',
+    resolvedBy: 'VENDOR',
   },
 ];
 
@@ -126,6 +132,7 @@ export function addEmergencyDispatch(payload: {
     etaMins: 15,
     reportedAt: `Today, ${timeStr} (${dateStr})`,
     notes: 'Urgent 15-Min SLA dispatch triggered via Student Safety SOS.',
+    resolutionOtp: '4192',
   };
 
   store.unshift(newRecord);
@@ -151,6 +158,48 @@ export function updateEmergencyStatus(
     record.etaMins = 0;
   }
   return record;
+}
+
+export function landlordSelfResolveEmergency(
+  id: string,
+  data: {
+    notes: string;
+    proofPhoto?: string;
+    otp?: string;
+  }
+): EmergencyDispatchRecord | null {
+  const store = getEmergencyStore();
+  const record = store.find((r) => r.id === id || r.dispatchNo === id);
+  if (!record) return null;
+
+  const generatedOtp = data.otp || '4192';
+  record.status = 'AWAITING_TENANT_CONFIRMATION';
+  record.resolvedBy = 'LANDLORD_IN_HOUSE';
+  record.resolutionOtp = generatedOtp;
+  record.landlordResolutionNotes = data.notes;
+  if (data.proofPhoto) record.proofPhoto = data.proofPhoto;
+  record.notes = `In-house fix submitted by landlord (${data.notes}). Awaiting resident OTP confirmation.`;
+  return record;
+}
+
+export function confirmEmergencyByTenant(
+  id: string,
+  otp: string
+): { success: boolean; error?: string; emergency?: EmergencyDispatchRecord } {
+  const store = getEmergencyStore();
+  const record = store.find((r) => r.id === id || r.dispatchNo === id);
+  if (!record) return { success: false, error: 'Emergency record not found' };
+
+  if (record.resolutionOtp && record.resolutionOtp.trim() !== otp.trim()) {
+    return { success: false, error: 'Invalid OTP code. Please enter the 4-digit code provided by your landlord.' };
+  }
+
+  const now = new Date();
+  record.status = 'RESOLVED';
+  record.resolvedAt = `Today, ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+  record.etaMins = 0;
+  record.notes = `${record.notes || ''} [Tenant verified with OTP ${otp}]`;
+  return { success: true, emergency: record };
 }
 
 export function getEmergenciesForRole(role: string, email?: string | null): EmergencyDispatchRecord[] {

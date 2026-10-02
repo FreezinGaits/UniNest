@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import {
   Phone, AlertTriangle, Flame, HeartPulse, ShieldAlert, Wrench,
   Droplets, Zap, KeyRound, Wind, Building2, CheckCircle2, Clock,
+  ShieldCheck, X, Check,
 } from 'lucide-react';
 
 const officialEmergencies = [
@@ -33,6 +34,27 @@ export default function EmergencyPage() {
   const [dispatchedIssue, setDispatchedIssue] = useState<string | null>(null);
   const [activeDispatch, setActiveDispatch] = useState<EmergencyDispatchRecord | null>(null);
   const [isDispatching, setIsDispatching] = useState(false);
+  const [studentEnteredOtp, setStudentEnteredOtp] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const loadEmergencies = () => {
+    fetch('/api/demo/emergency?role=STUDENT')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.emergencies && Array.isArray(data.emergencies)) {
+          const active = data.emergencies.find((e: EmergencyDispatchRecord) => e.status !== 'RESOLVED');
+          if (active) {
+            setActiveDispatch(active);
+            setDispatchedIssue(active.title);
+          } else {
+            setActiveDispatch(null);
+            setDispatchedIssue(null);
+          }
+        }
+      })
+      .catch(() => {});
+  };
 
   useEffect(() => {
     if (ctxEmail) {
@@ -49,19 +71,7 @@ export default function EmergencyPage() {
         });
     }
 
-    // Load active emergencies
-    fetch('/api/demo/emergency?role=STUDENT')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.emergencies && Array.isArray(data.emergencies)) {
-          const active = data.emergencies.find((e: EmergencyDispatchRecord) => e.status !== 'RESOLVED');
-          if (active) {
-            setActiveDispatch(active);
-            setDispatchedIssue(active.title);
-          }
-        }
-      })
-      .catch(() => {});
+    loadEmergencies();
   }, [ctxEmail]);
 
   async function handleQuickDispatch(title: string) {
@@ -85,6 +95,8 @@ export default function EmergencyPage() {
         const data = await res.json();
         if (data.emergency) {
           setActiveDispatch(data.emergency);
+          setToastMessage(`🚨 15-Min Emergency SLA active for ${title}! Caretaker & QuickFix alerted.`);
+          setTimeout(() => setToastMessage(null), 5000);
         }
       }
     } catch {
@@ -109,6 +121,67 @@ export default function EmergencyPage() {
       if (res.ok) {
         setActiveDispatch(null);
         setDispatchedIssue(null);
+        setToastMessage('Emergency marked resolved. Thank you for confirming!');
+        setTimeout(() => setToastMessage(null), 4000);
+      }
+    } catch {}
+  }
+
+  // Confirm In-House resolution via Landlord's OTP
+  async function handleConfirmLandlordOtp() {
+    if (!activeDispatch) return;
+    if (!studentEnteredOtp || studentEnteredOtp.length < 4) {
+      setOtpError('Please enter the 4-digit verification code provided by your landlord.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/demo/emergency', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'TENANT_CONFIRM_OTP',
+          id: activeDispatch.id,
+          otp: studentEnteredOtp,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error || 'Invalid OTP code. Please check with your landlord.');
+        return;
+      }
+
+      setToastMessage('✅ In-House resolution confirmed! Emergency officially closed.');
+      setActiveDispatch(null);
+      setDispatchedIssue(null);
+      setStudentEnteredOtp('');
+      setOtpError(null);
+      loadEmergencies();
+      setTimeout(() => setToastMessage(null), 5000);
+    } catch {
+      setOtpError('Failed to verify OTP. Please try again.');
+    }
+  }
+
+  // Reject In-House resolution if issue was not actually fixed
+  async function handleRejectLandlordResolution() {
+    if (!activeDispatch) return;
+    try {
+      const res = await fetch('/api/demo/emergency', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'REOPEN_DISPATCH',
+          id: activeDispatch.id,
+          notes: 'Resident reported issue still unresolved. Duty vendor technician re-dispatched.',
+        }),
+      });
+
+      if (res.ok) {
+        setToastMessage('Dispatch reopened! QuickFix Duty Technician notified to attend on-site immediately.');
+        loadEmergencies();
+        setTimeout(() => setToastMessage(null), 5000);
       }
     } catch {}
   }
@@ -121,6 +194,19 @@ export default function EmergencyPage() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center justify-between animate-slide-down">
+          <div className="flex items-center gap-2 font-bold text-xs sm:text-sm">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-white p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Emergency & Student Safety SOS</h1>
@@ -215,13 +301,115 @@ export default function EmergencyPage() {
       </section>
 
       {/* Urgent On-Demand Property Services */}
-      <section className="space-y-3">
+      <section className="space-y-4">
         <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
           <Wrench className="w-5 h-5 text-amber-600" />
           Urgent 15-Min Property Emergency Dispatch
         </h2>
 
-        {activeDispatch ? (
+        {/* 1. LANDLORD SELF-RESOLUTION CONFIRMATION OTP BOX */}
+        {activeDispatch && activeDispatch.status === 'AWAITING_TENANT_CONFIRMATION' && (
+          <div className="bg-amber-50 border-2 border-amber-500 rounded-2xl p-5 shadow-md space-y-4 animate-slide-down">
+            <div className="flex items-start justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0">
+                  <KeyRound className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                    Action Required: Verify In-House Resolution
+                  </span>
+                  <h3 className="text-base font-extrabold text-slate-900 mt-1">
+                    Landlord marked &quot;{activeDispatch.title}&quot; as Resolved In-House
+                  </h3>
+                </div>
+              </div>
+              <Badge variant="warning" size="sm">
+                CONFIRMATION REQUIRED
+              </Badge>
+            </div>
+
+            {/* Landlord Resolution Notes & Attached Photo */}
+            <div className="bg-white p-4 rounded-xl border border-amber-200 space-y-3 text-xs">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Landlord Resolution Summary
+                </span>
+                <p className="text-slate-800 font-medium mt-0.5">
+                  {activeDispatch.landlordResolutionNotes || 'Caretaker inspected and restored functionality on-site.'}
+                </p>
+              </div>
+
+              {activeDispatch.proofPhoto && (
+                <div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                    Landlord Submitted Photo Proof
+                  </span>
+                  <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 max-h-40 max-w-sm">
+                    <img src={activeDispatch.proofPhoto} alt="Proof" className="w-full h-40 object-cover" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* OTP Entry Box */}
+            <div className="bg-white p-4 rounded-xl border border-amber-300 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <KeyRound className="w-4 h-4 text-indigo-600" /> Enter 4-Digit Resolution OTP from Landlord
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Ask landlord {activeDispatch.landlordName} for the 4-digit code after confirming power/water works.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStudentEnteredOtp(activeDispatch.resolutionOtp || '4192');
+                    setOtpError(null);
+                  }}
+                  className="text-[11px] font-bold text-indigo-600 hover:underline"
+                >
+                  Fill Landlord OTP ({activeDispatch.resolutionOtp || '4192'})
+                </button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={studentEnteredOtp}
+                  onChange={(e) => {
+                    setStudentEnteredOtp(e.target.value.replace(/\D/g, ''));
+                    if (otpError) setOtpError(null);
+                  }}
+                  className={`w-full sm:w-44 text-center text-xl font-mono font-black tracking-widest p-2.5 rounded-xl border ${
+                    otpError ? 'border-rose-500 bg-rose-50' : 'border-slate-300 focus:ring-2 focus:ring-amber-500'
+                  }`}
+                  placeholder="• • • •"
+                />
+                <button
+                  onClick={handleConfirmLandlordOtp}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-3 rounded-xl shadow-sm transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Confirm &amp; Close Emergency</span>
+                </button>
+                <button
+                  onClick={handleRejectLandlordResolution}
+                  className="text-xs font-bold text-rose-700 hover:text-rose-900 hover:bg-rose-50 px-3 py-3 rounded-xl border border-rose-200 transition-colors"
+                >
+                  Not Fixed (Reopen &amp; Call Vendor)
+                </button>
+              </div>
+              {otpError && <p className="text-xs text-rose-600 font-semibold">{otpError}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* 2. STANDARD ACTIVE VENDOR DISPATCH CARD */}
+        {activeDispatch && activeDispatch.status !== 'AWAITING_TENANT_CONFIRMATION' && (
           <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-500 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
             <div className="flex items-start justify-between flex-wrap gap-2">
               <div className="flex items-center gap-3">
@@ -262,7 +450,7 @@ export default function EmergencyPage() {
               {/* Box 1: On-Call SLA Vendor */}
               <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Assigned Vendor & Tech
+                  Assigned Vendor &amp; Tech
                 </span>
                 <p className="font-extrabold text-slate-900">{activeDispatch.assignedVendor}</p>
                 <p className="text-slate-600 font-medium">{activeDispatch.assignedTech}</p>
@@ -298,7 +486,7 @@ export default function EmergencyPage() {
               {/* Box 3: Live ETA & Unit */}
               <div className="bg-white p-3.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Location & Arrival ETA
+                  Location &amp; Arrival ETA
                 </span>
                 <p className="font-extrabold text-slate-900">{activeDispatch.unit}</p>
                 <p className="text-slate-500">{activeDispatch.property}</p>
@@ -309,25 +497,9 @@ export default function EmergencyPage() {
               </div>
             </div>
           </div>
-        ) : dispatchedIssue ? (
-          <div className="bg-emerald-50 border-2 border-emerald-500 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-fade-in">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div>
-                <p className="text-xs sm:text-sm font-extrabold text-emerald-900">
-                  Emergency Response Dispatched for: {dispatchedIssue} — Caretaker notified (15-min SLA active)
-                </p>
-                <p className="text-[11px] text-emerald-700 mt-0.5">
-                  {isDispatching ? 'Syncing alert with property caretaker...' : 'Duty technician & property manager alerted via SMS/Call.'}
-                </p>
-              </div>
-            </div>
-            <Badge variant="success" size="sm">
-              15-MIN SLA ACTIVE
-            </Badge>
-          </div>
-        ) : null}
+        )}
 
+        {/* Property Emergency Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {propertyEmergencies.map((item) => {
             const isSelected = dispatchedIssue === item.title;
@@ -338,29 +510,29 @@ export default function EmergencyPage() {
                 className={`bg-white border p-4 rounded-2xl shadow-sm flex flex-col justify-between cursor-pointer transition-all hover:shadow-md active:scale-[0.99] ${
                   isSelected
                     ? 'border-emerald-600 ring-2 ring-emerald-500/20 bg-emerald-50/20'
-                    : 'border-slate-200 hover:border-amber-400'
+                    : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-9 h-9 ${item.color} rounded-xl flex items-center justify-center shrink-0`}>
-                    <item.icon className="w-4 h-4" />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.color}`}>
+                      <item.icon className="w-4 h-4" />
+                    </div>
+                    <Badge variant={isSelected ? 'success' : 'outline'} size="sm">
+                      {isSelected ? 'ACTIVE DISPATCH' : '15-MIN SLA'}
+                    </Badge>
                   </div>
                   <div>
-                    <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
-                    <p className="text-[11px] text-slate-500">{item.desc}</p>
+                    <h3 className="text-sm font-extrabold text-slate-900">{item.title}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">{item.desc}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-                  <span className="text-slate-500 font-medium">ETA: ~15-30 Mins</span>
-                  <span
-                    className={`font-bold px-2 py-0.5 rounded-md border ${
-                      isSelected
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}
-                  >
-                    {isSelected ? '✓ Dispatched' : 'Tap to Dispatch'}
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between mt-3 text-xs">
+                  <span className="font-bold text-emerald-700 flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-500" /> One-Tap Rapid SOS
                   </span>
+                  <span className="text-slate-400 font-medium">Auto-Dispatches Tech</span>
                 </div>
               </div>
             );
