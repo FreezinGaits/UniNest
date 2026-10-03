@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/actions';
-import { getAdminMessages, addAdminMessage, markAdminMessagesAsRead } from '@/lib/adminMessagesStore';
+import {
+  getAdminMessages,
+  addAdminMessage,
+  markAdminMessagesAsRead,
+  mergeAdminMessages,
+  getPropertyAuditTrail,
+} from '@/lib/adminMessagesStore';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,8 +19,9 @@ export async function GET(req: NextRequest) {
     const propertyId = searchParams.get('propertyId');
 
     const messages = getAdminMessages(propertyId || undefined);
+    const auditEvents = getPropertyAuditTrail(propertyId || undefined);
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages, auditEvents });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
   }
@@ -50,6 +57,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: newMessage });
   } catch (error: any) {
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { incomingMessages } = body;
+
+    if (Array.isArray(incomingMessages) && incomingMessages.length > 0) {
+      const merged = mergeAdminMessages(incomingMessages);
+      return NextResponse.json({ success: true, count: merged.length, messages: merged });
+    }
+
+    return NextResponse.json({ success: true, messages: getAdminMessages() });
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Failed to sync messages' }, { status: 500 });
   }
 }
 

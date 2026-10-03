@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/actions';
 import { prisma } from '@/lib/db';
-import { verifyProperty } from '@/lib/propertiesStore';
-import { addAdminMessage } from '@/lib/adminMessagesStore';
+import { verifyProperty, getAllProperties } from '@/lib/propertiesStore';
+import { addAdminMessage, addPropertyAuditEvent } from '@/lib/adminMessagesStore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid verification status' }, { status: 400 });
     }
 
+    const allProps = await getAllProperties();
+    const matchedProp = allProps.find((p) => p.id === propertyId);
+    const propName = matchedProp?.name || 'Property';
+
     const storeStatus =
       status === 'APPROVED'
         ? 'VERIFIED'
@@ -33,12 +37,24 @@ export async function POST(req: NextRequest) {
 
     await verifyProperty(propertyId, storeStatus as 'VERIFIED' | 'REJECTED' | 'UNDER_REVIEW', rejectionReason);
 
+    // Record audit event in property lifecycle log
+    addPropertyAuditEvent({
+      propertyId,
+      propertyName: propName,
+      actorRole: 'ADMIN',
+      actorName: session?.name || 'UniNest Admin',
+      action: status === 'REJECTED' || status === 'SUSPENDED' ? 'REJECTED' : 'VERIFIED',
+      title: `Listing ${status === 'REJECTED' || status === 'SUSPENDED' ? 'Rejected' : 'Approved & Verified'} by Admin`,
+      details: rejectionReason ? `Reason: ${rejectionReason}` : undefined,
+    });
+
     // Auto-create an official notification message for the landlord
     if (status === 'REJECTED' || status === 'SUSPENDED') {
       addAdminMessage({
         fromRole: 'ADMIN',
         fromName: 'UniNest Compliance Officer',
         toPropertyId: propertyId,
+        propertyName: propName,
         message: `Official Notice: Listing has been rejected/suspended by Admin. Reason: ${
           rejectionReason || 'Safety compliance documentation or verification required.'
         }. Please update your property details or submit required compliance documents and reply here to request re-audit.`,
@@ -48,6 +64,7 @@ export async function POST(req: NextRequest) {
         fromRole: 'ADMIN',
         fromName: 'UniNest Verification Team',
         toPropertyId: propertyId,
+        propertyName: propName,
         message: `Official Notice: Property listing has been APPROVED and verified by UniNest Admin! It is now published live for student bed reservations.`,
       });
     }

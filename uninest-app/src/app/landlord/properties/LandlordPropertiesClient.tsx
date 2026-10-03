@@ -7,8 +7,17 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input, Select, Textarea } from '@/components/ui/Input';
-import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X, MessageSquare, AlertTriangle, XCircle, Send, Clock, ShieldCheck } from 'lucide-react';
+import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X, MessageSquare, AlertTriangle, XCircle, Send, Clock, ShieldCheck, History } from 'lucide-react';
 import Link from 'next/link';
+import {
+  getLocalMessages,
+  saveLocalMessage,
+  saveLocalMessagesBatch,
+  getLocalOverrides,
+  saveLocalOverride,
+  getLocalAuditEvents,
+  saveLocalAuditEventsBatch,
+} from '@/lib/messagesStorage';
 
 export interface PropertyItem {
   id: string;
@@ -83,19 +92,34 @@ function sanitizeProperty(raw: any): PropertyItem {
 
 export function LandlordPropertiesClient({ initialProperties }: LandlordPropertiesClientProps) {
   const searchParams = useSearchParams();
-  const [properties, setProperties] = useState<PropertyItem[]>(() =>
-    (Array.isArray(initialProperties) ? initialProperties : []).map(sanitizeProperty)
-  );
+  const [properties, setProperties] = useState<PropertyItem[]>(() => {
+    const list = (Array.isArray(initialProperties) ? initialProperties : []).map(sanitizeProperty);
+    if (typeof window !== 'undefined') {
+      const overrides = getLocalOverrides();
+      return list.map((p) => {
+        const o = overrides[p.id];
+        return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
+      });
+    }
+    return list;
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
 
   // Admin Communication & Notes State
-  const [adminMessages, setAdminMessages] = useState<any[]>([]);
+  const [adminMessages, setAdminMessages] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      return getLocalMessages();
+    }
+    return [];
+  });
   const [messagesModalOpen, setMessagesModalOpen] = useState(false);
   const [activePropertyForNotes, setActivePropertyForNotes] = useState<PropertyItem | null>(null);
   const [notesThread, setNotesThread] = useState<any[]>([]);
+  const [auditEventsList, setAuditEventsList] = useState<any[]>([]);
+  const [modalTab, setModalTab] = useState<'MESSAGES' | 'AUDIT'>('MESSAGES');
   const [replyText, setReplyText] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
@@ -122,7 +146,12 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
       const res = await fetch('/api/admin/messages', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setAdminMessages(data.messages || []);
+        const apiMsgs = data.messages || [];
+        saveLocalMessagesBatch(apiMsgs);
+        if (data.auditEvents) {
+          saveLocalAuditEventsBatch(data.auditEvents);
+        }
+        setAdminMessages(getLocalMessages());
       }
     } catch (err) {
       console.warn('Error fetching admin messages:', err);
@@ -134,12 +163,19 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
       setIsModalOpen(true);
     }
 
-    // Refresh properties list from API and sanitize every item
+    const overrides = getLocalOverrides();
+
+    // Refresh properties list from API and apply local overrides
     fetch('/api/properties', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
-          setProperties(data.properties.map(sanitizeProperty));
+          const sanitized = data.properties.map((rawP: any) => {
+            const p = sanitizeProperty(rawP);
+            const o = overrides[p.id];
+            return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
+          });
+          setProperties(sanitized);
         }
       })
       .catch((err) => console.warn('Error syncing properties from API:', err));
@@ -152,11 +188,29 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
     setMessagesModalOpen(true);
     setLoadingNotes(true);
     setReplyText('');
+
+    // Instant render from localStorage
+    const localMsgs = getLocalMessages(prop.id);
+    const localAudits = getLocalAuditEvents(prop.id);
+    setNotesThread(localMsgs);
+    setAuditEventsList(localAudits);
+
     try {
       const res = await fetch(`/api/admin/messages?propertyId=${prop.id}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
-        setNotesThread(data.messages || []);
+        const apiMsgs = data.messages || [];
+        const apiAudits = data.auditEvents || [];
+
+        saveLocalMessagesBatch(apiMsgs);
+        saveLocalAuditEventsBatch(apiAudits);
+
+        const updatedMsgs = getLocalMessages(prop.id);
+        const updatedAudits = getLocalAuditEvents(prop.id);
+        setNotesThread(updatedMsgs);
+        setAuditEventsList(updatedAudits);
+        setAdminMessages(getLocalMessages());
+
         // Mark as read
         fetch('/api/admin/messages', {
           method: 'PATCH',
@@ -174,6 +228,24 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
   const handleSendReply = async () => {
     if (!replyText.trim() || !activePropertyForNotes) return;
     setSendingReply(true);
+
+    const optimisticMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      fromRole: 'LANDLORD' as const,
+      fromName: 'Vikram Singh (Landlord)',
+      toPropertyId: activePropertyForNotes.id,
+      propertyName: activePropertyForNotes.name,
+      message: replyText.trim(),
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    // 1. Immediately persist locally
+    saveLocalMessage(optimisticMsg);
+    setNotesThread((prev) => [...prev, optimisticMsg]);
+    setAdminMessages((prev) => [...prev, optimisticMsg]);
+    setReplyText('');
+
     try {
       const res = await fetch('/api/admin/messages', {
         method: 'POST',
@@ -181,16 +253,16 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
         body: JSON.stringify({
           toPropertyId: activePropertyForNotes.id,
           propertyName: activePropertyForNotes.name,
-          message: replyText.trim(),
+          message: optimisticMsg.message,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        setNotesThread((prev) => [...prev, data.message]);
-        setAdminMessages((prev) => [...prev, data.message]);
-        setReplyText('');
+        if (data.message) {
+          saveLocalMessage(data.message);
+        }
       } else {
-        alert('Failed to send reply.');
+        alert('Failed to send reply to server.');
       }
     } catch (err) {
       console.error('Error sending reply:', err);
@@ -643,15 +715,32 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
       <Modal
         isOpen={messagesModalOpen}
         onClose={() => setMessagesModalOpen(false)}
-        title={`Admin Communication & Compliance — ${activePropertyForNotes?.name || 'Property'}`}
-        description="Official correspondence with UniNest Admin & verification audit team"
+        title="Admin Communication & Property History"
+        description="Official correspondence and compliance audit history with UniNest Admin"
         size="lg"
       >
-        <div className="space-y-4 text-sm flex flex-col h-[65vh]">
-          {/* Status banner */}
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+        <div className="space-y-4 text-sm flex flex-col h-[70vh]">
+          {/* Property Selector & Status Summary */}
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
+              <span className="font-bold text-slate-700 shrink-0">Select PG:</span>
+              <select
+                value={activePropertyForNotes?.id || ''}
+                onChange={(e) => {
+                  const target = properties.find((p) => p.id === e.target.value);
+                  if (target) openPropertyNotes(target);
+                }}
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.verificationStatus})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-700">Verification Status:</span>
+              <span className="font-bold text-slate-700">Status:</span>
               <Badge
                 variant={
                   activePropertyForNotes?.verificationStatus === 'VERIFIED'
@@ -666,86 +755,166 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                 {activePropertyForNotes?.verificationStatus || 'UNDER REVIEW'}
               </Badge>
             </div>
-            {activePropertyForNotes?.rejectionReason && (
-              <span className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
-                Issue: {activePropertyForNotes.rejectionReason}
-              </span>
-            )}
           </div>
 
-          {/* Messages list */}
-          <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
-            {loadingNotes ? (
-              <p className="text-slate-500 text-center py-8 text-xs">Loading correspondence history...</p>
-            ) : notesThread.length > 0 ? (
-              notesThread.map((msg, idx) => {
-                const isAdmin = msg.fromRole === 'ADMIN';
-                return (
-                  <div
-                    key={idx}
-                    className={`p-3.5 rounded-xl shadow-sm border ${
-                      isAdmin
-                        ? 'bg-amber-50/70 border-amber-200/80 mr-4'
-                        : 'bg-white border-emerald-200 ml-4'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center mb-1.5 gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                            isAdmin
-                              ? 'bg-amber-200 text-amber-900'
-                              : 'bg-emerald-100 text-emerald-900'
-                          }`}
-                        >
-                          {isAdmin ? '🛡️ UNINEST ADMIN' : '🏠 LANDLORD (YOU)'}
-                        </span>
-                        <span className="font-bold text-slate-900 text-xs">{msg.fromName}</span>
+          {activePropertyForNotes?.rejectionReason && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-2.5 text-xs text-rose-800 flex items-center justify-between gap-2">
+              <span className="font-medium">
+                <strong>Rejection Issue:</strong> {activePropertyForNotes.rejectionReason}
+              </span>
+              <span className="text-[10px] uppercase font-bold text-rose-700 bg-rose-200/80 px-2 py-0.5 rounded">Action Required</span>
+            </div>
+          )}
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-slate-200 gap-4 text-xs font-bold">
+            <button
+              onClick={() => setModalTab('MESSAGES')}
+              className={`pb-2 flex items-center gap-1.5 transition-colors border-b-2 -mb-[1px] ${
+                modalTab === 'MESSAGES'
+                  ? 'border-brand-600 text-brand-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Communication Log ({notesThread.length})
+            </button>
+            <button
+              onClick={() => setModalTab('AUDIT')}
+              className={`pb-2 flex items-center gap-1.5 transition-colors border-b-2 -mb-[1px] ${
+                modalTab === 'AUDIT'
+                  ? 'border-brand-600 text-brand-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              Audit Trail & Lifecycle History ({auditEventsList.length})
+            </button>
+          </div>
+
+          {/* Tab 1: Messages */}
+          {modalTab === 'MESSAGES' && (
+            <>
+              <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+                {loadingNotes ? (
+                  <p className="text-slate-500 text-center py-8 text-xs">Loading correspondence history...</p>
+                ) : notesThread.length > 0 ? (
+                  notesThread.map((msg, idx) => {
+                    const isAdmin = msg.fromRole === 'ADMIN';
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3.5 rounded-xl shadow-sm border ${
+                          isAdmin
+                            ? 'bg-amber-50/70 border-amber-200/80 mr-4'
+                            : 'bg-white border-emerald-200 ml-4'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-1.5 gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                isAdmin
+                                  ? 'bg-amber-200 text-amber-900'
+                                  : 'bg-emerald-100 text-emerald-900'
+                              }`}
+                            >
+                              {isAdmin ? '🛡️ UNINEST ADMIN' : '🏠 LANDLORD (YOU)'}
+                            </span>
+                            <span className="font-bold text-slate-900 text-xs">{msg.fromName}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {new Date(msg.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        </div>
+                        <p className="text-slate-700 text-xs whitespace-pre-wrap leading-relaxed">
+                          {msg.message}
+                        </p>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {new Date(msg.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      </span>
-                    </div>
-                    <p className="text-slate-700 text-xs whitespace-pre-wrap leading-relaxed">
-                      {msg.message}
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-8 text-xs text-slate-500 space-y-1">
+                    <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-1" />
+                    <p className="font-bold text-slate-700">No message history for this property yet.</p>
+                    <p className="text-[11px] text-slate-400">
+                      Type a message below to contact the UniNest admin team regarding listing approvals or verification.
                     </p>
                   </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-xs text-slate-500 space-y-1">
-                <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-1" />
-                <p className="font-bold text-slate-700">No message history for this property yet.</p>
-                <p className="text-[11px] text-slate-400">
-                  Type a message below to contact the UniNest admin team regarding listing approvals or verification.
-                </p>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Reply Form */}
-          <div className="mt-2 space-y-2">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none shadow-sm"
-              rows={3}
-              placeholder="Reply to UniNest Admin (e.g. 'I have updated the fire extinguisher certificates and fixed Room 204')..."
-            />
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] text-slate-400">
-                Directly alerts the platform compliance team for re-audit.
-              </span>
-              <Button
-                onClick={handleSendReply}
-                disabled={sendingReply || !replyText.trim()}
-                className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
-              >
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                {sendingReply ? 'Sending...' : 'Send Reply to Admin'}
-              </Button>
+              {/* Reply Form */}
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none shadow-sm"
+                  rows={2}
+                  placeholder="Reply to UniNest Admin (e.g. 'I have updated the fire extinguisher certificates and fixed Room 204')..."
+                />
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] text-slate-400">
+                    Saved permanently in browser storage & synced to admin compliance team.
+                  </span>
+                  <Button
+                    onClick={handleSendReply}
+                    disabled={sendingReply || !replyText.trim()}
+                    className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs"
+                  >
+                    <Send className="w-3.5 h-3.5 mr-1.5" />
+                    {sendingReply ? 'Sending...' : 'Send Reply to Admin'}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Tab 2: Audit Trail & Lifecycle History */}
+          {modalTab === 'AUDIT' && (
+            <div className="flex-1 overflow-y-auto space-y-3 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
+              {auditEventsList.length > 0 ? (
+                auditEventsList.map((evt, idx) => (
+                  <div key={idx} className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            evt.action === 'REJECTED'
+                              ? 'bg-rose-100 text-rose-800'
+                              : evt.action === 'VERIFIED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : evt.action === 'SUBMITTED'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-slate-100 text-slate-800'
+                          }`}
+                        >
+                          {evt.action}
+                        </span>
+                        <span className="font-extrabold text-slate-900 text-xs">{evt.title}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400">
+                        {new Date(evt.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    {evt.details && (
+                      <p className="text-xs text-slate-600 pl-1 border-l-2 border-slate-200 mt-1">
+                        {evt.details}
+                      </p>
+                    )}
+                    <div className="text-[10px] text-slate-400 pt-0.5">
+                      Logged by: <strong className="text-slate-600">{evt.actorName} ({evt.actorRole})</strong>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-xs text-slate-400">
+                  <History className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  No audit logs recorded for this property yet.
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
       </Modal>
     </div>
