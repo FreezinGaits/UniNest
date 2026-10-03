@@ -1,8 +1,10 @@
 import { getAllProperties } from '@/lib/propertiesStore';
-import { AdminPropertiesClient } from '../properties/AdminPropertiesClient';
+import { AdminVerificationCenterClient } from './AdminVerificationCenterClient';
+
+export const dynamic = 'force-dynamic';
 
 export default async function PropertyVerificationPage() {
   const properties = await getAllProperties();
 
-  return <AdminPropertiesClient initialProperties={properties} />;
+  return <AdminVerificationCenterClient initialProperties={properties} />;
 }
