@@ -135,6 +135,18 @@ export default function AdminPaymentsPage() {
     );
   };
 
+  const escrowVaultBalancePaise = transactions
+    .filter((t) => t.status === 'ESCROW_LOCKED' || t.status === 'UTR_VERIFIED' || t.status === 'PENDING_UTR_AUDIT')
+    .reduce((sum, t) => sum + t.amountPaise, 0);
+
+  const disbursedPaise = transactions
+    .filter((t) => t.status === 'SETTLED_TO_LANDLORD')
+    .reduce((sum, t) => sum + t.amountPaise, 0);
+
+  const refundedPaise = transactions
+    .filter((t) => t.status === 'REFUNDED_TO_STUDENT')
+    .reduce((sum, t) => sum + t.amountPaise, 0);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -171,22 +183,22 @@ export default function AdminPaymentsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Escrow Vault Balance"
-          value="₹1,42,800"
+          value={formatINR(escrowVaultBalancePaise)}
           subtitle="Locked in UniNest Housing VPA"
           icon={<Lock className="w-5 h-5" />}
           color="brand"
         />
         <StatCard
           title="Disbursed to Landlords"
-          value="₹4,85,000"
+          value={formatINR(disbursedPaise)}
           subtitle="Released post Stage-2 Move-In Key"
           icon={<ArrowUpRight className="w-5 h-5" />}
           color="blue"
         />
         <StatCard
           title="Student Refunds Processed"
-          value="₹8,798"
-          subtitle="Stage-1 Rejects & Emergency Waivers"
+          value={formatINR(refundedPaise)}
+          subtitle="Stage-1 Rejects & 72-Hour Waivers"
           icon={<RotateCcw className="w-5 h-5" />}
           color="purple"
         />

@@ -183,9 +183,9 @@ export function AdminDashboardClient({
         </Link>
         <Link href="/admin/payments" className="block transition-transform hover:-translate-y-0.5">
           <StatCard
-            title="Total Revenue"
+            title="Disbursed Revenue"
             value={formatRupees(initialRevenueRupees)}
-            subtitle="Disbursed post Stage-2 Move-In Key"
+            subtitle="Released post Move-In Key (+₹18.9k in Vault)"
             icon={<CreditCard className="w-5 h-5" />}
             color="brand"
           />

@@ -14,7 +14,7 @@ export default async function AdminDashboardPage() {
     <AdminDashboardClient
       initialProperties={properties}
       initialUsers={users}
-      initialRevenueRupees={485000}
+      initialRevenueRupees={6000}
       initialActiveBookings={3}
       initialTotalBookings={4}
       initialOpenMaintenance={3}
