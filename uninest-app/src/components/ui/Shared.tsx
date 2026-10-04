@@ -78,8 +78,9 @@ export function ProgressBar({
   max = 100,
   color = 'brand',
   label,
-  showPercent = true,
+  showPercent,
   className,
+  size = 'md',
 }: {
   value: number;
   max?: number;
@@ -87,8 +88,9 @@ export function ProgressBar({
   label?: string;
   showPercent?: boolean;
   className?: string;
+  size?: 'xs' | 'sm' | 'md' | 'lg';
 }) {
-  const pct = Math.round((value / max) * 100);
+  const pct = Math.min(100, Math.max(0, Math.round((value / (max || 1)) * 100)));
   const colors = {
     brand: 'bg-brand-500',
     blue: 'bg-blue-500',
@@ -96,15 +98,31 @@ export function ProgressBar({
     red: 'bg-red-500',
   };
 
+  const heights = {
+    xs: 'h-1',
+    sm: 'h-1.5',
+    md: 'h-2',
+    lg: 'h-3',
+  };
+
+  // Only show header line if label is present or showPercent is explicitly true
+  const shouldShowHeader = label !== undefined || showPercent === true;
+  const displayPercent = showPercent ?? (label !== undefined);
+
+  // If a height class like h-1.5 or h-2 was passed in className, extract it for the track
+  const heightMatch = className?.match(/\bh-(1|1\.5|2|2\.5|3|4)\b/);
+  const trackHeight = heightMatch ? heightMatch[0] : heights[size];
+  const cleanWrapperClassName = className?.replace(/\bh-(1|1\.5|2|2\.5|3|4)\b/g, '').trim();
+
   return (
-    <div className={cn('space-y-1', className)}>
-      {(label || showPercent) && (
-        <div className="flex items-center justify-between text-xs">
+    <div className={cn('w-full flex flex-col justify-center', cleanWrapperClassName)}>
+      {shouldShowHeader && (
+        <div className="flex items-center justify-between text-xs mb-1.5 font-medium">
           {label && <span className="text-text-secondary">{label}</span>}
-          {showPercent && <span className="text-text-tertiary font-medium">{pct}%</span>}
+          {displayPercent && <span className="text-text-tertiary">{pct}%</span>}
         </div>
       )}
-      <div className="h-2 bg-surface-tertiary rounded-full overflow-hidden">
+      <div className={cn('w-full bg-slate-200/70 rounded-full overflow-hidden', trackHeight)}>
         <div
           className={cn('h-full rounded-full transition-all duration-500', colors[color])}
           style={{ width: `${pct}%` }}

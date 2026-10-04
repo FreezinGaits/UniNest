@@ -317,13 +317,13 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
 
                     {/* Inventory & Bed Occupancy */}
                     <td className="py-4 px-4 min-w-[160px]">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between font-bold">
+                      <div className="space-y-1.5 min-w-[150px]">
+                        <div className="flex items-center justify-between font-bold text-xs">
                           <span className="text-slate-900">
                             {occTarget} / {bedsTarget} Beds
                           </span>
                           <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-black ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded font-black ${
                               occPct >= 100
                                 ? 'bg-indigo-100 text-indigo-800'
                                 : occPct >= 75
@@ -334,8 +334,8 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
                             {occPct}% Full
                           </span>
                         </div>
-                        <ProgressBar value={occPct} className="h-1.5" color={occPct >= 100 ? 'blue' : 'brand'} />
-                        <span className="text-[10px] text-slate-400 block">
+                        <ProgressBar value={occPct} size="sm" color={occPct >= 100 ? 'blue' : 'brand'} showPercent={false} />
+                        <span className="text-[10px] text-slate-500 block pt-0.5 font-medium">
                           {bedsTarget - occTarget > 0
                             ? `✓ ${bedsTarget - occTarget} vacancies available`
                             : '⚡ Zero vacancies (Waitlist active)'}

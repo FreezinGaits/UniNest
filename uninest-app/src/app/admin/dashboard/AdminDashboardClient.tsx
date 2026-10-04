@@ -307,21 +307,21 @@ export function AdminDashboardClient({
             <Badge variant="success" dot>Stable</Badge>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-semibold text-text-secondary">Bed Occupancy</span>
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-text-secondary">Bed Occupancy</span>
                 <span className="font-bold text-slate-800">{occupiedBeds}/{totalBeds} Beds ({occupancyRate}%)</span>
               </div>
-              <ProgressBar value={occupiedBeds} max={totalBeds} color="brand" className="h-2" />
+              <ProgressBar value={occupiedBeds} max={totalBeds} color="brand" showPercent={false} size="sm" />
             </div>
 
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-semibold text-text-secondary">Student User Ratio</span>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-medium">
+                <span className="text-text-secondary">Student User Ratio</span>
                 <span className="font-bold text-slate-800">{studentCount}/{userCount} Accounts ({Math.round((studentCount / userCount) * 100)}%)</span>
               </div>
-              <ProgressBar value={studentCount} max={userCount} color="blue" className="h-2" />
+              <ProgressBar value={studentCount} max={userCount} color="blue" showPercent={false} size="sm" />
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
