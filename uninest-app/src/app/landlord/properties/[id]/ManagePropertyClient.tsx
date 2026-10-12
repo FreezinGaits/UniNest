@@ -13,6 +13,10 @@ import {
   toggleBedStatus,
   addRoomToProperty,
   addBedToRoom,
+  updateRoom,
+  deleteRoom,
+  removeBedFromRoom,
+  distributeRoomsByFloors,
 } from '@/lib/roomBedStore';
 import { AdminMessage } from '@/lib/adminMessagesStore';
 import { PropertyNotesThread } from './PropertyNotesThread';
@@ -39,6 +43,10 @@ import {
   Image as ImageIcon,
   Check,
   AlertCircle,
+  Layers,
+  Trash2,
+  Info,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface ManagePropertyClientProps {
@@ -71,7 +79,7 @@ export function ManagePropertyClient({
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modals state
+  // Modals state: Check-In
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [checkInBed, setCheckInBed] = useState<{
     roomId: string;
@@ -84,6 +92,7 @@ export function ManagePropertyClient({
   const [studentCollege, setStudentCollege] = useState('PCTE Group of Institutes');
   const [studentRent, setStudentRent] = useState<number>(8000);
 
+  // Modals state: Check-Out
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [checkOutBed, setCheckOutBed] = useState<{
     roomId: string;
@@ -92,11 +101,32 @@ export function ManagePropertyClient({
     tenant: string;
   } | null>(null);
 
+  // Modals state: Add Room
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [newRoomNumber, setNewRoomNumber] = useState('');
+  const [newRoomFloor, setNewRoomFloor] = useState('1');
   const [newRoomSharing, setNewRoomSharing] = useState('3');
   const [newRoomRent, setNewRoomRent] = useState(8000);
 
+  // Modals state: Edit Room
+  const [isEditRoomOpen, setIsEditRoomOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<RoomData | null>(null);
+  const [editRoomNumber, setEditRoomNumber] = useState('');
+  const [editRoomFloor, setEditRoomFloor] = useState('1');
+  const [editRoomSharing, setEditRoomSharing] = useState('3');
+  const [editRoomRent, setEditRoomRent] = useState(8000);
+  const [editRoomAC, setEditRoomAC] = useState(true);
+  const [editRoomBath, setEditRoomBath] = useState(true);
+
+  // Modals state: Floor Distribution
+  const [isFloorDistributeOpen, setIsFloorDistributeOpen] = useState(false);
+  const [distributeFloorsCount, setDistributeFloorsCount] = useState('2');
+
+  // Modals state: Delete Room Confirm
+  const [isDeleteRoomConfirmOpen, setIsDeleteRoomConfirmOpen] = useState(false);
+  const [deletingRoom, setDeletingRoom] = useState<RoomData | null>(null);
+
+  // Modals state: Edit Property
   const [isEditPropOpen, setIsEditPropOpen] = useState(false);
   const [editPropName, setEditPropName] = useState('');
   const [editPropCity, setEditPropCity] = useState('');
@@ -114,7 +144,6 @@ export function ManagePropertyClient({
         resolvedProp = matched;
         setProperty(matched);
       } else {
-        // Fallback: fetch from API
         fetch('/api/properties')
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
@@ -152,8 +181,8 @@ export function ManagePropertyClient({
     return (
       <div className="max-w-4xl mx-auto py-12 text-center">
         <Building className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-        <h2 className="text-xl font-bold text-slate-800">Property Not Found</h2>
-        <p className="text-sm text-slate-500 mt-1">This property listing does not exist or was deleted.</p>
+        <h2 className="text-xl font-bold text-slate-800">Property Loading...</h2>
+        <p className="text-sm text-slate-500 mt-1">Retrieving room & bed allocations from property store.</p>
         <Link href="/landlord/properties" className="mt-4 inline-block">
           <Button variant="outline" size="sm">Back to Portfolio</Button>
         </Link>
@@ -171,11 +200,7 @@ export function ManagePropertyClient({
     (acc, r) => acc + r.beds.filter((b) => b.status === 'AVAILABLE').length,
     0
   );
-  const maintenanceBeds = rooms.reduce(
-    (acc, r) => acc + r.beds.filter((b) => b.status === 'MAINTENANCE').length,
-    0
-  );
-  const rentRupees = Number(property.rentPerMonth || 6000);
+  const rentRupees = Number(property.rentPerMonth || 8000);
   const currentMonthlyRevenue = occupiedBeds * rentRupees;
   const potentialMonthlyRevenue = totalBeds * rentRupees;
 
@@ -184,7 +209,6 @@ export function ManagePropertyClient({
     if (roomId && bedId && bedLabel) {
       setCheckInBed({ roomId, bedId, bedLabel, rent: rentRupees });
     } else {
-      // Pick first available bed
       for (const r of rooms) {
         const avail = r.beds.find((b) => b.status === 'AVAILABLE');
         if (avail) {
@@ -237,6 +261,76 @@ export function ManagePropertyClient({
     showToast(`Bed status updated to ${nextStatus}.`);
   };
 
+  // Handler: Open Edit Room
+  const handleOpenEditRoom = (room: RoomData) => {
+    setEditingRoom(room);
+    setEditRoomNumber(room.roomNumber);
+    setEditRoomFloor(String(room.floor || Math.floor(parseInt(room.roomNumber, 10) / 100) || 1));
+    setEditRoomSharing(String(room.beds.length || room.sharing || 3));
+    setEditRoomRent(room.rentRupees || rentRupees);
+    setEditRoomAC(Boolean(room.hasAC));
+    setEditRoomBath(Boolean(room.hasAttBath));
+    setIsEditRoomOpen(true);
+  };
+
+  // Handler: Save Edit Room
+  const handleSaveEditRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoom || !editRoomNumber.trim()) return;
+
+    const updatedRooms = updateRoom(property.id, editingRoom.id, {
+      roomNumber: editRoomNumber.trim(),
+      floor: Number(editRoomFloor),
+      sharing: Number(editRoomSharing),
+      rentRupees: Number(editRoomRent),
+      hasAC: editRoomAC,
+      hasAttBath: editRoomBath,
+    });
+
+    setRooms(updatedRooms);
+    setIsEditRoomOpen(false);
+    showToast(`Room ${editRoomNumber.trim()} updated with ${editRoomSharing} beds!`);
+  };
+
+  // Handler: Open Delete Room
+  const handleOpenDeleteRoom = (room: RoomData) => {
+    setDeletingRoom(room);
+    setIsDeleteRoomConfirmOpen(true);
+  };
+
+  // Handler: Confirm Delete Room
+  const handleConfirmDeleteRoom = () => {
+    if (!deletingRoom) return;
+    const updatedRooms = deleteRoom(property.id, deletingRoom.id);
+    setRooms(updatedRooms);
+    setIsDeleteRoomConfirmOpen(false);
+    showToast(`Room ${deletingRoom.roomNumber} deleted successfully.`);
+  };
+
+  // Handler: Remove Bed from Room
+  const handleRemoveBed = (roomId: string, bedId: string, bedLabel: string) => {
+    const updatedRooms = removeBedFromRoom(property.id, roomId, bedId);
+    setRooms(updatedRooms);
+    showToast(`Removed ${bedLabel} from room.`);
+  };
+
+  // Handler: Quick Add Bed to existing room
+  const handleAddBedToRoom = (roomId: string, roomNumber: string) => {
+    const updatedRooms = addBedToRoom(property.id, roomId);
+    setRooms(updatedRooms);
+    showToast(`Added a new bed to Room ${roomNumber}!`);
+  };
+
+  // Handler: Distribute by Floors
+  const handleApplyFloorDistribution = (e: React.FormEvent) => {
+    e.preventDefault();
+    const floors = Number(distributeFloorsCount || 2);
+    const updatedRooms = distributeRoomsByFloors(property.id, floors);
+    setRooms(updatedRooms);
+    setIsFloorDistributeOpen(false);
+    showToast(`Rooms successfully organized across ${floors} floors!`);
+  };
+
   // Handler: Add Room
   const handleAddRoom = (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +338,7 @@ export function ManagePropertyClient({
 
     const updatedRooms = addRoomToProperty(property.id, {
       roomNumber: newRoomNumber.trim(),
+      floor: Number(newRoomFloor),
       sharing: Number(newRoomSharing),
       rentRupees: Number(newRoomRent),
       hasAC: true,
@@ -254,13 +349,6 @@ export function ManagePropertyClient({
     setIsAddRoomOpen(false);
     setNewRoomNumber('');
     showToast(`Room ${newRoomNumber.trim()} added with ${newRoomSharing} beds!`);
-  };
-
-  // Handler: Quick Add Bed to existing room
-  const handleAddBedToRoom = (roomId: string, roomNumber: string) => {
-    const updatedRooms = addBedToRoom(property.id, roomId);
-    setRooms(updatedRooms);
-    showToast(`Added a new bed to Room ${roomNumber}!`);
   };
 
   // Handler: Save Property Edits
@@ -359,6 +447,16 @@ export function ManagePropertyClient({
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setIsFloorDistributeOpen(true)}
+            className="text-xs font-bold border-slate-300 text-slate-700"
+          >
+            <Layers className="w-3.5 h-3.5 mr-1.5 text-brand-600" />
+            Organize Floors
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setIsAddRoomOpen(true)}
             className="text-xs font-bold border-slate-300"
           >
@@ -396,7 +494,6 @@ export function ManagePropertyClient({
                   alt={`${property.name} photo ${idx + 1}`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   onError={(e) => {
-                    // Fallback to placeholder if image fails
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
@@ -404,23 +501,6 @@ export function ManagePropertyClient({
             ))}
           </div>
         </Card>
-      )}
-
-      {/* Rejection Alert Box */}
-      {(property.verificationStatus === 'REJECTED' || property.verificationStatus === 'SUSPENDED') && (
-        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 text-xs space-y-1.5 shadow-xs animate-slide-down">
-          <div className="flex items-center gap-2 font-extrabold text-rose-800 text-sm">
-            <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
-            Property Listing Suspended / Rejected by UniNest Admin
-          </div>
-          <p className="text-slate-800 text-xs">
-            <strong className="text-rose-900 font-bold">Reason Provided:</strong>{' '}
-            {property.rejectionReason || 'Building compliance or safety verification standards not met.'}
-          </p>
-          <p className="text-slate-600 text-[11px]">
-            Please review the compliance audit notes below, address the requirements, and reply to request a re-inspection.
-          </p>
-        </div>
       )}
 
       {/* Real-time Dynamic Metric Cards */}
@@ -455,6 +535,40 @@ export function ManagePropertyClient({
         </Card>
       </div>
 
+      {/* Helpful Floor & Room Numbering Guide Callout */}
+      <div className="bg-gradient-to-r from-blue-50/90 to-indigo-50/90 border border-blue-200 rounded-2xl p-4 flex items-start gap-3.5 text-xs shadow-2xs">
+        <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm font-bold">
+          <Info className="w-4 h-4" />
+        </div>
+        <div className="space-y-1.5 flex-1">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <h4 className="font-extrabold text-blue-950 text-sm">
+              💡 How Floor & Room Numbering Works in UniNest
+            </h4>
+            <span className="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded-full">
+              Standard Hospitality Format
+            </span>
+          </div>
+          <p className="text-blue-900 leading-relaxed">
+            Rooms in student housing are standardly numbered by <strong>Floor + Room</strong> so students, parents, and cleaners instantly know which floor a room is located on:
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1 font-semibold text-[11px]">
+            <span className="bg-white/90 border border-blue-200 px-2.5 py-1 rounded-xl text-blue-900 shadow-2xs">
+              <strong>100 Series (101, 102, 103...)</strong> = Floor 1 (Ground)
+            </span>
+            <span className="bg-white/90 border border-blue-200 px-2.5 py-1 rounded-xl text-blue-900 shadow-2xs">
+              <strong>200 Series (201, 202, 203...)</strong> = Floor 2 (First Floor)
+            </span>
+            <span className="bg-white/90 border border-blue-200 px-2.5 py-1 rounded-xl text-blue-900 shadow-2xs">
+              <strong>300 Series (301, 302, 303...)</strong> = Floor 3
+            </span>
+          </div>
+          <p className="text-blue-800 text-[11px] pt-1">
+            <strong>Full Flexibility:</strong> You don&apos;t have to delete your property to fix rooms! Click <strong>&quot;Edit Room&quot;</strong> on any room to rename it (e.g., change 105 to 201), change its bed capacity (e.g., 2-sharing or 3-sharing), or click <strong>&quot;Organize Floors&quot;</strong> to auto-distribute all rooms across 2, 3, or 4 floors.
+          </p>
+        </div>
+      </div>
+
       {/* Room & Bed Interactive Matrix */}
       <Card className="p-6 border-slate-200">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
@@ -463,14 +577,26 @@ export function ManagePropertyClient({
               Interactive Room & Bed Matrix ({rooms.length} Rooms • {totalBeds} Beds)
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Click any bed to register walk-in tenants, check out students, or mark maintenance
+              Edit individual room numbers, change bed sharing tiers, register walk-in tenants, or organize floors
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIsAddRoomOpen(true)}
+              onClick={() => setIsFloorDistributeOpen(true)}
+              className="text-xs font-bold text-slate-700"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 mr-1 text-brand-600" /> Auto-Distribute Floors
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setNewRoomFloor('1');
+                setNewRoomNumber(`10${rooms.length + 1}`);
+                setIsAddRoomOpen(true);
+              }}
               className="text-xs font-bold text-slate-700"
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Room
@@ -496,6 +622,9 @@ export function ManagePropertyClient({
                     <span className="font-extrabold text-sm text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
                       Room {room.roomNumber}
                     </span>
+                    <span className="text-[11px] font-bold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
+                      Floor {room.floor || Math.floor(parseInt(room.roomNumber, 10) / 100) || 1}
+                    </span>
                     <span className="text-xs font-semibold text-slate-600">
                       {room.beds.length}-Sharing • {formatRupees(room.rentRupees)}/mo per bed
                     </span>
@@ -512,10 +641,23 @@ export function ManagePropertyClient({
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleAddBedToRoom(room.id, room.roomNumber)}
-                      className="text-[11px] font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1 hover:underline"
+                      onClick={() => handleOpenEditRoom(room)}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors"
                     >
-                      <Plus className="w-3 h-3" /> Add Bed to Room
+                      <Edit3 className="w-3 h-3 text-amber-600" /> Edit Room
+                    </button>
+                    <button
+                      onClick={() => handleAddBedToRoom(room.id, room.roomNumber)}
+                      className="text-[11px] font-bold text-brand-600 hover:text-brand-800 bg-brand-50 hover:bg-brand-100 border border-brand-200 px-2.5 py-1 rounded-lg flex items-center gap-1 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add Bed
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteRoom(room)}
+                      title="Delete this room"
+                      className="p-1 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -542,17 +684,28 @@ export function ManagePropertyClient({
                             <BedDouble className="w-4 h-4 text-slate-500" />
                             <span>{b.bedLabel}</span>
                           </div>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                              isOccupied
-                                ? 'bg-blue-200 text-blue-900'
-                                : isMaint
-                                ? 'bg-amber-200 text-amber-900'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {b.status}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                isOccupied
+                                  ? 'bg-blue-200 text-blue-900'
+                                  : isMaint
+                                  ? 'bg-amber-200 text-amber-900'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {b.status}
+                            </span>
+                            {!isOccupied && room.beds.length > 1 && (
+                              <button
+                                onClick={() => handleRemoveBed(room.id, b.id, b.bedLabel)}
+                                title="Remove this bed"
+                                className="text-slate-300 hover:text-rose-500 p-0.5 rounded transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Occupant Info */}
@@ -634,96 +787,191 @@ export function ManagePropertyClient({
         initialMessages={adminNotes}
       />
 
-      {/* ================= MODAL: CHECK-IN STUDENT ================= */}
+      {/* ================= MODAL: EDIT ROOM ================= */}
       <Modal
-        isOpen={isCheckInOpen}
-        onClose={() => setIsCheckInOpen(false)}
-        title={`Check-In Walk-In Tenant (${checkInBed?.bedLabel || 'Bed'})`}
-        description="Register an offline/walk-in student occupant for this bed"
+        isOpen={isEditRoomOpen}
+        onClose={() => setIsEditRoomOpen(false)}
+        title={`Edit Room ${editingRoom?.roomNumber || ''}`}
+        description="Change room number, floor assignment, bed capacity, and amenities"
         size="md"
       >
-        <form onSubmit={handleConfirmCheckIn} className="space-y-4">
-          <Input
-            label="Student Full Name *"
-            placeholder="e.g. Gurpreet Singh"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            required
-            autoFocus
-          />
+        <form onSubmit={handleSaveEditRoom} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Input
+                label="Room Number *"
+                placeholder="e.g. 101, 201"
+                value={editRoomNumber}
+                onChange={(e) => setEditRoomNumber(e.target.value)}
+                required
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Tip: 100 series for Floor 1, 200 for Floor 2
+              </p>
+            </div>
+            <Select
+              label="Floor Assignment"
+              value={editRoomFloor}
+              onChange={(e) => {
+                const nextFloor = e.target.value;
+                setEditRoomFloor(nextFloor);
+                // Auto-suggest matching room number if keeping standard format
+                const num = parseInt(editRoomNumber, 10);
+                if (!isNaN(num)) {
+                  const roomIdx = num % 100;
+                  setEditRoomNumber(`${parseInt(nextFloor, 10) * 100 + roomIdx}`);
+                }
+              }}
+              options={[
+                { value: '1', label: 'Floor 1 (Ground Floor)' },
+                { value: '2', label: 'Floor 2 (First Floor)' },
+                { value: '3', label: 'Floor 3 (Second Floor)' },
+                { value: '4', label: 'Floor 4 (Third Floor)' },
+              ]}
+            />
+          </div>
 
-          <Input
-            label="Phone Number *"
-            placeholder="e.g. +91 98765-43210"
-            value={studentPhone}
-            onChange={(e) => setStudentPhone(e.target.value)}
-            required
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Beds in this Room (Sharing)"
+              value={editRoomSharing}
+              onChange={(e) => setEditRoomSharing(e.target.value)}
+              options={[
+                { value: '1', label: '1 Bed (Single Occupancy)' },
+                { value: '2', label: '2 Beds (Double Sharing)' },
+                { value: '3', label: '3 Beds (Triple Sharing)' },
+                { value: '4', label: '4 Beds (Dormitory)' },
+              ]}
+            />
+            <Input
+              label="Rent per Bed (₹) *"
+              type="number"
+              value={editRoomRent}
+              onChange={(e) => setEditRoomRent(Number(e.target.value))}
+              required
+            />
+          </div>
 
-          <Input
-            label="College / Institute"
-            placeholder="e.g. PCTE, PAU, GNDEC"
-            value={studentCollege}
-            onChange={(e) => setStudentCollege(e.target.value)}
-          />
-
-          <Input
-            label="Agreed Monthly Rent (₹) *"
-            type="number"
-            value={studentRent}
-            onChange={(e) => setStudentRent(Number(e.target.value))}
-            required
-          />
-
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
-            <p className="font-bold text-slate-800">Operational Notice:</p>
-            <p>
-              Assigning this student marks {checkInBed?.bedLabel} as <strong>OCCUPIED</strong> in both
-              your portfolio metrics and the public bed booking matrix.
-            </p>
+          <div className="flex items-center gap-6 pt-1">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editRoomAC}
+                onChange={(e) => setEditRoomAC(e.target.checked)}
+                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+              />
+              Air Conditioned (AC)
+            </label>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editRoomBath}
+                onChange={(e) => setEditRoomBath(e.target.checked)}
+                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500"
+              />
+              Attached Bathroom
+            </label>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsCheckInOpen(false)}>
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditRoomOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-              Confirm Check-In
+            <Button type="submit" size="sm" className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
+              Save Room Changes
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* ================= MODAL: CHECK-OUT STUDENT ================= */}
+      {/* ================= MODAL: AUTO-DISTRIBUTE BY FLOORS ================= */}
       <Modal
-        isOpen={isCheckOutOpen}
-        onClose={() => setIsCheckOutOpen(false)}
-        title={`Check-Out Tenant from ${checkOutBed?.bedLabel}`}
-        description="Release this bed back to vacant inventory"
-        size="sm"
+        isOpen={isFloorDistributeOpen}
+        onClose={() => setIsFloorDistributeOpen(false)}
+        title="Organize Rooms Across Building Floors"
+        description="Automatically re-number rooms by floor (e.g. Floor 1: 101–104, Floor 2: 201–204)"
+        size="md"
       >
-        <div className="space-y-4 text-xs">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900 space-y-1">
-            <p className="font-bold">Are you sure you want to check out this student?</p>
-            <p>
-              Occupant: <strong>{checkOutBed?.tenant}</strong>
-            </p>
-            <p className="text-amber-800 text-[11px]">
-              This bed will immediately be marked as <strong>AVAILABLE</strong> and open for student bookings.
+        <form onSubmit={handleApplyFloorDistribution} className="space-y-4">
+          <Select
+            label="How many floors does this building have?"
+            value={distributeFloorsCount}
+            onChange={(e) => setDistributeFloorsCount(e.target.value)}
+            options={[
+              { value: '1', label: '1 Floor (Ground Only — Rooms 101 to 108)' },
+              { value: '2', label: '2 Floors (Ground + 1 — Rooms 101–104 & 201–204)' },
+              { value: '3', label: '3 Floors (Rooms 101+, 201+, 301+)' },
+              { value: '4', label: '4 Floors (Rooms 101+, 201+, 301+, 401+)' },
+            ]}
+          />
+
+          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1.5 leading-relaxed">
+            <p className="font-bold text-slate-900">Preview of Room Distribution:</p>
+            {distributeFloorsCount === '2' && (
+              <p>
+                • <strong>Floor 1:</strong> Rooms 101, 102, 103, 104<br />
+                • <strong>Floor 2:</strong> Rooms 201, 202, 203, 204
+              </p>
+            )}
+            {distributeFloorsCount === '3' && (
+              <p>
+                • <strong>Floor 1:</strong> Rooms 101, 102, 103<br />
+                • <strong>Floor 2:</strong> Rooms 201, 202, 203<br />
+                • <strong>Floor 3:</strong> Rooms 301, 302
+              </p>
+            )}
+            {distributeFloorsCount === '4' && (
+              <p>
+                • <strong>Floor 1:</strong> Rooms 101, 102<br />
+                • <strong>Floor 2:</strong> Rooms 201, 202<br />
+                • <strong>Floor 3:</strong> Rooms 301, 302<br />
+                • <strong>Floor 4:</strong> Rooms 401, 402
+              </p>
+            )}
+            {distributeFloorsCount === '1' && (
+              <p>• <strong>Floor 1:</strong> All {rooms.length} rooms (101 to {100 + rooms.length})</p>
+            )}
+            <p className="text-[11px] text-slate-500 pt-1">
+              Existing occupant assignments and bed statuses are completely preserved.
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsCheckOutOpen(false)}>
-              Keep Occupied
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsFloorDistributeOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
+              Apply Floor Numbering
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ================= MODAL: DELETE ROOM CONFIRM ================= */}
+      <Modal
+        isOpen={isDeleteRoomConfirmOpen}
+        onClose={() => setIsDeleteRoomConfirmOpen(false)}
+        title={`Delete Room ${deletingRoom?.roomNumber}`}
+        description="Remove this room and its beds from your property"
+        size="sm"
+      >
+        <div className="space-y-4 text-xs">
+          <p className="text-slate-700">
+            Are you sure you want to remove <strong>Room {deletingRoom?.roomNumber}</strong>?
+            This will reduce your total property capacity by {deletingRoom?.beds.length || 0} beds.
+          </p>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsDeleteRoomConfirmOpen(false)}>
+              Keep Room
             </Button>
             <Button
               type="button"
               size="sm"
-              onClick={handleConfirmCheckOut}
+              onClick={handleConfirmDeleteRoom}
               className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
             >
-              Release & Vacate Bed
+              Delete Room
             </Button>
           </div>
         </div>
@@ -738,34 +986,60 @@ export function ManagePropertyClient({
         size="md"
       >
         <form onSubmit={handleAddRoom} className="space-y-4">
-          <Input
-            label="Room Number *"
-            placeholder="e.g. 109, 201"
-            value={newRoomNumber}
-            onChange={(e) => setNewRoomNumber(e.target.value)}
-            required
-            autoFocus
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Input
+                label="Room Number *"
+                placeholder="e.g. 109, 201, 301"
+                value={newRoomNumber}
+                onChange={(e) => setNewRoomNumber(e.target.value)}
+                required
+                autoFocus
+              />
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Floor 1: 100s, Floor 2: 200s, Floor 3: 300s
+              </p>
+            </div>
+            <Select
+              label="Floor Assignment"
+              value={newRoomFloor}
+              onChange={(e) => {
+                const floor = e.target.value;
+                setNewRoomFloor(floor);
+                if (!newRoomNumber || newRoomNumber.startsWith('10') || newRoomNumber.startsWith('20')) {
+                  const existingOnFloor = rooms.filter((r) => r.floor === Number(floor)).length;
+                  setNewRoomNumber(`${Number(floor) * 100 + existingOnFloor + 1}`);
+                }
+              }}
+              options={[
+                { value: '1', label: 'Floor 1 (Ground Floor)' },
+                { value: '2', label: 'Floor 2 (First Floor)' },
+                { value: '3', label: 'Floor 3 (Second Floor)' },
+                { value: '4', label: 'Floor 4 (Third Floor)' },
+              ]}
+            />
+          </div>
 
-          <Select
-            label="Bed Sharing Tier"
-            value={newRoomSharing}
-            onChange={(e) => setNewRoomSharing(e.target.value)}
-            options={[
-              { value: '1', label: 'Single Occupancy (1 Bed)' },
-              { value: '2', label: 'Double Sharing (2 Beds)' },
-              { value: '3', label: 'Triple Sharing (3 Beds)' },
-              { value: '4', label: '4-Bed Dormitory (4 Beds)' },
-            ]}
-          />
-
-          <Input
-            label="Monthly Rent per Bed (₹) *"
-            type="number"
-            value={newRoomRent}
-            onChange={(e) => setNewRoomRent(Number(e.target.value))}
-            required
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Bed Sharing Tier"
+              value={newRoomSharing}
+              onChange={(e) => setNewRoomSharing(e.target.value)}
+              options={[
+                { value: '1', label: 'Single Occupancy (1 Bed)' },
+                { value: '2', label: 'Double Sharing (2 Beds)' },
+                { value: '3', label: 'Triple Sharing (3 Beds)' },
+                { value: '4', label: '4-Bed Dormitory (4 Beds)' },
+              ]}
+            />
+            <Input
+              label="Monthly Rent per Bed (₹) *"
+              type="number"
+              value={newRoomRent}
+              onChange={(e) => setNewRoomRent(Number(e.target.value))}
+              required
+            />
+          </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
             <Button type="button" variant="outline" size="sm" onClick={() => setIsAddRoomOpen(false)}>
@@ -835,6 +1109,93 @@ export function ManagePropertyClient({
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* ================= MODAL: CHECK-IN STUDENT ================= */}
+      <Modal
+        isOpen={isCheckInOpen}
+        onClose={() => setIsCheckInOpen(false)}
+        title={`Check-In Walk-In Tenant (${checkInBed?.bedLabel || 'Bed'})`}
+        description="Register an offline/walk-in student occupant for this bed"
+        size="md"
+      >
+        <form onSubmit={handleConfirmCheckIn} className="space-y-4">
+          <Input
+            label="Student Full Name *"
+            placeholder="e.g. Gurpreet Singh"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            required
+            autoFocus
+          />
+
+          <Input
+            label="Phone Number *"
+            placeholder="e.g. +91 98765-43210"
+            value={studentPhone}
+            onChange={(e) => setStudentPhone(e.target.value)}
+            required
+          />
+
+          <Input
+            label="College / Institute"
+            placeholder="e.g. PCTE, PAU, GNDEC"
+            value={studentCollege}
+            onChange={(e) => setStudentCollege(e.target.value)}
+          />
+
+          <Input
+            label="Agreed Monthly Rent (₹) *"
+            type="number"
+            value={studentRent}
+            onChange={(e) => setStudentRent(Number(e.target.value))}
+            required
+          />
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsCheckInOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+              Confirm Check-In
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ================= MODAL: CHECK-OUT STUDENT ================= */}
+      <Modal
+        isOpen={isCheckOutOpen}
+        onClose={() => setIsCheckOutOpen(false)}
+        title={`Check-Out Tenant from ${checkOutBed?.bedLabel}`}
+        description="Release this bed back to vacant inventory"
+        size="sm"
+      >
+        <div className="space-y-4 text-xs">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-900 space-y-1">
+            <p className="font-bold">Are you sure you want to check out this student?</p>
+            <p>
+              Occupant: <strong>{checkOutBed?.tenant}</strong>
+            </p>
+            <p className="text-amber-800 text-[11px]">
+              This bed will immediately be marked as <strong>AVAILABLE</strong> and open for student bookings.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsCheckOutOpen(false)}>
+              Keep Occupied
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmCheckOut}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
+            >
+              Release & Vacate Bed
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

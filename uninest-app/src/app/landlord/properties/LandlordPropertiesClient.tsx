@@ -179,6 +179,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
     address: '',
     type: 'PG',
     totalRooms: 4,
+    totalFloors: 2,
     bedsPerRoom: 2,
     rentPerMonth: 6000,
     gender: 'ANY',
@@ -396,6 +397,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
         address: '',
         type: 'PG',
         totalRooms: 4,
+        totalFloors: 2,
         bedsPerRoom: 2,
         rentPerMonth: 6000,
         gender: 'ANY',
@@ -818,7 +820,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             />
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Input
               label="Number of Rooms"
               type="number"
@@ -833,6 +835,17 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
               value={formData.bedsPerRoom}
               onChange={(e) => setFormData({ ...formData, bedsPerRoom: Number(e.target.value) })}
             />
+            <Select
+              label="Floors in Building"
+              value={String(formData.totalFloors || 2)}
+              onChange={(e) => setFormData({ ...formData, totalFloors: Number(e.target.value) })}
+              options={[
+                { value: '1', label: '1 Floor (Ground)' },
+                { value: '2', label: '2 Floors (Ground + 1)' },
+                { value: '3', label: '3 Floors' },
+                { value: '4', label: '4 Floors' },
+              ]}
+            />
             <Input
               label="Monthly Rent (₹) *"
               type="number"
@@ -840,6 +853,13 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
               value={formData.rentPerMonth}
               onChange={(e) => setFormData({ ...formData, rentPerMonth: Number(e.target.value) })}
             />
+          </div>
+
+          <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2.5 shadow-2xs">
+            <span className="text-base shrink-0 mt-0.5">💡</span>
+            <p className="leading-relaxed text-[11px] text-blue-900">
+              <strong>Floor-based room numbering:</strong> Rooms will follow the standard hospitality convention (e.g., Rooms 101–104 on Floor 1, Rooms 201–204 on Floor 2). You can rename room numbers, customize individual bed capacities, or add/delete rooms anytime in your Manage Beds view.
+            </p>
           </div>
 
           {/* Photo Upload Section */}
