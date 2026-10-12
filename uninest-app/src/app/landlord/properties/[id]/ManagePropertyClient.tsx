@@ -53,8 +53,22 @@ export function ManagePropertyClient({
   adminNotes,
 }: ManagePropertyClientProps) {
   // Reconcile property from client storage on mount
-  const [property, setProperty] = useState<PropertyItem | null>(initialProperty);
-  const [rooms, setRooms] = useState<RoomData[]>([]);
+  const [property, setProperty] = useState<PropertyItem | null>(() => {
+    if (typeof window !== 'undefined') {
+      const clientProps = getClientProperties();
+      const matched = clientProps.find((p) => p.id === id);
+      if (matched) return matched;
+    }
+    return initialProperty;
+  });
+  const [rooms, setRooms] = useState<RoomData[]>(() => {
+    if (typeof window !== 'undefined') {
+      const clientProps = getClientProperties();
+      const matched = clientProps.find((p) => p.id === id) || initialProperty;
+      if (matched) return getPropertyRooms(matched);
+    }
+    return [];
+  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modals state
@@ -68,7 +82,7 @@ export function ManagePropertyClient({
   const [studentName, setStudentName] = useState('');
   const [studentPhone, setStudentPhone] = useState('');
   const [studentCollege, setStudentCollege] = useState('PCTE Group of Institutes');
-  const [studentRent, setStudentRent] = useState<number>(6000);
+  const [studentRent, setStudentRent] = useState<number>(8000);
 
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [checkOutBed, setCheckOutBed] = useState<{
@@ -80,25 +94,38 @@ export function ManagePropertyClient({
 
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [newRoomNumber, setNewRoomNumber] = useState('');
-  const [newRoomSharing, setNewRoomSharing] = useState('2');
-  const [newRoomRent, setNewRoomRent] = useState(6000);
+  const [newRoomSharing, setNewRoomSharing] = useState('3');
+  const [newRoomRent, setNewRoomRent] = useState(8000);
 
   const [isEditPropOpen, setIsEditPropOpen] = useState(false);
   const [editPropName, setEditPropName] = useState('');
   const [editPropCity, setEditPropCity] = useState('');
   const [editPropAddress, setEditPropAddress] = useState('');
-  const [editPropRent, setEditPropRent] = useState(6000);
+  const [editPropRent, setEditPropRent] = useState(8000);
   const [editPropDescription, setEditPropDescription] = useState('');
 
   // Hydrate property and rooms
   useEffect(() => {
-    let resolvedProp = initialProperty;
+    let resolvedProp = property;
     if (typeof window !== 'undefined') {
       const clientProps = getClientProperties();
       const matched = clientProps.find((p) => p.id === id);
       if (matched) {
         resolvedProp = matched;
         setProperty(matched);
+      } else {
+        // Fallback: fetch from API
+        fetch('/api/properties')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            const serverProp = data?.properties?.find((p: any) => p.id === id);
+            if (serverProp) {
+              setProperty(serverProp);
+              saveClientProperty(serverProp);
+              setRooms(getPropertyRooms(serverProp));
+            }
+          })
+          .catch(() => {});
       }
     }
 
@@ -106,15 +133,15 @@ export function ManagePropertyClient({
       setEditPropName(resolvedProp.name);
       setEditPropCity(resolvedProp.city);
       setEditPropAddress(resolvedProp.address);
-      setEditPropRent(Number(resolvedProp.rentPerMonth || 6000));
+      setEditPropRent(Number(resolvedProp.rentPerMonth || 8000));
       setEditPropDescription(resolvedProp.description || '');
-      setStudentRent(Number(resolvedProp.rentPerMonth || 6000));
-      setNewRoomRent(Number(resolvedProp.rentPerMonth || 6000));
+      setStudentRent(Number(resolvedProp.rentPerMonth || 8000));
+      setNewRoomRent(Number(resolvedProp.rentPerMonth || 8000));
 
       const loadedRooms = getPropertyRooms(resolvedProp);
       setRooms(loadedRooms);
     }
-  }, [id, initialProperty]);
+  }, [id]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -448,9 +475,9 @@ export function ManagePropertyClient({
             >
               <Plus className="w-3.5 h-3.5 mr-1" /> Add Room
             </Button>
-            <Link href={`/landlord/beds`}>
+            <Link href={`/landlord/beds?property=${encodeURIComponent(property.name)}`}>
               <Button size="sm" variant="outline" className="text-xs font-bold text-slate-700">
-                View in Bed Table
+                View in Bed Table →
               </Button>
             </Link>
           </div>

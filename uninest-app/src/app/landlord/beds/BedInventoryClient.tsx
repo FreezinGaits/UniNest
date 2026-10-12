@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +18,8 @@ import {
   Wrench,
   Phone,
   Building,
+  Sparkles,
+  Home,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { getClientProperties } from '@/lib/clientProperties';
@@ -40,6 +43,7 @@ export interface BedItem {
   tenant: string;
   tenantPhone?: string;
   rent: number;
+  isCustomProperty?: boolean;
 }
 
 interface BedInventoryClientProps {
@@ -47,11 +51,16 @@ interface BedInventoryClientProps {
 }
 
 export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
+  const searchParams = useSearchParams();
+  const queryProperty = searchParams?.get('property');
+
   const [beds, setBeds] = useState<BedItem[]>(initialBeds);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'OCCUPIED' | 'AVAILABLE' | 'RESERVED' | 'MAINTENANCE'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<
+    'ALL' | 'OCCUPIED' | 'AVAILABLE' | 'RESERVED' | 'MAINTENANCE'
+  >('ALL');
   const [filterProperty, setFilterProperty] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -75,15 +84,13 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
     if (typeof window === 'undefined') return;
     try {
       const clientProps = getClientProperties();
-      if (!clientProps || clientProps.length === 0) return;
-
-      const fullBedsList: BedItem[] = [];
+      const customBedsList: BedItem[] = [];
 
       for (const prop of clientProps) {
         const rooms = getPropertyRooms(prop);
         for (const room of rooms) {
           for (const bed of room.beds) {
-            fullBedsList.push({
+            customBedsList.push({
               id: bed.id,
               bedLabel: bed.bedLabel,
               roomNo: `Room ${room.roomNumber}`,
@@ -95,13 +102,36 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
               tenant: bed.tenant || '—',
               tenantPhone: bed.tenantPhone || '',
               rent: bed.rent || room.rentRupees,
+              isCustomProperty: true,
             });
           }
         }
       }
 
-      if (fullBedsList.length > 0) {
-        setBeds(fullBedsList);
+      // Merge: custom properties take precedence, followed by demo properties
+      const demoBeds = initialBeds.filter(
+        (b) => !clientProps.some((cp) => cp.name.toLowerCase() === b.property.toLowerCase())
+      );
+      const combined = [...customBedsList, ...demoBeds];
+
+      if (combined.length > 0) {
+        setBeds(combined);
+      }
+
+      // Default filter selection:
+      // 1. If URL has ?property=..., select that
+      // 2. Else if user created custom properties, default to the FIRST custom property ("Meri kothi")!
+      if (queryProperty) {
+        const matched = combined.find(
+          (b) =>
+            b.property.toLowerCase() === queryProperty.toLowerCase() ||
+            b.propertyId === queryProperty
+        );
+        if (matched) {
+          setFilterProperty(matched.property);
+        }
+      } else if (clientProps.length > 0) {
+        setFilterProperty(clientProps[0].name);
       }
     } catch (err) {
       console.warn('Error loading beds from storage:', err);
@@ -110,22 +140,20 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
 
   useEffect(() => {
     reloadBedsFromStorage();
-  }, []);
+  }, [queryProperty]);
 
   const uniqueProperties = Array.from(new Set(beds.map((b) => b.property)));
-  const propertyOptions = uniqueProperties.map((p) => ({
-    value: p,
-    label: p,
-  }));
+  const clientProps = typeof window !== 'undefined' ? getClientProperties() : [];
+  const customPropNames = new Set(clientProps.map((p) => p.name));
 
-  const defaultProperty = propertyOptions[0]?.value || 'PCTE Smart Student Residency';
+  const defaultProperty = uniqueProperties[0] || 'Meri kothi';
 
   const [formData, setFormData] = useState({
     property: defaultProperty,
     roomNo: '101',
     bedLabelLetter: 'A',
-    sharing: '2-Sharing',
-    rent: 6000,
+    sharing: '3-Sharing',
+    rent: 8000,
     status: 'AVAILABLE',
   });
 
@@ -148,10 +176,10 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
       status: formData.status,
       tenant: formData.status === 'OCCUPIED' ? 'New Tenant' : '—',
       rent: Number(formData.rent),
+      isCustomProperty: true,
     };
 
     if (targetProp) {
-      // Find or create room
       const rooms = getPropertyRooms(targetProp);
       const targetRoom = rooms.find((r) => r.roomNumber === formData.roomNo);
       if (targetRoom) {
@@ -170,7 +198,7 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
     setActiveBed(bed);
     setStudentName('');
     setStudentPhone('');
-    setStudentRent(bed.rent || 6000);
+    setStudentRent(bed.rent || 8000);
     setIsCheckInOpen(true);
   };
 
@@ -227,8 +255,8 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
   const handleToggleMaintenance = (bed: BedItem) => {
     const nextStatus = bed.status === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
 
-    if (activeBed?.propertyId && activeBed?.roomId) {
-      toggleBedStatus(activeBed.propertyId, activeBed.roomId, bed.id, nextStatus as any);
+    if (bed.propertyId && bed.roomId) {
+      toggleBedStatus(bed.propertyId, bed.roomId, bed.id, nextStatus as any);
       reloadBedsFromStorage();
     } else {
       setBeds((prev) =>
@@ -238,11 +266,17 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
     showToast(`Status updated to ${nextStatus}.`);
   };
 
-  const occupiedCount = beds.filter((b) => b.status === 'OCCUPIED' || b.status === 'RESERVED').length;
-  const availableCount = beds.filter((b) => b.status === 'AVAILABLE').length;
+  // Beds scoped to the currently selected property (for metrics and calculations)
+  const propertyScopedBeds =
+    filterProperty === 'ALL' ? beds : beds.filter((b) => b.property === filterProperty);
 
-  const filteredBeds = beds.filter((b) => {
-    if (filterProperty !== 'ALL' && b.property !== filterProperty) return false;
+  const totalTrackedBeds = propertyScopedBeds.length;
+  const occupiedCount = propertyScopedBeds.filter(
+    (b) => b.status === 'OCCUPIED' || b.status === 'RESERVED'
+  ).length;
+  const availableCount = propertyScopedBeds.filter((b) => b.status === 'AVAILABLE').length;
+
+  const filteredBeds = propertyScopedBeds.filter((b) => {
     if (filterStatus !== 'ALL' && b.status !== filterStatus) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -255,6 +289,8 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
     }
     return true;
   });
+
+  const isCurrentFilterCustom = customPropNames.has(filterProperty);
 
   return (
     <div className="space-y-6 animate-fade-in pb-16 max-w-7xl mx-auto">
@@ -269,9 +305,18 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Bed Inventory & Real-Time Matrix</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900">
+              Bed Inventory & Real-Time Matrix
+            </h1>
+            {isCurrentFilterCustom && (
+              <span className="bg-emerald-100 text-emerald-800 font-extrabold text-[11px] px-2.5 py-0.5 rounded-full border border-emerald-200">
+                ✓ Your Active Listing
+              </span>
+            )}
+          </div>
           <p className="text-slate-500 text-xs sm:text-sm mt-1">
-            Granular bed allocations, walk-in student check-ins, check-outs, and live availability
+            Real-time room-by-room bed allocation, offline student check-in, and instant availability
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -284,22 +329,105 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
         </div>
       </div>
 
-      {/* Metric Cards */}
+      {/* Property Selector Tabs / Switcher */}
+      <div className="bg-slate-100/80 p-2 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wider px-2">
+            Selected Property:
+          </span>
+
+          {uniqueProperties.map((p) => {
+            const isCustom = customPropNames.has(p);
+            const isSelected = filterProperty === p;
+            const propBedsCount = beds.filter((b) => b.property === p).length;
+
+            return (
+              <button
+                key={p}
+                onClick={() => setFilterProperty(p)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                }`}
+              >
+                {isCustom ? (
+                  <Home className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                ) : (
+                  <Building className="w-3.5 h-3.5 text-slate-400" />
+                )}
+                <span>{p}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {propBedsCount} Beds
+                </span>
+                {isCustom && (
+                  <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.2 rounded font-black">
+                    MINE
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => setFilterProperty('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              filterProperty === 'ALL'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            }`}
+          >
+            All Properties ({beds.length} Total)
+          </button>
+        </div>
+
+        {filterProperty !== 'ALL' && (
+          <div className="text-xs text-slate-600 px-2 font-medium">
+            Viewing beds for: <strong className="text-slate-900">{filterProperty}</strong>
+          </div>
+        )}
+      </div>
+
+      {/* Dynamic Metric Cards (Accurately Scoped to Selected Property!) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="bg-slate-50 border border-slate-200">
-          <p className="text-xs font-bold text-slate-500 uppercase">Total Tracked Beds</p>
-          <p className="text-2xl font-black text-slate-900 mt-1">{beds.length} beds</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Across {uniqueProperties.length} active properties</p>
+          <p className="text-xs font-bold text-slate-500 uppercase">
+            {filterProperty === 'ALL' ? 'Total Tracked Beds' : `Total Beds in ${filterProperty}`}
+          </p>
+          <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+            {totalTrackedBeds} beds
+          </p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {isCurrentFilterCustom
+              ? 'Configured exactly per your room registration'
+              : `Across ${uniqueProperties.length} listings`}
+          </p>
         </Card>
+
         <Card className="bg-blue-50/70 border border-blue-200">
-          <p className="text-xs font-bold text-blue-800 uppercase">Occupied & Reserved</p>
-          <p className="text-2xl font-black text-blue-700 mt-1">{occupiedCount} occupied</p>
-          <p className="text-[11px] text-blue-600 mt-0.5">Currently paying active tenants</p>
+          <p className="text-xs font-bold text-blue-800 uppercase">Occupied Beds</p>
+          <p className="text-2xl sm:text-3xl font-black text-blue-700 mt-1">
+            {occupiedCount} occupied
+          </p>
+          <p className="text-[11px] text-blue-600 mt-0.5">
+            {occupiedCount === 0
+              ? 'No tenants yet — ready for first student booking'
+              : 'Active tenant residents'}
+          </p>
         </Card>
+
         <Card className="bg-emerald-50/70 border border-emerald-200">
           <p className="text-xs font-bold text-emerald-800 uppercase">Vacant / Bookable</p>
-          <p className="text-2xl font-black text-emerald-700 mt-1">{availableCount} available</p>
-          <p className="text-[11px] text-emerald-600 mt-0.5">Open for instant booking</p>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">
+            {availableCount} available
+          </p>
+          <p className="text-[11px] text-emerald-600 mt-0.5">
+            Open for instant student booking or direct walk-in
+          </p>
         </Card>
       </div>
 
@@ -309,11 +437,23 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
           {/* Status Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-bold">
             {[
-              { key: 'ALL', label: `All Beds (${beds.length})` },
-              { key: 'OCCUPIED', label: `Occupied (${beds.filter((b) => b.status === 'OCCUPIED').length})` },
-              { key: 'AVAILABLE', label: `Vacant (${availableCount})` },
-              { key: 'RESERVED', label: `Reserved (${beds.filter((b) => b.status === 'RESERVED').length})` },
-              { key: 'MAINTENANCE', label: `Maintenance (${beds.filter((b) => b.status === 'MAINTENANCE').length})` },
+              { key: 'ALL', label: `All (${propertyScopedBeds.length})` },
+              {
+                key: 'AVAILABLE',
+                label: `Vacant (${propertyScopedBeds.filter((b) => b.status === 'AVAILABLE').length})`,
+              },
+              {
+                key: 'OCCUPIED',
+                label: `Occupied (${propertyScopedBeds.filter((b) => b.status === 'OCCUPIED').length})`,
+              },
+              {
+                key: 'RESERVED',
+                label: `Reserved (${propertyScopedBeds.filter((b) => b.status === 'RESERVED').length})`,
+              },
+              {
+                key: 'MAINTENANCE',
+                label: `Maintenance (${propertyScopedBeds.filter((b) => b.status === 'MAINTENANCE').length})`,
+              },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -329,33 +469,16 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
             ))}
           </div>
 
-          {/* Property Selector & Search */}
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            {uniqueProperties.length > 1 && (
-              <select
-                value={filterProperty}
-                onChange={(e) => setFilterProperty(e.target.value)}
-                className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              >
-                <option value="ALL">All Properties ({uniqueProperties.length})</option>
-                {uniqueProperties.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <div className="relative w-full sm:w-60">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search bed, room, tenant..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
+          {/* Search Box */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search bed, room, tenant..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
           </div>
         </div>
       </div>
@@ -370,7 +493,7 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
                 <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">PG Property</th>
                 <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Room Type</th>
                 <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Current Occupant</th>
-                <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Rent / mo</th>
+                <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Monthly Rent</th>
                 <th className="px-4 py-3 text-left font-bold uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 text-right font-bold uppercase tracking-wider">Operational Actions</th>
               </tr>
@@ -387,7 +510,14 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
                       <div className="text-[11px] text-slate-400 font-normal">{b.roomNo}</div>
                     </td>
                     <td className="px-4 py-3 font-semibold text-slate-700">
-                      {b.property}
+                      <div className="flex items-center gap-1.5">
+                        <span>{b.property}</span>
+                        {b.isCustomProperty && (
+                          <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-1.5 py-0.2 rounded">
+                            YOUR PG
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-slate-600">
                       <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]">
@@ -405,7 +535,9 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
                       ) : isMaint ? (
                         <span className="text-amber-700 text-[11px]">Under Maintenance</span>
                       ) : (
-                        <span className="text-emerald-600 text-[11px]">Vacant — Open</span>
+                        <span className="text-emerald-600 text-[11px] font-semibold">
+                          ✓ Vacant — Ready for Booking
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-black text-emerald-700">
@@ -471,10 +603,7 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
             label="Property *"
             value={formData.property}
             onChange={(e) => setFormData({ ...formData, property: e.target.value })}
-            options={propertyOptions.length > 0 ? propertyOptions : [
-              { value: 'Meri kothi', label: 'Meri kothi' },
-              { value: 'PCTE Smart Student Residency', label: 'PCTE Smart Student Residency' },
-            ]}
+            options={uniqueProperties.map((p) => ({ value: p, label: p }))}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -530,7 +659,11 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-brand-600 hover:bg-brand-700 text-white font-bold"
+            >
               {isSubmitting ? 'Adding Bed...' : 'Save Bed Unit'}
             </Button>
           </div>
@@ -575,7 +708,11 @@ export function BedInventoryClient({ initialBeds }: BedInventoryClientProps) {
             <Button type="button" variant="outline" size="sm" onClick={() => setIsCheckInOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+            <Button
+              type="submit"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            >
               Confirm Check-In
             </Button>
           </div>
