@@ -19,7 +19,7 @@ import {
   saveLocalAuditEventsBatch,
 } from '@/lib/messagesStorage';
 import { ALL_PUNJAB_CITIES, getLocalitiesForCity } from '@/lib/punjabLocations';
-import { getClientProperties, saveClientProperty } from '@/lib/persistentProperties';
+import { getClientProperties, saveClientProperty } from '@/lib/clientProperties';
 
 export interface PropertyItem {
   id: string;
