@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { calculateHaversineDistance, PCTE_LAT, PCTE_LNG } from '@/lib/locationData';
+import { getAllProperties } from '@/lib/propertiesStore';
 
 // High-Fidelity Demo Dataset for Ludhiana, Punjab (Fallback when DB is offline or empty)
 const DEMO_PROPERTIES = [
@@ -455,6 +456,82 @@ export async function GET(request: NextRequest) {
           availableBeds: p.availBeds,
         };
       });
+    }
+
+    // Merge in custom/persisted properties from propertiesStore (handles newly created and updated PGs)
+    try {
+      const storeProps = await getAllProperties();
+      for (const sp of storeProps) {
+        const idx = propertiesList.findIndex((p) => p.id === sp.id);
+        const minBaseRent = sp.rentPerMonth || 6000;
+        const availBeds = Math.max(0, sp.totalBeds - sp.occupiedBeds);
+        const trueMonthlyCost = minBaseRent + 1500;
+        const computedDistance = calculateHaversineDistance(PCTE_LAT, PCTE_LNG, targetLat, targetLng);
+
+        const formattedSp = {
+          id: sp.id,
+          name: sp.name,
+          type: sp.type || 'PG',
+          address: sp.address,
+          locality: sp.locality,
+          city: sp.city || 'Ludhiana',
+          state: 'Punjab',
+          gender: sp.gender || 'ANY',
+          latitude: PCTE_LAT,
+          longitude: PCTE_LNG,
+          verificationStatus: sp.verificationStatus,
+          verified: sp.verificationStatus === 'VERIFIED',
+          verifiedAt: sp.verificationStatus === 'VERIFIED' ? sp.updatedAt || sp.createdAt : null,
+          lastAvailabilityConfirm: sp.updatedAt || sp.createdAt,
+          wifiAvailable: true,
+          foodAvailable: true,
+          laundryAvailable: true,
+          parkingAvailable: true,
+          amenities: ['Power Backup', 'Wi-Fi', 'CCTV Security', 'Purified Water'],
+          rules: ['Gate Closing 10:30 PM', 'ID Card Mandatory'],
+          wifiCharge: 0,
+          foodCharge: 150000,
+          maintenanceCharge: 30000,
+          electricityRate: 900,
+          minBaseRent,
+          minDeposit: minBaseRent * 2,
+          totalBeds: sp.totalBeds,
+          availBeds,
+          availableBeds: availBeds,
+          trueMonthlyCost,
+          rating: 4.8,
+          reviewCount: 8,
+          images: Array.isArray(sp.images) ? sp.images : [],
+          landlord: {
+            businessName: sp.ownerName || 'Verified UniNest Host',
+            responseRate: 96,
+            avgResponseTime: '< 15 mins',
+            user: { name: sp.ownerName || 'Host', phone: '9876543210' },
+          },
+          rooms: [
+            {
+              id: `r-${sp.id}`,
+              roomNumber: '101',
+              sharing: 2,
+              rent: minBaseRent * 100,
+              deposit: minBaseRent * 200,
+              hasAC: true,
+              beds: Array.from({ length: Math.max(1, availBeds) }, (_, i) => ({ id: `b-${i}`, status: 'AVAILABLE' })),
+            },
+          ],
+          reviews: [],
+          collegeLinks: [{ distance: computedDistance, college: { collegeName: 'PCTE Institute of Management' } }],
+          computedDistance,
+        };
+
+        if (idx >= 0) {
+          propertiesList[idx] = { ...propertiesList[idx], ...formattedSp };
+        } else {
+          propertiesList.unshift(formattedSp);
+        }
+      }
+    } catch (storeErr) {
+      console.warn('Failed to merge propertiesStore into search:', storeErr);
     }
 
     // Apply Filters across both DB and DEMO_PROPERTIES

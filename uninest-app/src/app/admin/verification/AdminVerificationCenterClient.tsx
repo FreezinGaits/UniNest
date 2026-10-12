@@ -465,6 +465,11 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
                         >
                           {isVerified ? '✓ VERIFIED (GOLD TIER)' : isRejected ? '❌ REJECTED' : '⏳ UNDER REVIEW'}
                         </Badge>
+                        {p.editPendingVerification && (
+                          <div className="text-[10px] text-amber-800 font-bold bg-amber-50 border border-amber-300 px-2 py-0.5 rounded leading-tight flex items-center gap-1">
+                            ✏️ Edit Pending Review
+                          </div>
+                        )}
                         {isRejected && (
                           <div className="text-[10px] text-rose-700 font-bold bg-rose-50 border border-rose-200 px-2 py-0.5 rounded leading-tight">
                             Reason: {p.rejectionReason || 'Fire safety non-compliant'}
@@ -475,7 +480,7 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
 
                     {/* Verification Actions */}
                     <td className="py-4 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
                         <Button
                           size="sm"
                           variant="outline"
@@ -483,18 +488,31 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
                           className="text-xs font-bold border-slate-300 hover:bg-slate-100"
                         >
                           <History className="w-3.5 h-3.5 mr-1 text-slate-500" />
-                          Audit Dossier & Notes
+                          Dossier & Notes
                         </Button>
 
-                        {isRejected ? (
-                          <Button
-                            size="sm"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
-                            onClick={() => handleStatusChange(p.id, 'VERIFIED')}
-                            disabled={actionLoadingId === p.id}
-                          >
-                            Approve Listing
-                          </Button>
+                        {!isVerified || p.editPendingVerification ? (
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
+                              onClick={() => handleStatusChange(p.id, 'VERIFIED')}
+                              disabled={actionLoadingId === p.id}
+                            >
+                              ✓ Approve & Verify
+                            </Button>
+                            {!isRejected && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-rose-600 border-rose-300 hover:bg-rose-50 font-bold text-xs"
+                                onClick={() => handleStatusChange(p.id, 'REJECTED')}
+                                disabled={actionLoadingId === p.id}
+                              >
+                                Reject
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <Button
                             size="sm"

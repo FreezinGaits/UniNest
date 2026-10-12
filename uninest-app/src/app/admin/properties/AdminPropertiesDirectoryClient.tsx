@@ -380,7 +380,39 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
 
                     {/* Actions */}
                     <td className="py-4 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 flex-wrap">
+                        {(!isLive || p.editPendingVerification || p.verificationStatus !== 'VERIFIED') && (
+                          <Button
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch('/api/admin/properties/verify', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ propertyId: p.id, status: 'VERIFIED' }),
+                                });
+                                if (res.ok) {
+                                  saveLocalOverride(p.id, 'VERIFIED');
+                                  setProperties((prev) =>
+                                    prev.map((item) =>
+                                      item.id === p.id
+                                        ? { ...item, verificationStatus: 'VERIFIED', editPendingVerification: false }
+                                        : item
+                                    )
+                                  );
+                                  setVisibilityMap((prev) => ({ ...prev, [p.id]: true }));
+                                  setToastMessage(`✓ ${p.name} verified and awarded official verified tag!`);
+                                  setTimeout(() => setToastMessage(null), 3500);
+                                }
+                              } catch (e) {
+                                alert('Verification failed');
+                              }
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
+                          >
+                            ✓ Approve & Verify
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"

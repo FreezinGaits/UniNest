@@ -5,6 +5,7 @@ import {
   getAllProperties,
   getPropertiesForLandlord,
   createProperty,
+  updateProperty,
   normalizePropertyItem,
 } from '@/lib/propertiesStore';
 
@@ -55,11 +56,7 @@ export async function POST(req: NextRequest) {
 
     const session = await getSession().catch(() => null);
 
-    const defaultImages = [
-      'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
-    ];
-    const propertyImages = Array.isArray(body.images) && body.images.length > 0 ? body.images : defaultImages;
+    const propertyImages = Array.isArray(body.images) ? body.images : [];
 
     const data = {
       name: String(body.name).trim(),
@@ -181,3 +178,59 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const id = body.id;
+    if (!id) {
+      return NextResponse.json({ error: 'Property ID is required for update' }, { status: 400 });
+    }
+
+    const updated = await updateProperty(id, {
+      ...body,
+      isLandlordEdit: true,
+    });
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+    }
+
+    // Mirror to database if available
+    try {
+      await prisma.property.update({
+        where: { id },
+        data: {
+          name: updated.name,
+          locality: updated.locality,
+          city: updated.city,
+          address: updated.address,
+          type: updated.type,
+          gender: updated.gender as any,
+          description: updated.description,
+          verificationStatus: 'UNDER_REVIEW',
+          images: updated.images,
+        },
+      });
+    } catch (dbErr) {
+      console.warn('Database mirror skipped for PUT /api/properties:', dbErr);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Property updated successfully. Submitted to UniNest Admin for verification review.',
+      property: updated,
+    });
+  } catch (error: any) {
+    console.error('Error updating property:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to update property' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  return PUT(req);
+}
+

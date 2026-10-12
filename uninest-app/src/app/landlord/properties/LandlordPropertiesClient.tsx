@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input, Select, Textarea } from '@/components/ui/Input';
-import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X, MessageSquare, AlertTriangle, XCircle, Send, Clock, ShieldCheck, History } from 'lucide-react';
+import { Building2, MapPin, Plus, CheckCircle2, Camera, Image as ImageIcon, X, MessageSquare, AlertTriangle, XCircle, Send, Clock, ShieldCheck, History, Edit3, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   getLocalMessages,
@@ -18,6 +18,8 @@ import {
   getLocalAuditEvents,
   saveLocalAuditEventsBatch,
 } from '@/lib/messagesStorage';
+import { ALL_PUNJAB_CITIES, getLocalitiesForCity } from '@/lib/punjabLocations';
+import { getClientProperties, saveClientProperty } from '@/lib/persistentProperties';
 
 export interface PropertyItem {
   id: string;
@@ -33,6 +35,11 @@ export interface PropertyItem {
   openTickets: number;
   images?: string[];
   rejectionReason?: string;
+  editPendingVerification?: boolean;
+  type?: string;
+  gender?: string;
+  description?: string;
+  lastEditedAt?: string;
 }
 
 interface LandlordPropertiesClientProps {
@@ -40,12 +47,12 @@ interface LandlordPropertiesClientProps {
 }
 
 function sanitizeProperty(raw: any): PropertyItem {
-  const totalRooms = Number(raw?.totalRooms ?? raw?.rooms?.length ?? 6) || 6;
+  const totalRooms = Number(raw?.totalRooms ?? raw?.rooms?.length ?? 4) || 4;
   const totalBeds =
     Number(
       raw?.totalBeds ??
         totalRooms * Number(raw?.bedsPerRoom || 2)
-    ) || 12;
+    ) || totalRooms * 2;
   const occupiedBeds =
     raw?.occupiedBeds !== undefined && raw?.occupiedBeds !== null
       ? Number(raw.occupiedBeds)
@@ -62,26 +69,37 @@ function sanitizeProperty(raw: any): PropertyItem {
       (Array.isArray(raw?.maintenanceTickets) ? raw.maintenanceTickets.length : 0)
   ) || 0;
 
-  const rawStatus = String(raw?.verificationStatus || raw?.status || 'VERIFIED').toUpperCase();
+  const rawStatus = String(raw?.verificationStatus || raw?.status || 'UNDER_REVIEW').toUpperCase();
 
-  const defaultImages = [
-    'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-    'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
-  ];
+  // ONLY provide demo images for the 3 built-in demo properties, never for user-added properties!
+  let images: string[] = [];
+  if (Array.isArray(raw?.images) && raw.images.length > 0) {
+    images = raw.images;
+  } else if (raw?.id === 'prop-pcte-1' || raw?.id === 'prop-pcte-2' || raw?.id === 'prop-demo-03') {
+    images = [
+      'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80',
+    ];
+  }
 
   return {
     id: String(raw?.id || `prop-${Date.now()}`),
     name: String(raw?.name || 'UniNest Student Residency'),
-    locality: String(raw?.locality || 'Ferozepur Road'),
+    locality: String(raw?.locality || 'Kali Sadak / Jalandhar Bypass'),
     city: String(raw?.city || 'Ludhiana'),
-    address: String(raw?.address || 'Ferozepur Road, Ludhiana'),
+    address: String(raw?.address || 'Ludhiana, Punjab'),
     verificationStatus: rawStatus === 'APPROVED' ? 'VERIFIED' : rawStatus,
     totalRooms,
     totalBeds,
     occupiedBeds,
     rentPerMonth,
     openTickets,
-    images: Array.isArray(raw?.images) && raw.images.length > 0 ? raw.images : defaultImages,
+    images,
+    type: String(raw?.type || 'PG'),
+    gender: String(raw?.gender || 'ANY'),
+    description: String(raw?.description || ''),
+    editPendingVerification: Boolean(raw?.editPendingVerification),
+    lastEditedAt: raw?.lastEditedAt || undefined,
     rejectionReason:
       raw?.rejectionReason ||
       (rawStatus === 'REJECTED' || rawStatus === 'SUSPENDED'
@@ -96,10 +114,18 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
     const list = (Array.isArray(initialProperties) ? initialProperties : []).map(sanitizeProperty);
     if (typeof window !== 'undefined') {
       const overrides = getLocalOverrides();
-      return list.map((p) => {
+      const clientProps = getClientProperties();
+      const mergedMap = new Map<string, PropertyItem>();
+      list.forEach((p) => {
         const o = overrides[p.id];
-        return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
+        mergedMap.set(p.id, o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p);
       });
+      clientProps.forEach((cp) => {
+        const sanitized = sanitizeProperty(cp);
+        const o = overrides[sanitized.id];
+        mergedMap.set(sanitized.id, o ? { ...sanitized, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : sanitized);
+      });
+      return Array.from(mergedMap.values());
     }
     return list;
   });
@@ -107,6 +133,26 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [uploadedFileNames, setUploadedFileNames] = useState<string[]>([]);
+
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProperty, setEditingProperty] = useState<PropertyItem | null>(null);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editSuccessToast, setEditSuccessToast] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    city: 'Ludhiana',
+    locality: 'Kali Sadak / Jalandhar Bypass',
+    customLocality: '',
+    address: '',
+    type: 'PG',
+    totalRooms: 4,
+    bedsPerRoom: 2,
+    rentPerMonth: 6000,
+    gender: 'ANY',
+    description: '',
+    images: [] as string[],
+  });
 
   // Admin Communication & Notes State
   const [adminMessages, setAdminMessages] = useState<any[]>(() => {
@@ -124,21 +170,20 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
   const [sendingReply, setSendingReply] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
 
-  // Form State
+  // Form State for Adding Property (No fake default images!)
   const [formData, setFormData] = useState({
     name: '',
-    locality: 'Ferozepur Road',
-    address: '',
     city: 'Ludhiana',
+    locality: 'Kali Sadak / Jalandhar Bypass',
+    customLocality: '',
+    address: '',
     type: 'PG',
     totalRooms: 4,
     bedsPerRoom: 2,
     rentPerMonth: 6000,
     gender: 'ANY',
     description: '',
-    images: [
-      'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-    ] as string[],
+    images: [] as string[],
   });
 
   const fetchAdminMessages = async () => {
@@ -164,6 +209,21 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
     }
 
     const overrides = getLocalOverrides();
+    const clientSaved = getClientProperties();
+
+    // Hydrate immediately with client saved properties
+    if (clientSaved.length > 0) {
+      setProperties((prev) => {
+        const map = new Map<string, PropertyItem>();
+        prev.forEach((p) => map.set(p.id, p));
+        clientSaved.forEach((p) => {
+          const s = sanitizeProperty(p);
+          const o = overrides[s.id];
+          map.set(s.id, o ? { ...s, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : s);
+        });
+        return Array.from(map.values());
+      });
+    }
 
     // Refresh properties list from API and apply local overrides
     fetch('/api/properties', { cache: 'no-store' })
@@ -175,7 +235,20 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             const o = overrides[p.id];
             return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
           });
-          setProperties(sanitized);
+
+          // Ensure clientSaved are not lost
+          const combinedMap = new Map<string, PropertyItem>();
+          sanitized.forEach((p: PropertyItem) => combinedMap.set(p.id, p));
+          clientSaved.forEach((p: any) => {
+            const s = sanitizeProperty(p);
+            const o = overrides[s.id];
+            const finalItem = o ? { ...s, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : s;
+            if (!combinedMap.has(finalItem.id)) {
+              combinedMap.set(finalItem.id, finalItem);
+            }
+          });
+
+          setProperties(Array.from(combinedMap.values()));
         }
       })
       .catch((err) => console.warn('Error syncing properties from API:', err));
@@ -278,17 +351,30 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
 
     setIsSubmitting(true);
 
+    const finalLocality =
+      formData.locality === 'Other / Custom Locality' && formData.customLocality.trim()
+        ? formData.customLocality.trim()
+        : formData.locality;
+
+    const payload = {
+      ...formData,
+      locality: finalLocality,
+    };
+
     try {
       const res = await fetch('/api/properties', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
       if (res.ok && data.property) {
         const cleanNew = sanitizeProperty(data.property);
+        cleanNew.verificationStatus = 'UNDER_REVIEW';
+        saveClientProperty(cleanNew);
+
         setProperties((prev) => [cleanNew, ...prev.filter((p) => p.id !== cleanNew.id)]);
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 5000);
@@ -304,26 +390,103 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
 
       setFormData({
         name: '',
-        locality: 'Ferozepur Road',
-        address: '',
         city: 'Ludhiana',
+        locality: 'Kali Sadak / Jalandhar Bypass',
+        customLocality: '',
+        address: '',
         type: 'PG',
         totalRooms: 4,
         bedsPerRoom: 2,
         rentPerMonth: 6000,
         gender: 'ANY',
         description: '',
-        images: [
-          'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
-        ],
+        images: [],
       });
       setUploadedFileNames([]);
     }
   };
 
+  const openEditProperty = (prop: PropertyItem) => {
+    setEditingProperty(prop);
+    const localities = getLocalitiesForCity(prop.city || 'Ludhiana');
+    const isCustom = !localities.includes(prop.locality);
+    setEditFormData({
+      name: prop.name || '',
+      city: prop.city || 'Ludhiana',
+      locality: isCustom ? 'Other / Custom Locality' : prop.locality || localities[0] || 'Kali Sadak / Jalandhar Bypass',
+      customLocality: isCustom ? prop.locality : '',
+      address: prop.address || '',
+      type: prop.type || 'PG',
+      totalRooms: prop.totalRooms || 4,
+      bedsPerRoom: prop.totalRooms && prop.totalBeds ? Math.round(prop.totalBeds / prop.totalRooms) : 2,
+      rentPerMonth: prop.rentPerMonth || 6000,
+      gender: prop.gender || 'ANY',
+      description: prop.description || '',
+      images: Array.isArray(prop.images) ? [...prop.images] : [],
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProperty || !editFormData.name || !editFormData.address) return;
+
+    setIsEditSubmitting(true);
+    const finalLocality =
+      editFormData.locality === 'Other / Custom Locality' && editFormData.customLocality.trim()
+        ? editFormData.customLocality.trim()
+        : editFormData.locality;
+
+    const payload = {
+      id: editingProperty.id,
+      name: editFormData.name.trim(),
+      city: editFormData.city.trim(),
+      locality: finalLocality,
+      address: editFormData.address.trim(),
+      type: editFormData.type,
+      totalRooms: Number(editFormData.totalRooms) || 4,
+      bedsPerRoom: Number(editFormData.bedsPerRoom) || 2,
+      rentPerMonth: Number(editFormData.rentPerMonth) || 6000,
+      gender: editFormData.gender,
+      description: editFormData.description,
+      images: editFormData.images,
+    };
+
+    try {
+      const res = await fetch('/api/properties', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.property) {
+        const cleanUpdated = sanitizeProperty(data.property);
+        cleanUpdated.verificationStatus = 'UNDER_REVIEW';
+        cleanUpdated.editPendingVerification = true;
+        saveClientProperty(cleanUpdated);
+
+        setProperties((prev) =>
+          prev.map((p) => (p.id === cleanUpdated.id ? cleanUpdated : p))
+        );
+        setIsEditModalOpen(false);
+        setEditSuccessToast(true);
+        setTimeout(() => setEditSuccessToast(false), 6000);
+      } else {
+        alert('Failed to update property: ' + (data?.error || 'Server error'));
+      }
+    } catch (err) {
+      console.error('Error updating property:', err);
+      alert('Failed to update property. Please try again.');
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Toast Notification */}
+      {/* Toast Notification for Create */}
       {showSuccessToast && (
         <div className="bg-emerald-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between animate-slide-down">
           <div className="flex items-center gap-2 font-medium text-sm">
@@ -331,6 +494,19 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             New PG Property listed successfully with photos! Under review for UniNest Verification badge.
           </div>
           <button onClick={() => setShowSuccessToast(false)} className="text-white/80 hover:text-white font-bold text-sm">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Toast Notification for Edit */}
+      {editSuccessToast && (
+        <div className="bg-amber-500 text-white px-4 py-3 rounded-xl shadow-lg flex items-center justify-between animate-slide-down">
+          <div className="flex items-center gap-2 font-medium text-sm">
+            <Clock className="w-5 h-5 text-white" />
+            Property changes submitted! Your edits are currently under review by UniNest Owner before going live.
+          </div>
+          <button onClick={() => setEditSuccessToast(false)} className="text-white/80 hover:text-white font-bold text-sm">
             Dismiss
           </button>
         </div>
@@ -361,7 +537,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                   </span>
                 </div>
                 <p className="text-xs font-semibold text-slate-800 mt-1 bg-white/80 px-3 py-1.5 rounded-lg border border-amber-200/60 inline-block shadow-2xs">
-                  "{latestNote.message}"
+                  &quot;{latestNote.message}&quot;
                 </p>
               </div>
             </div>
@@ -397,7 +573,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {properties.map((rawProp) => {
           const p = sanitizeProperty(rawProp);
-          const coverImage = p.images && p.images[0];
+          const coverImage = p.images && p.images.length > 0 ? p.images[0] : null;
           const isRejected = p.verificationStatus === 'REJECTED' || p.verificationStatus === 'SUSPENDED';
           const isVerified = p.verificationStatus === 'VERIFIED';
           const propMessages = adminMessages.filter((m) => m.toPropertyId === p.id);
@@ -407,11 +583,36 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             <Card key={p.id} className={`overflow-hidden rounded-2xl border transition-all shadow-sm flex flex-col justify-between ${
               isRejected ? 'border-rose-300 bg-rose-50/10' : 'border-slate-200 hover:border-brand-300'
             }`}>
-              {/* Cover Photo Banner */}
-              {coverImage && (
-                <div className="h-36 w-full relative bg-slate-100 overflow-hidden">
+              {/* Cover Photo Banner or Modern Clean Placeholder */}
+              {coverImage ? (
+                <div className="h-40 w-full relative bg-slate-100 overflow-hidden">
                   <img src={coverImage} alt={p.name} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-black/20 flex items-between justify-between p-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Badge
+                        variant={isVerified ? 'success' : isRejected ? 'danger' : 'warning'}
+                        size="sm"
+                        className="self-start shadow-sm font-bold uppercase tracking-wider text-[10px]"
+                      >
+                        {isRejected ? '❌ REJECTED BY ADMIN' : isVerified ? '✓ VERIFIED' : '⏳ UNDER REVIEW'}
+                      </Badge>
+                      {p.editPendingVerification && (
+                        <span className="self-start px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white shadow-sm flex items-center gap-1">
+                          ✏️ Edit Pending Admin Review
+                        </span>
+                      )}
+                    </div>
+                    <span className="self-end text-[11px] font-bold text-white bg-slate-900/80 px-2.5 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
+                      <Camera className="w-3 h-3" /> {p.images?.length || 1} Photos
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-40 w-full relative bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 flex flex-col items-center justify-center p-3 text-slate-400">
+                  <Building2 className="w-10 h-10 text-slate-300 mb-1" />
+                  <span className="text-xs font-semibold text-slate-600">No photos uploaded yet</span>
+                  <span className="text-[11px] text-slate-400">Click &apos;Edit Property&apos; below to add real images</span>
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5">
                     <Badge
                       variant={isVerified ? 'success' : isRejected ? 'danger' : 'warning'}
                       size="sm"
@@ -419,9 +620,11 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                     >
                       {isRejected ? '❌ REJECTED BY ADMIN' : isVerified ? '✓ VERIFIED' : '⏳ UNDER REVIEW'}
                     </Badge>
-                    <span className="self-end text-[11px] font-bold text-white bg-slate-900/80 px-2.5 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-1">
-                      <Camera className="w-3 h-3" /> {p.images?.length || 1} Photos
-                    </span>
+                    {p.editPendingVerification && (
+                      <span className="self-start px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white shadow-sm flex items-center gap-1">
+                        ✏️ Edit Pending Admin Review
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -439,7 +642,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                         )}
                       </h2>
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                        <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" /> {p.address}
+                        <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" /> {p.address} ({p.locality}, {p.city})
                       </p>
                     </div>
                     <div className="w-9 h-9 bg-brand-50 rounded-xl flex items-center justify-center text-brand-600 shrink-0">
@@ -492,7 +695,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
@@ -511,10 +714,19 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                         </span>
                       )}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditProperty(p)}
+                      className="text-xs font-bold text-amber-700 border-amber-300 hover:bg-amber-50 flex items-center gap-1.5"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                      Edit Property
+                    </Button>
                   </div>
                   <Link href={`/landlord/properties/${p.id}`}>
                     <Button size="sm" variant="outline" className="text-xs font-bold">
-                      Manage Property →
+                      Manage Beds →
                     </Button>
                   </Link>
                 </div>
@@ -566,7 +778,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
 
           <Input
             label="Street Address *"
-            placeholder="Plot 88, BRS Nagar, Ferozepur Road"
+            placeholder="e.g. Near Jalandhar Bypass, Kali Sadak"
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
             required
@@ -574,23 +786,37 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Select
-              label="Locality / Campus Vicinity"
-              value={formData.locality}
-              onChange={(e) => setFormData({ ...formData, locality: e.target.value })}
-              options={[
-                { value: 'Ferozepur Road', label: 'Ferozepur Road (PCTE Vicinity)' },
-                { value: 'BRS Nagar', label: 'BRS Nagar (PAU Vicinity)' },
-                { value: 'Sarabha Nagar', label: 'Sarabha Nagar' },
-                { value: 'Model Town', label: 'Model Town' },
-                { value: 'Gill Road', label: 'Gill Road (GNDEC Vicinity)' },
-              ]}
-            />
-            <Input
-              label="City"
+              label="City (Punjab) *"
               value={formData.city}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              onChange={(e) => {
+                const nextCity = e.target.value;
+                const locs = getLocalitiesForCity(nextCity);
+                setFormData((prev) => ({
+                  ...prev,
+                  city: nextCity,
+                  locality: locs[0] || 'Main Area',
+                  customLocality: '',
+                }));
+              }}
+              options={ALL_PUNJAB_CITIES.map((c) => ({ value: c, label: c }))}
+            />
+            <Select
+              label="Locality / Campus Vicinity *"
+              value={formData.locality}
+              onChange={(e) => setFormData((prev) => ({ ...prev, locality: e.target.value }))}
+              options={getLocalitiesForCity(formData.city).map((loc) => ({ value: loc, label: loc }))}
             />
           </div>
+
+          {formData.locality === 'Other / Custom Locality' && (
+            <Input
+              label="Enter Custom Locality / Landmark *"
+              placeholder="e.g. Kali Sadak / Jalandhar Bypass"
+              value={formData.customLocality}
+              onChange={(e) => setFormData((prev) => ({ ...prev, customLocality: e.target.value }))}
+              required
+            />
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Input
@@ -621,7 +847,7 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             <label className="font-bold text-slate-700 flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5">
                 <Camera className="w-4 h-4 text-brand-600" />
-                <span>Upload PG & Room Photos</span>
+                <span>Upload PG & Room Photos (Real Images)</span>
               </span>
               <span className="text-[11px] text-slate-400 font-normal">Shown to student tenants in search</span>
             </label>
@@ -634,37 +860,58 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
                 onChange={(e) => {
                   const files = e.target.files;
                   if (files && files.length > 0) {
-                    const names = Array.from(files).map((f) => f.name);
-                    setUploadedFileNames(names);
-                    const mockUrls = Array.from(files).map(
-                      () => 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80'
-                    );
-                    setFormData((prev) => ({
-                      ...prev,
-                      images: [...new Set([...prev.images, ...mockUrls])],
-                    }));
+                    const newNames = Array.from(files).map((f) => f.name);
+                    setUploadedFileNames((prev) => [...prev, ...newNames]);
+                    Array.from(files).forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const dataUrl = event.target?.result as string;
+                        if (dataUrl) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            images: [...prev.images, dataUrl],
+                          }));
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    });
                   }
                 }}
                 className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
               />
             </div>
 
-            {uploadedFileNames.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {uploadedFileNames.map((fn, i) => (
-                  <span key={i} className="text-[11px] font-mono bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
-                    ✓ {fn}
-                  </span>
+            {formData.images.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {formData.images.map((imgUrl, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
+                    <img src={imgUrl} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          images: prev.images.filter((_, idx) => idx !== i),
+                        }))
+                      }
+                      className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs"
+                      title="Remove Photo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 italic">No photos added yet. Real uploaded photos will appear above.</p>
             )}
 
             {/* Quick Photo Presets */}
-            <div className="flex items-center gap-2 flex-wrap pt-1">
-              <span className="text-[11px] text-slate-500 font-medium">Quick Photo Presets:</span>
+            <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-slate-200/60">
+              <span className="text-[11px] text-slate-500 font-medium">Add Sample Photo:</span>
               {[
                 { label: '🛏️ Modern Room', url: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80' },
-                { label: '🪴 Study Balcony', url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80' },
+                { label: '🪴 Balcony / Study', url: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80' },
                 { label: '🚿 Attached Bath', url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1000&q=80' },
               ].map((preset) => {
                 const isSelected = formData.images.includes(preset.url);
@@ -706,6 +953,200 @@ export function LandlordPropertiesClient({ initialProperties }: LandlordProperti
             </Button>
             <Button type="submit" disabled={isSubmitting} className="bg-brand-600 hover:bg-brand-700 text-white font-bold">
               {isSubmitting ? 'Registering Property...' : 'Save & Publish Property'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Property Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Edit Property: ${editingProperty?.name || ''}`}
+        description="Update PG details, rent, and photos. Edits will be submitted to UniNest Owner for verification."
+        size="lg"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <Input
+            label="Property Name *"
+            placeholder="e.g. Passi Executive Student PG"
+            value={editFormData.name}
+            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="Property Type"
+              value={editFormData.type}
+              onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+              options={[
+                { value: 'PG', label: 'Student PG (Paying Guest)' },
+                { value: 'HOSTEL', label: 'Private Student Hostel' },
+                { value: 'FLAT', label: 'Co-Living Student Apartment' },
+              ]}
+            />
+            <Select
+              label="Gender Preference"
+              value={editFormData.gender}
+              onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
+              options={[
+                { value: 'ANY', label: 'Co-Ed / All Students' },
+                { value: 'MALE', label: 'Boys Only' },
+                { value: 'FEMALE', label: 'Girls Only' },
+              ]}
+            />
+          </div>
+
+          <Input
+            label="Street Address *"
+            placeholder="Street 4, Near Landmark"
+            value={editFormData.address}
+            onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+            required
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              label="City (Punjab) *"
+              value={editFormData.city}
+              onChange={(e) => {
+                const nextCity = e.target.value;
+                const locs = getLocalitiesForCity(nextCity);
+                setEditFormData((prev) => ({
+                  ...prev,
+                  city: nextCity,
+                  locality: locs[0] || 'Main Area',
+                  customLocality: '',
+                }));
+              }}
+              options={ALL_PUNJAB_CITIES.map((c) => ({ value: c, label: c }))}
+            />
+            <Select
+              label="Locality / Campus Vicinity *"
+              value={editFormData.locality}
+              onChange={(e) => setEditFormData((prev) => ({ ...prev, locality: e.target.value }))}
+              options={getLocalitiesForCity(editFormData.city).map((loc) => ({ value: loc, label: loc }))}
+            />
+          </div>
+
+          {editFormData.locality === 'Other / Custom Locality' && (
+            <Input
+              label="Enter Custom Locality / Landmark *"
+              placeholder="e.g. Kali Sadak / Jalandhar Bypass"
+              value={editFormData.customLocality}
+              onChange={(e) => setEditFormData((prev) => ({ ...prev, customLocality: e.target.value }))}
+              required
+            />
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input
+              label="Number of Rooms"
+              type="number"
+              min={1}
+              value={editFormData.totalRooms}
+              onChange={(e) => setEditFormData({ ...editFormData, totalRooms: Number(e.target.value) })}
+            />
+            <Input
+              label="Beds Per Room"
+              type="number"
+              min={1}
+              value={editFormData.bedsPerRoom}
+              onChange={(e) => setEditFormData({ ...editFormData, bedsPerRoom: Number(e.target.value) })}
+            />
+            <Input
+              label="Monthly Rent (₹) *"
+              type="number"
+              min={1000}
+              value={editFormData.rentPerMonth}
+              onChange={(e) => setEditFormData({ ...editFormData, rentPerMonth: Number(e.target.value) })}
+            />
+          </div>
+
+          {/* Photo Management Section */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+            <label className="font-bold text-slate-700 flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-amber-600" />
+                <span>Manage Photos (Add or Remove)</span>
+              </span>
+              <span className="text-[11px] text-slate-400 font-normal">Hover photo to remove</span>
+            </label>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (files && files.length > 0) {
+                    Array.from(files).forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const dataUrl = event.target?.result as string;
+                        if (dataUrl) {
+                          setEditFormData((prev) => ({
+                            ...prev,
+                            images: [...prev.images, dataUrl],
+                          }));
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    });
+                  }
+                }}
+                className="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+              />
+            </div>
+
+            {editFormData.images.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {editFormData.images.map((imgUrl, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-xs group">
+                    <img src={imgUrl} alt={`Uploaded ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditFormData((prev) => ({
+                          ...prev,
+                          images: prev.images.filter((_, idx) => idx !== i),
+                        }))
+                      }
+                      className="absolute inset-0 bg-rose-900/70 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-xs"
+                      title="Remove Photo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 italic">No photos currently saved for this property.</p>
+            )}
+          </div>
+
+          <Textarea
+            label="Description & House Rules"
+            placeholder="Details about food, cleanliness, wifi, curfew..."
+            value={editFormData.description}
+            onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+          />
+
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Note:</strong> Saving changes will mark this property as <strong>Under Review</strong> until UniNest Owner verifies and approves the edits.
+            </span>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isEditSubmitting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold">
+              {isEditSubmitting ? 'Submitting Changes...' : 'Save & Submit for Verification'}
             </Button>
           </div>
         </form>

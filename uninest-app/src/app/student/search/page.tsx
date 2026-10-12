@@ -716,11 +716,18 @@ export default function StudentSearchPage() {
                   <div>
                     {/* Image Header with Badges */}
                     <div className="relative h-52 w-full overflow-hidden bg-slate-100">
-                      <img
-                        src={property.images[0] || 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'}
-                        alt={property.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
+                      {property.images && property.images.length > 0 ? (
+                        <img
+                          src={property.images[0]}
+                          alt={property.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
+                          <Building2 className="w-12 h-12 text-slate-300 mb-1" />
+                          <span className="text-xs font-semibold text-slate-500">UniNest Student Residency</span>
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/65 via-transparent to-black/30" />
 
                       {/* Top Badges */}
