@@ -22,7 +22,7 @@ import {
   Camera,
   FileCheck,
 } from 'lucide-react';
-import { PropertyItem } from '@/lib/propertiesStore';
+import type { PropertyItem } from '@/lib/propertiesTypes';
 import {
   getLocalMessages,
   saveLocalMessage,

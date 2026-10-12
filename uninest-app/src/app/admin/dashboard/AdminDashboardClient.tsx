@@ -18,7 +18,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react';
-import { PropertyItem } from '@/lib/propertiesStore';
+import type { PropertyItem } from '@/lib/propertiesTypes';
 import { PlatformUser } from '@/lib/usersStore';
 import { formatRupees } from '@/lib/utils';
 import { getLocalOverrides, getLocalAuditEvents } from '@/lib/messagesStorage';

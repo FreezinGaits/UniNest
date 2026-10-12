@@ -27,7 +27,7 @@ import {
   MessageSquare,
   Plus,
 } from 'lucide-react';
-import { PropertyItem } from '@/lib/propertiesStore';
+import type { PropertyItem } from '@/lib/propertiesTypes';
 import {
   getLocalOverrides,
   saveLocalOverride,
