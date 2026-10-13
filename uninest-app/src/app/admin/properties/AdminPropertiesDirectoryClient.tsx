@@ -36,22 +36,75 @@ import {
   getLocalAuditEvents,
   saveLocalAuditEvent,
 } from '@/lib/messagesStorage';
+import { getClientProperties, saveClientProperty } from '@/lib/clientProperties';
 
 interface AdminPropertiesDirectoryProps {
   initialProperties: PropertyItem[];
 }
 
+function mergeServerAndClientProperties(serverList: PropertyItem[]): PropertyItem[] {
+  const map = new Map<string, PropertyItem>();
+
+  for (const p of serverList) {
+    map.set(p.id, p);
+  }
+
+  if (typeof window !== 'undefined') {
+    const clientProps = getClientProperties();
+    for (const cp of clientProps) {
+      if (!map.has(cp.id)) {
+        map.set(cp.id, {
+          id: cp.id,
+          name: cp.name,
+          locality: cp.locality,
+          city: cp.city || 'Ludhiana',
+          address: cp.address,
+          verificationStatus: (cp.verificationStatus as any) || 'UNDER_REVIEW',
+          totalRooms: cp.totalRooms || 4,
+          totalBeds: cp.totalBeds || 8,
+          occupiedBeds: cp.occupiedBeds || 0,
+          rentPerMonth: cp.rentPerMonth || 6000,
+          openTickets: cp.openTickets || 0,
+          ownerName: 'Vikram Singh (Landlord)',
+          ownerEmail: 'landlord@uninest.in',
+          createdAt: cp.lastEditedAt || new Date().toISOString(),
+          type: cp.type || 'PG',
+          gender: cp.gender || 'ANY',
+          description: cp.description || '',
+          images: cp.images || [],
+          rejectionReason: cp.rejectionReason,
+        });
+      } else {
+        const existing = map.get(cp.id)!;
+        map.set(cp.id, {
+          ...existing,
+          verificationStatus: (cp.verificationStatus as any) || existing.verificationStatus,
+          rejectionReason: cp.rejectionReason || existing.rejectionReason,
+          totalRooms: cp.totalRooms || existing.totalRooms,
+          totalBeds: cp.totalBeds || existing.totalBeds,
+        });
+      }
+    }
+
+    const overrides = getLocalOverrides();
+    for (const [id, ov] of Object.entries(overrides)) {
+      if (map.has(id)) {
+        const item = map.get(id)!;
+        map.set(id, {
+          ...item,
+          verificationStatus: (ov.verificationStatus as any) || item.verificationStatus,
+          rejectionReason: ov.rejectionReason || item.rejectionReason,
+        });
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
 export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPropertiesDirectoryProps) {
   const [properties, setProperties] = useState<PropertyItem[]>(() => {
-    const list = initialProperties || [];
-    if (typeof window !== 'undefined') {
-      const overrides = getLocalOverrides();
-      return list.map((p) => {
-        const o = overrides[p.id];
-        return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
-      });
-    }
-    return list;
+    return mergeServerAndClientProperties(initialProperties || []);
   });
 
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'LIVE' | 'DELISTED' | 'FULL'>('ALL');
@@ -61,26 +114,31 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Delist / Publish toggles
-  const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>({
-    'prop-pcte-1': false, // currently rejected/suspended from live search
-    'prop-pcte-2': true,
-    'prop-demo-03': true,
+  const [visibilityMap, setVisibilityMap] = useState<Record<string, boolean>>(() => {
+    const vMap: Record<string, boolean> = {
+      'prop-pcte-1': false,
+      'prop-pcte-2': true,
+      'prop-demo-03': true,
+    };
+    (initialProperties || []).forEach((p) => {
+      vMap[p.id] = p.verificationStatus === 'VERIFIED';
+    });
+    return vMap;
   });
 
   useEffect(() => {
-    const overrides = getLocalOverrides();
     fetch('/api/properties', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
-          const merged = data.properties.map((p: any) => {
-            const o = overrides[p.id];
-            return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
-          });
-          setProperties(merged);
+          setProperties(mergeServerAndClientProperties(data.properties));
+        } else {
+          setProperties((prev) => mergeServerAndClientProperties(prev));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setProperties((prev) => mergeServerAndClientProperties(prev));
+      });
   }, []);
 
   // Compute Platform KPIs
@@ -94,28 +152,56 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
   );
   const totalOpenTickets = properties.reduce((acc, p) => acc + (p.openTickets || 0), 0);
 
-  const toggleVisibility = (propertyId: string) => {
-    setVisibilityMap((prev) => {
-      const next = !prev[propertyId];
-      const target = properties.find((p) => p.id === propertyId);
-      const name = target?.name || 'Property';
+  const toggleVisibility = async (propertyId: string) => {
+    const next = !visibilityMap[propertyId];
+    const target = properties.find((p) => p.id === propertyId);
+    const name = target?.name || 'Property';
+    const newStatus = next ? 'VERIFIED' : 'REJECTED';
 
-      setToastMessage(next ? `${name} is now LIVE on student search!` : `${name} has been delisted from student search.`);
-      setTimeout(() => setToastMessage(null), 3500);
+    setVisibilityMap((prev) => ({ ...prev, [propertyId]: next }));
+    saveLocalOverride(propertyId, newStatus);
 
-      // Log in audit storage
-      saveLocalAuditEvent({
-        id: `evt-${Date.now()}`,
-        propertyId,
-        propertyName: name,
-        actorRole: 'ADMIN',
-        actorName: 'UniNest Admin',
-        action: next ? 'VERIFIED' : 'REJECTED',
-        title: next ? 'Listing Search Visibility Enabled' : 'Listing Search Visibility Paused/Delisted',
-        timestamp: new Date().toISOString(),
+    if (target) {
+      saveClientProperty({
+        id: propertyId,
+        name,
+        locality: target.locality || '',
+        city: target.city || '',
+        address: target.address || '',
+        verificationStatus: newStatus,
+        totalRooms: target.totalRooms || 4,
+        totalBeds: target.totalBeds || 8,
+        occupiedBeds: target.occupiedBeds || 0,
+        rentPerMonth: target.rentPerMonth || 6000,
+        openTickets: target.openTickets || 0,
+        images: target.images,
       });
+    }
 
-      return { ...prev, [propertyId]: next };
+    setProperties((prev) =>
+      prev.map((p) => (p.id === propertyId ? { ...p, verificationStatus: newStatus } : p))
+    );
+
+    setToastMessage(next ? `${name} is now LIVE on student search!` : `${name} has been delisted from student search.`);
+    setTimeout(() => setToastMessage(null), 3500);
+
+    // Sync to backend
+    fetch('/api/admin/properties/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ propertyId, status: newStatus }),
+    }).catch(() => {});
+
+    // Log in audit storage
+    saveLocalAuditEvent({
+      id: `evt-${Date.now()}`,
+      propertyId,
+      propertyName: name,
+      actorRole: 'ADMIN',
+      actorName: 'UniNest Admin',
+      action: next ? 'VERIFIED' : 'REJECTED',
+      title: next ? 'Listing Search Visibility Enabled' : 'Listing Search Visibility Paused/Delisted',
+      timestamp: new Date().toISOString(),
     });
   };
 

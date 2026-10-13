@@ -33,9 +33,70 @@ import {
   saveLocalAuditEvent,
   saveLocalAuditEventsBatch,
 } from '@/lib/messagesStorage';
+import { getClientProperties, saveClientProperty } from '@/lib/clientProperties';
 
 interface AdminVerificationCenterProps {
   initialProperties: PropertyItem[];
+}
+
+function mergeServerAndClientProperties(serverList: PropertyItem[]): PropertyItem[] {
+  const map = new Map<string, PropertyItem>();
+
+  for (const p of serverList) {
+    map.set(p.id, p);
+  }
+
+  if (typeof window !== 'undefined') {
+    const clientProps = getClientProperties();
+    for (const cp of clientProps) {
+      if (!map.has(cp.id)) {
+        map.set(cp.id, {
+          id: cp.id,
+          name: cp.name,
+          locality: cp.locality,
+          city: cp.city || 'Ludhiana',
+          address: cp.address,
+          verificationStatus: (cp.verificationStatus as any) || 'UNDER_REVIEW',
+          totalRooms: cp.totalRooms || 4,
+          totalBeds: cp.totalBeds || 8,
+          occupiedBeds: cp.occupiedBeds || 0,
+          rentPerMonth: cp.rentPerMonth || 6000,
+          openTickets: cp.openTickets || 0,
+          ownerName: 'Vikram Singh (Landlord)',
+          ownerEmail: 'landlord@uninest.in',
+          createdAt: cp.lastEditedAt || new Date().toISOString(),
+          type: cp.type || 'PG',
+          gender: cp.gender || 'ANY',
+          description: cp.description || '',
+          images: cp.images || [],
+          rejectionReason: cp.rejectionReason,
+        });
+      } else {
+        const existing = map.get(cp.id)!;
+        map.set(cp.id, {
+          ...existing,
+          verificationStatus: (cp.verificationStatus as any) || existing.verificationStatus,
+          rejectionReason: cp.rejectionReason || existing.rejectionReason,
+          totalRooms: cp.totalRooms || existing.totalRooms,
+          totalBeds: cp.totalBeds || existing.totalBeds,
+        });
+      }
+    }
+
+    const overrides = getLocalOverrides();
+    for (const [id, ov] of Object.entries(overrides)) {
+      if (map.has(id)) {
+        const item = map.get(id)!;
+        map.set(id, {
+          ...item,
+          verificationStatus: (ov.verificationStatus as any) || item.verificationStatus,
+          rejectionReason: ov.rejectionReason || item.rejectionReason,
+        });
+      }
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 const REJECTION_REASONS = [
@@ -50,15 +111,7 @@ const REJECTION_REASONS = [
 
 export function AdminVerificationCenterClient({ initialProperties }: AdminVerificationCenterProps) {
   const [properties, setProperties] = useState<PropertyItem[]>(() => {
-    const list = initialProperties || [];
-    if (typeof window !== 'undefined') {
-      const overrides = getLocalOverrides();
-      return list.map((p) => {
-        const o = overrides[p.id];
-        return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
-      });
-    }
-    return list;
+    return mergeServerAndClientProperties(initialProperties || []);
   });
 
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('ALL');
@@ -81,19 +134,18 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
   const [messagesLoading, setMessagesLoading] = useState(false);
 
   useEffect(() => {
-    const overrides = getLocalOverrides();
     fetch('/api/properties', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.properties && Array.isArray(data.properties) && data.properties.length > 0) {
-          const merged = data.properties.map((p: any) => {
-            const o = overrides[p.id];
-            return o ? { ...p, verificationStatus: o.verificationStatus, rejectionReason: o.rejectionReason } : p;
-          });
-          setProperties(merged);
+          setProperties(mergeServerAndClientProperties(data.properties));
+        } else {
+          setProperties((prev) => mergeServerAndClientProperties(prev));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        setProperties((prev) => mergeServerAndClientProperties(prev));
+      });
 
     // Sync any local offline messages with server
     const localMsgs = getLocalMessages();
@@ -131,6 +183,24 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
 
       const targetProp = properties.find((p) => p.id === propertyId);
       const propName = targetProp?.name || 'Property';
+
+      if (targetProp) {
+        saveClientProperty({
+          id: propertyId,
+          name: propName,
+          locality: targetProp.locality || '',
+          city: targetProp.city || '',
+          address: targetProp.address || '',
+          verificationStatus: newStatus,
+          totalRooms: targetProp.totalRooms || 4,
+          totalBeds: targetProp.totalBeds || 8,
+          occupiedBeds: targetProp.occupiedBeds || 0,
+          rentPerMonth: targetProp.rentPerMonth || 6000,
+          openTickets: targetProp.openTickets || 0,
+          images: targetProp.images,
+          rejectionReason: reason,
+        });
+      }
 
       saveLocalAuditEvent({
         id: `evt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,

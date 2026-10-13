@@ -1,5 +1,6 @@
 import { readServerProperties, saveServerProperty, deleteServerProperty } from './persistentProperties';
 import { PropertyItem } from './propertiesTypes';
+import { prisma } from './db';
 
 export type { PropertyItem };
 
@@ -198,13 +199,75 @@ export async function getAllProperties(): Promise<PropertyItem[]> {
     mergedMap.set(norm.id, norm);
   }
 
-  // 2. Server file persistent storage (guaranteed survival across reloads)
+  // 2. Query Prisma database if available (so Admin, Landlord, and Student share real DB data)
+  try {
+    const dbProps = await prisma.property.findMany({
+      include: {
+        landlord: {
+          include: {
+            user: { select: { name: true, email: true, phone: true } },
+          },
+        },
+        rooms: {
+          include: {
+            beds: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (dbProps && dbProps.length > 0) {
+      for (const dp of dbProps) {
+        const totalRooms = dp.rooms?.length || 4;
+        const totalBeds =
+          dp.rooms?.reduce((acc, r) => acc + (r.beds?.length || 2), 0) || totalRooms * 2;
+        const occupiedBeds =
+          dp.rooms?.reduce(
+            (acc, r) =>
+              acc +
+              (r.beds?.filter((b) => b.status === 'OCCUPIED' || b.status === 'RESERVED').length || 0),
+            0
+          ) || 0;
+        const minRent =
+          dp.rooms?.length && dp.rooms[0]?.rent ? Math.round(dp.rooms[0].rent / 100) : 6000;
+
+        const norm = normalizePropertyItem({
+          id: dp.id,
+          name: dp.name,
+          type: dp.type || 'PG',
+          gender: dp.gender || 'ANY',
+          locality: dp.locality || 'Ludhiana',
+          city: dp.city || 'Ludhiana',
+          address: dp.address,
+          verificationStatus:
+            dp.verificationStatus === 'SUSPENDED' ? 'REJECTED' : dp.verificationStatus,
+          totalRooms,
+          totalBeds,
+          occupiedBeds,
+          rentPerMonth: minRent,
+          openTickets: 0,
+          ownerName: dp.landlord?.user?.name || dp.landlord?.businessName || 'Vikram Singh',
+          ownerEmail: dp.landlord?.user?.email || 'landlord@uninest.in',
+          createdAt: dp.createdAt ? dp.createdAt.toISOString() : new Date().toISOString(),
+          description: dp.description || '',
+          images: Array.isArray(dp.images) ? dp.images : [],
+          rejectionReason: dp.verificationNotes || undefined,
+        });
+        mergedMap.set(norm.id, norm);
+      }
+    }
+  } catch {
+    // If DB is offline, continue seamlessly with server/memory storage
+  }
+
+  // 3. Server file persistent storage (guaranteed survival across reloads)
   for (const item of serverSaved) {
     const norm = normalizePropertyItem(item);
     mergedMap.set(norm.id, norm);
   }
 
-  // 3. Memory store
+  // 4. Memory store
   for (const item of memItems) {
     const norm = normalizePropertyItem(item);
     mergedMap.set(norm.id, norm);

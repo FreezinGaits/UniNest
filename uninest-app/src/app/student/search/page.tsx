@@ -213,7 +213,9 @@ export default function StudentSearchPage() {
 
         const res = await fetch(`/api/properties/search?${params.toString()}`);
         const data = await res.json();
-        setProperties(data.properties || []);
+        const rawList = Array.isArray(data.properties) ? data.properties : [];
+        const verifiedOnlyList = rawList.filter((p: PropertyResult) => p.verificationStatus === 'VERIFIED');
+        setProperties(verifiedOnlyList);
       } catch (err) {
         console.error('Search failed:', err);
       } finally {

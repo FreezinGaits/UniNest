@@ -6,7 +6,7 @@ import { getAllProperties } from '@/lib/propertiesStore';
 // High-Fidelity Demo Dataset for Ludhiana, Punjab (Fallback when DB is offline or empty)
 const DEMO_PROPERTIES = [
   {
-    id: 'prop-demo-01',
+    id: 'prop-pcte-1',
     name: 'PCTE Smart Student Residency',
     type: 'PG',
     address: 'Plot 42, Block B, BRS Nagar, Ferozepur Road',
@@ -80,7 +80,7 @@ const DEMO_PROPERTIES = [
     collegeLinks: [{ distance: 0.2, college: { collegeName: 'PCTE Institute of Management' } }],
   },
   {
-    id: 'prop-demo-02',
+    id: 'prop-pcte-2',
     name: 'Passi Luxury PG & Co-Living',
     type: 'PG',
     address: 'Near Wave Mall, Main Ferozepur Road',
@@ -135,7 +135,7 @@ const DEMO_PROPERTIES = [
     collegeLinks: [{ distance: 0.8, college: { collegeName: 'PCTE Institute of Management' } }],
   },
   {
-    id: 'prop-demo-03',
+    id: 'prop-pcte-3',
     name: 'Campus Edge Girls Hostel',
     type: 'HOSTEL',
     address: 'Street No 3, BRS Nagar, Near Market',
@@ -462,7 +462,12 @@ export async function GET(request: NextRequest) {
     try {
       const storeProps = await getAllProperties();
       for (const sp of storeProps) {
-        const idx = propertiesList.findIndex((p) => p.id === sp.id);
+        const normSpName = (sp.name || '').trim().toLowerCase();
+        const idx = propertiesList.findIndex(
+          (p) =>
+            p.id === sp.id ||
+            (normSpName && (p.name || '').trim().toLowerCase() === normSpName)
+        );
         const minBaseRent = sp.rentPerMonth || 6000;
         const availBeds = Math.max(0, sp.totalBeds - sp.occupiedBeds);
         const trueMonthlyCost = minBaseRent + 1500;
@@ -530,12 +535,22 @@ export async function GET(request: NextRequest) {
           propertiesList.unshift(formattedSp);
         }
       }
+
+      // Final deduplication by lowercase normalized name to prevent duplicate listings
+      const seenNames = new Set<string>();
+      propertiesList = propertiesList.filter((p) => {
+        const norm = (p.name || '').trim().toLowerCase();
+        if (!norm) return true;
+        if (seenNames.has(norm)) return false;
+        seenNames.add(norm);
+        return true;
+      });
     } catch (storeErr) {
       console.warn('Failed to merge propertiesStore into search:', storeErr);
     }
 
-    // Apply Filters across both DB and DEMO_PROPERTIES
-    let filtered = propertiesList.filter(p => p.verificationStatus !== 'REJECTED' && p.verificationStatus !== 'SUSPENDED');
+    // Apply Filters: Students must ONLY see properties that are officially VERIFIED by Admin
+    let filtered = propertiesList.filter((p) => p.verificationStatus === 'VERIFIED');
 
     if (state) {
       filtered = filtered.filter((p) => p.state?.toLowerCase() === state.toLowerCase());
