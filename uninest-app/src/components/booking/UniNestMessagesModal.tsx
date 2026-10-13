@@ -20,9 +20,7 @@ interface MessageItem {
   isMasked?: boolean;
 }
 
-const PHONE_REGEX = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b[6-9]\d{9}\b/;
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-const LINK_REGEX = /whatsapp|telegram|wa\.me|t\.me|instagram|http:\/\/|https:\/\/|\.com|\.in/i;
+import { validateChatMessage } from '@/lib/securityModeration';
 
 export function UniNestMessagesModal({
   isOpen,
@@ -70,11 +68,12 @@ export function UniNestMessagesModal({
 
   if (!isOpen) return null;
 
-  // Real-time client side moderation check
+  // Real-time client side moderation check with broken digits & OTP protection
   const handleInputChange = (val: string) => {
     setInputContent(val);
-    if (PHONE_REGEX.test(val) || EMAIL_REGEX.test(val) || LINK_REGEX.test(val)) {
-      setWarningMsg('🔒 Security Alert: Personal contact details (phone, email, WhatsApp, URLs) cannot be shared before booking confirmation.');
+    const check = validateChatMessage(val);
+    if (!check.isValid) {
+      setWarningMsg(check.error || '🔒 Security Alert: Personal contact details (phone, email, WhatsApp, URLs) cannot be shared before booking confirmation.');
     } else {
       setWarningMsg('');
     }
@@ -84,8 +83,9 @@ export function UniNestMessagesModal({
     e.preventDefault();
     if (!inputContent.trim()) return;
 
-    if (PHONE_REGEX.test(inputContent) || EMAIL_REGEX.test(inputContent) || LINK_REGEX.test(inputContent)) {
-      setWarningMsg('🔒 Blocked: Message contains restricted contact info or external link. Please keep communication on UniNest.');
+    const check = validateChatMessage(inputContent);
+    if (!check.isValid) {
+      setWarningMsg(check.error || '🔒 Blocked: Message contains restricted contact info or external link. Please keep communication on UniNest.');
       return;
     }
 

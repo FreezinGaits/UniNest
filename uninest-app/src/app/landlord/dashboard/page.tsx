@@ -19,9 +19,12 @@ import {
   Eye,
   AlertTriangle,
   MessageSquare,
+  Scale,
+  ShieldAlert,
 } from 'lucide-react';
 import { getEmergenciesForRole } from '@/lib/emergencyStore';
 import { getAdminMessages } from '@/lib/adminMessagesStore';
+import { getLandlordTrustScore } from '@/lib/landlordTrustStore';
 import { DashboardAdminNoteBanner } from './DashboardAdminNoteBanner';
 
 export const dynamic = 'force-dynamic';
@@ -94,6 +97,7 @@ export default async function LandlordDashboard() {
     (m) => m.fromRole === 'ADMIN' && properties.some((p) => p.id === m.toPropertyId)
   );
   const latestAdminNote = recentAdminNotes.length > 0 ? recentAdminNotes[recentAdminNotes.length - 1] : null;
+  const trustData = getLandlordTrustScore(session.email);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -189,6 +193,76 @@ export default async function LandlordDashboard() {
 
       {/* Official Admin Communication Notice Banner */}
       <DashboardAdminNoteBanner initialLatestNote={latestAdminNote} />
+
+      {/* Landlord Trust Score & Tenant Refund / Dispute Notice */}
+      <div
+        className={`border rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 ${
+          trustData.score < 95
+            ? 'bg-amber-50/80 border-amber-300'
+            : 'bg-emerald-50/60 border-emerald-200'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-sm ${
+                trustData.score < 90
+                  ? 'bg-rose-600 text-white'
+                  : trustData.score < 95
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-emerald-600 text-white'
+              }`}
+            >
+              {trustData.score}%
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-sm text-slate-900">
+                  Landlord Trust &amp; Fair Housing Rating
+                </h3>
+                <Badge variant={trustData.score >= 95 ? 'success' : 'warning'}>
+                  {trustData.tier.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                {trustData.totalCompletedMoveIns} Successful Move-Ins • {trustData.disputesFiled} Escrow Disputes • Rating: {trustData.rating}/5.0
+              </p>
+            </div>
+          </div>
+          <Link href="/landlord/disputes">
+            <Button variant="outline" size="sm" className="text-xs font-bold">
+              <Scale className="w-4 h-4 mr-1.5" />
+              Mediation &amp; Disputes Desk
+            </Button>
+          </Link>
+        </div>
+
+        {/* If there was a recent dispute or refund */}
+        {trustData.lastIncident && (
+          <div className="bg-white/90 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-xs">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="font-extrabold text-amber-900 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Notice on Recent Escrow Refund / Dispute ({trustData.lastIncident.propertyName})</span>
+              </span>
+              <span className="font-mono text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                Score Penalty: -{trustData.lastIncident.scorePenalty}%
+              </span>
+            </div>
+            <p className="text-slate-700 leading-relaxed">
+              <strong>Student Feedback:</strong> {trustData.lastIncident.reason}
+            </p>
+            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-[11px] text-slate-600 space-y-1">
+              <p>
+                <strong>💡 Constructive Resolution Guidance:</strong> {trustData.lastIncident.advisory}
+              </p>
+              <p className="text-rose-700 font-semibold">
+                <strong>⚖️ Anti-Retaliation Directive (Sec 2(47) Consumer Protection Act):</strong> Landlords are strictly prohibited from contacting, coercing, or harassing students regarding legitimate refund claims. All disputes must be resolved solely through the UniNest Mediation Tribunal.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

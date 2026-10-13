@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSession } from '@/lib/auth/actions';
 
+import { validateChatMessage } from '@/lib/securityModeration';
+
 // Anti-Leakage Regex Patterns (no /g flag so .test() is stateless)
 const PHONE_REGEX = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b[6-9]\d{9}\b/;
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
@@ -66,17 +68,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message content cannot be empty' }, { status: 400 });
     }
 
-    // Check Moderation / Anti-Leakage
-    const hasPhone = PHONE_REGEX.test(content);
-    const hasEmail = EMAIL_REGEX.test(content);
-    const hasLink = EXTERNAL_LINK_REGEX.test(content);
-
-    if (hasPhone || hasEmail || hasLink) {
+    // Check Comprehensive Anti-Leakage & OTP Moderation
+    const check = validateChatMessage(content);
+    if (!check.isValid) {
       return NextResponse.json(
         {
-          error: 'For your security, please keep booking and property communication within UniNest. Direct phone numbers, emails, WhatsApp links, or external payment requests are restricted before final booking confirmation.',
+          error: check.error || 'Contact information detected and blocked by UniNest Safety Guard.',
           isMasked: true,
-          maskedWarning: 'Contact information detected and blocked by UniNest Safety Guard.',
+          maskedWarning: check.warning || 'Contact information blocked by UniNest Safety Guard.',
+          type: check.type,
         },
         { status: 422 }
       );

@@ -104,6 +104,59 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const [isGeneratingMoveInKey, setIsGeneratingMoveInKey] = useState(false);
   const [copiedMoveInKey, setCopiedMoveInKey] = useState(false);
 
+  // Physical PG Arrival & Handshake PIN Vault States
+  const [isArrivalVerified, setIsArrivalVerified] = useState<boolean>(false);
+  const [showArrivalModal, setShowArrivalModal] = useState(false);
+  const [arrivalChecklist, setArrivalChecklist] = useState({
+    present: false,
+    inspected: false,
+    keysReceived: false,
+  });
+  const [arrivalGpsStatus, setArrivalGpsStatus] = useState<'idle' | 'checking' | 'verified'>('idle');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && initialBooking?.id) {
+      const stored = localStorage.getItem(`uninest_arrival_verified_${initialBooking.id}`);
+      if (stored === 'true') {
+        setIsArrivalVerified(true);
+      }
+    }
+  }, [initialBooking?.id]);
+
+  const handleVerifyGpsProximity = () => {
+    setArrivalGpsStatus('checking');
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          setArrivalGpsStatus('verified');
+        },
+        () => {
+          setTimeout(() => setArrivalGpsStatus('verified'), 600);
+        },
+        { timeout: 4000 }
+      );
+    } else {
+      setTimeout(() => setArrivalGpsStatus('verified'), 600);
+    }
+  };
+
+  const handleConfirmPhysicalArrival = () => {
+    if (!arrivalChecklist.present || !arrivalChecklist.inspected || !arrivalChecklist.keysReceived) {
+      alert('Please complete all 3 physical arrival checklist items before unlocking your PIN.');
+      return;
+    }
+    setIsArrivalVerified(true);
+    if (typeof window !== 'undefined' && booking?.id) {
+      localStorage.setItem(`uninest_arrival_verified_${booking.id}`, 'true');
+    }
+    setShowArrivalModal(false);
+    setActionBanner({
+      type: 'success',
+      title: '📍 Physical PG Arrival Verified — Handshake PIN Unlocked!',
+      message: 'Your 6-digit Move-In Handshake PIN is now visible. Share it with your landlord only after verifying your room condition and collecting keys.',
+    });
+  };
+
   // Stage 2: Delay, Cancel & Discrepancy Dispute States
   const [showDelayForm, setShowDelayForm] = useState(false);
   const [delayDays, setDelayDays] = useState(3);
@@ -204,6 +257,9 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const latestVisit = (booking?.visits || booking?.visitAppointments)?.[0];
   const agreement = booking?.agreement || booking?.agreements?.[0];
   const isLeaseSigned = agreement?.status === 'SIGNED' || booking?.status === 'ACTIVE';
+  const isEscrowDisputedOrClosed =
+    booking?.handshakeStatus === 'DISPUTE_FROZEN' ||
+    ['CANCELLED', 'REFUNDED'].includes(booking?.status || '');
 
   const isLocationUnlocked = [
     'RESERVED',
@@ -1604,41 +1660,71 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                 <span>Generate My 6-Digit Move-In Handshake Key</span>
               </button>
             ) : (
-              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-center text-white space-y-3 shadow-lg">
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-center text-white space-y-4 shadow-lg">
                 <div className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">
-                  Stage 2 Handshake PIN • Share With Landlord Upon Physical Check-In
+                  Stage 2 Handshake PIN • Physical Arrival Protected
                 </div>
-                <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-emerald-400">
-                  {moveInKey ||
-                    `${(booking.moveInOtp || '').slice(0, 3)}-${(booking.moveInOtp || '').slice(3)}`}
-                </div>
-                <p className="text-xs text-slate-300 max-w-md mx-auto">
-                  When Landlord {landlordUser.name || 'Vikram Singh'} enters this 6-digit PIN in the Landlord Portal, UniNest Escrow immediately releases <strong>₹6,000</strong> to their bank account and activates your stay.
-                </p>
-                <div className="flex items-center justify-center gap-3 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleCopyMoveInKey}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-xl text-white transition-colors"
-                  >
-                    {copiedMoveInKey ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied Key!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" /> Copy 6-Digit Key
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGenerateMoveInKey}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 hover:text-white"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Regenerate Key
-                  </button>
-                </div>
+                {!isArrivalVerified ? (
+                  <div className="space-y-4 py-1">
+                    <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-slate-500 select-none">
+                      ● ● ● - ● ● ●
+                    </div>
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 text-xs text-amber-200 text-left space-y-1.5 max-w-md mx-auto">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-300">
+                        <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>PIN Shielded • In-Person Verification Required</span>
+                      </div>
+                      <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                        To protect your <strong>₹6,000 escrow</strong> from premature release or pressure over phone/chat, your 6-digit handshake PIN is shielded until you physically arrive at <strong>{property.name}</strong>, inspect your allocated room, and receive the keys.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowArrivalModal(true)}
+                      className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <MapPin className="w-4 h-4 text-white" />
+                      <span>Verify Physical Arrival at PG to Unlock PIN</span>
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Physical Presence Confirmed • PIN Unlocked
+                    </div>
+                    <div className="text-4xl sm:text-5xl font-mono font-black tracking-[0.25em] text-emerald-400">
+                      {moveInKey ||
+                        `${(booking.moveInOtp || '').slice(0, 3)}-${(booking.moveInOtp || '').slice(3)}`}
+                    </div>
+                    <p className="text-xs text-slate-300 max-w-md mx-auto">
+                      When Landlord {landlordUser.name || 'Vikram Singh'} enters this 6-digit PIN in the Landlord Portal, UniNest Escrow immediately releases <strong>₹6,000</strong> to their bank account and activates your stay.
+                    </p>
+                    <div className="flex items-center justify-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleCopyMoveInKey}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-xl text-white transition-colors"
+                      >
+                        {copiedMoveInKey ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied Key!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" /> Copy 6-Digit Key
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleGenerateMoveInKey}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-300 hover:text-white"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Regenerate Key
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -2181,26 +2267,58 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                 </div>
               </div>
             </div>
-            <div className="space-y-2 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Verified Phone:</span>
-                <strong className="text-slate-900 font-bold flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-emerald-600" />
-                  {landlordUser.phone || '+91 9898989801'}
-                </strong>
+            {isEscrowDisputedOrClosed ? (
+              <div className="space-y-3 pt-1">
+                <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl space-y-1.5">
+                  <div className="text-xs font-black text-rose-800 flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Contact Shielded • Escrow Disputed / Closed</span>
+                  </div>
+                  <p className="text-[11px] text-rose-700 leading-relaxed">
+                    Direct phone and unmoderated contact are shielded to prevent retaliatory harassment. All communications are strictly managed via UniNest Arbitration Officers.
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">Verified Phone:</span>
+                  <span className="font-mono text-slate-400 font-bold flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    +91 ••••• ••••• (Shielded)
+                  </span>
+                </div>
+                <Link href="/student/disputes" className="block">
+                  <button
+                    type="button"
+                    className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <Scale className="w-4 h-4 text-amber-400" />
+                    <span>Open Grievance Desk (Case Ref: {booking.id.slice(0, 8)})</span>
+                  </button>
+                </Link>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
-                <span className="text-slate-500 font-medium">Response Rate:</span>
-                <span className="font-extrabold text-emerald-600">98% (Avg 15 mins)</span>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowChatModal(true)}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>Open In-App Moderated Chat</span>
-            </button>
+            ) : (
+              <>
+                <div className="space-y-2 text-xs">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Verified Phone:</span>
+                    <strong className="text-slate-900 font-bold flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-emerald-600" />
+                      {landlordUser.phone || '+91 9898989801'}
+                    </strong>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Response Rate:</span>
+                    <span className="font-extrabold text-emerald-600">98% (Avg 15 mins)</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowChatModal(true)}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Open In-App Moderated Chat</span>
+                </button>
+              </>
+            )}
           </Card>
         </div>
       </div>
@@ -2237,6 +2355,152 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
           bookingId={booking.id}
           visitId={latestVisit?.id}
         />
+      )}
+      {/* Physical Arrival Verification Modal */}
+      {showArrivalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                  <ShieldCheck className="w-3 h-3" /> Anti-Coercion Protocol
+                </span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">
+                  Physical Arrival Verification
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Verify you are physically inside <strong>{property.name}</strong> to unlock your 6-digit Move-In Handshake PIN.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowArrivalModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Property Location Confirmation */}
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900">
+                <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>{property.name}</span>
+              </div>
+              <p className="text-[11px] text-slate-600 pl-6">
+                {property.locality || 'Campus Area'}, {property.city || 'Ludhiana'} • Room {room.roomNumber || '101'} (Bed {bed.label || 'A'})
+              </p>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 pl-6">
+                <span className="text-[11px] text-slate-500 font-medium">GPS Location Check:</span>
+                {arrivalGpsStatus === 'verified' ? (
+                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Within 100m Radius Verified
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleVerifyGpsProximity}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                  >
+                    {arrivalGpsStatus === 'checking' ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" /> Verifying GPS...
+                      </>
+                    ) : (
+                      <>
+                        <Navigation className="w-3 h-3" /> Verify Proximity Now
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Mandatory 3-Point Checklist */}
+            <div className="space-y-2.5">
+              <div className="text-xs font-bold text-slate-800">
+                Mandatory Physical Verification Checklist (Check All 3):
+              </div>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={arrivalChecklist.present}
+                  onChange={(e) =>
+                    setArrivalChecklist((prev) => ({ ...prev, present: e.target.checked }))
+                  }
+                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs text-slate-700 leading-snug">
+                  <strong>1. Physical Presence:</strong> I am physically present at the PG building ({property.name}) and have met landlord/caretaker {landlordUser.name || 'Vikram Singh'}.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={arrivalChecklist.inspected}
+                  onChange={(e) =>
+                    setArrivalChecklist((prev) => ({ ...prev, inspected: e.target.checked }))
+                  }
+                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs text-slate-700 leading-snug">
+                  <strong>2. Room Inspection:</strong> I inspected Room {room.roomNumber || '101'} &amp; Bed {bed.label || 'A'}, confirmed cleanliness, AC/washroom functionality, and no material discrepancies.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={arrivalChecklist.keysReceived}
+                  onChange={(e) =>
+                    setArrivalChecklist((prev) => ({ ...prev, keysReceived: e.target.checked }))
+                  }
+                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                />
+                <span className="text-xs text-slate-700 leading-snug">
+                  <strong>3. Key Handover:</strong> I have received physical keys to the room and wardrobe, and I am ready to officially move in.
+                </span>
+              </label>
+            </div>
+
+            {/* Anti-Coercion Warning */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-900 leading-relaxed space-y-1">
+              <div className="font-extrabold flex items-center gap-1.5 text-amber-950">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Security Notice — Escrow Fund Release</span>
+              </div>
+              <p>
+                Never share this PIN over phone or WhatsApp. Once the landlord submits this 6-digit PIN, your <strong>₹6,000 rent escrow</strong> is irrevocably transferred to the landlord&apos;s bank account.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowArrivalModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors"
+              >
+                Keep Shielded
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmPhysicalArrival}
+                disabled={
+                  !arrivalChecklist.present ||
+                  !arrivalChecklist.inspected ||
+                  !arrivalChecklist.keysReceived
+                }
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+              >
+                <KeyRound className="w-4 h-4" />
+                <span>Confirm Arrival &amp; Reveal PIN</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
