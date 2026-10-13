@@ -148,11 +148,11 @@ export default function ModeratedRoommateChatPage({
             className="w-10 h-10 rounded-full object-cover border-2 border-emerald-300 shadow-sm"
           />
 
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-extrabold text-slate-900">{partnerReq?.name || 'Aman Verma'}</h2>
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-emerald-600" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-sm font-extrabold text-slate-900 truncate">{partnerReq?.name || 'Aman Verma'}</h2>
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap shadow-xs">
+                <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
                 {score}% Match
               </span>
             </div>
