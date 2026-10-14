@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
       ownerName: session?.name || 'Landlord',
       ownerEmail: session?.email || 'landlord@uninest.in',
       images: propertyImages,
+      latitude: body.latitude != null ? Number(body.latitude) : undefined,
+      longitude: body.longitude != null ? Number(body.longitude) : undefined,
     };
 
     // Persist to the unified landlord propertiesStore
@@ -126,6 +128,8 @@ export async function POST(req: NextRequest) {
               landlordId: landlord.id,
               verificationStatus: 'UNDER_REVIEW',
               images: propertyImages,
+              latitude: data.latitude,
+              longitude: data.longitude,
             },
           });
 

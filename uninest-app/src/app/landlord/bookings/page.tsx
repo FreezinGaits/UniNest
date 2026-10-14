@@ -49,5 +49,14 @@ export default async function LandlordBookingsPage() {
     visits = store.visits;
   }
 
-  return <LandlordBookingsClient bookings={bookings} visits={visits} />;
+  // Strip student's unverified moveInOtp from landlord SSR data
+  const sanitizedBookings = bookings.map((b) => {
+    const copy = { ...b };
+    if (!copy.moveInVerifiedAt) {
+      delete copy.moveInOtp;
+    }
+    return copy;
+  });
+
+  return <LandlordBookingsClient bookings={sanitizedBookings} visits={visits} />;
 }

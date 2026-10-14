@@ -28,6 +28,8 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     locality: 'Ferozepur Road (PCTE Vicinity)',
     city: 'Ludhiana',
     address: 'Plot 42, Opp. PCTE Campus, Ferozepur Road, Ludhiana',
+    latitude: 30.8984,
+    longitude: 75.8564,
     verificationStatus: 'VERIFIED',
     totalRooms: 6,
     totalBeds: 12,
@@ -50,6 +52,8 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     locality: 'BRS Nagar (PAU Vicinity)',
     city: 'Ludhiana',
     address: 'Street 3, Near Bhauriya Market, Ludhiana',
+    latitude: 30.8950,
+    longitude: 75.8250,
     verificationStatus: 'VERIFIED',
     totalRooms: 8,
     totalBeds: 16,
@@ -71,6 +75,8 @@ export const DEFAULT_DEMO_PROPERTIES: PropertyItem[] = [
     locality: 'BRS Nagar (PAU Vicinity)',
     city: 'Ludhiana',
     address: 'Street No 3, BRS Nagar, Near Market',
+    latitude: 30.8945,
+    longitude: 75.8260,
     verificationStatus: 'VERIFIED',
     totalRooms: 5,
     totalBeds: 10,
@@ -184,6 +190,8 @@ export function normalizePropertyItem(raw: any): PropertyItem {
     rejectionReason: raw.rejectionReason || (raw.verificationStatus === 'SUSPENDED' ? raw.verificationNotes : undefined),
     editPendingVerification: Boolean(raw.editPendingVerification),
     lastEditedAt: raw.lastEditedAt || undefined,
+    latitude: raw.latitude != null ? Number(raw.latitude) : undefined,
+    longitude: raw.longitude != null ? Number(raw.longitude) : undefined,
   };
 }
 

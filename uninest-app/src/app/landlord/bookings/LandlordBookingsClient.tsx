@@ -614,26 +614,33 @@ export function LandlordBookingsClient({
                       When {b.user?.name || 'Rahul Sharma'} arrives for physical check-in and inspects the room, ask them for their <strong>6-Digit Move-In Handshake Key</strong>. Entering it below immediately releases <strong>₹6,000</strong> from UniNest Escrow to your bank account.
                     </p>
 
-                    {b.moveInOtp && (
-                      <div className="bg-indigo-100/90 border border-indigo-300 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping shrink-0" />
-                          <span className="font-extrabold text-indigo-950">
-                            Live Signal: Student Generated Move-In Key ({String(b.moveInOtp).slice(0, 3)}-{String(b.moveInOtp).slice(3)})
+                    {b.arrivalVerifiedAt ? (
+                      <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 flex items-center justify-between gap-2 text-xs text-emerald-950 font-semibold">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>
+                            Physical PG Arrival Confirmed by Student (via {b.arrivalVerificationMethod === 'LANDLORD_FALLBACK' ? 'On-Site In-Person Fallback' : 'GPS Geofence Proximity'}). Ask tenant for their 6-Digit Move-In PIN to release escrow.
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setMoveInKeyInput((prev) => ({
-                              ...prev,
-                              [b.id]: `${String(b.moveInOtp).slice(0, 3)}-${String(b.moveInOtp).slice(3)}`,
-                            }))
-                          }
-                          className="px-3 py-1 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white font-extrabold text-xs transition-colors"
-                        >
-                          Auto-Fill Key
-                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5 text-xs text-amber-900">
+                        <div className="flex items-center gap-1.5 font-extrabold text-amber-950">
+                          <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Tenant Physical Arrival Pending</span>
+                        </div>
+                        <p className="text-[11px] text-amber-800">
+                          The student&apos;s app will unlock their 6-digit Handshake Key once they physically reach {b.property?.name || 'the PG'} and inspect their room.
+                        </p>
+                        {b.arrivalFallbackCode && (
+                          <div className="pt-1 flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-amber-950">Indoor GPS Fallback Code:</span>
+                            <span className="font-mono font-black text-amber-950 bg-white px-2 py-0.5 rounded border border-amber-300 tracking-wider">
+                              {b.arrivalFallbackCode}
+                            </span>
+                            <span className="text-[10px] text-amber-700">(Provide in-person only if GPS cannot connect indoors)</span>
+                          </div>
+                        )}
                       </div>
                     )}
 

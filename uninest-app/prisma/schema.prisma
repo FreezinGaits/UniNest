@@ -518,6 +518,12 @@ model Booking {
   moveInVerifiedAt   DateTime?        // When move-in OTP was verified
   handshakeStatus    HandshakeStatus  @default(PENDING)
   postVisitDecision  String?          // 'ACCEPTED' | 'REJECTED' | 'EMERGENCY_CANCEL'
+
+  // Physical Arrival Verification (Anti-Coercion Gate)
+  arrivalVerifiedAt          DateTime?
+  arrivalVerificationMethod  String?   // 'GPS' | 'LANDLORD_FALLBACK'
+  arrivalDistanceMeters      Float?
+  arrivalFallbackCode        String?   // Landlord On-Site In-Person Fallback Check-In Token
   
   // Timing & Buffer Tracking
   agreedMoveInDate   DateTime?        // The official scheduled move-in date

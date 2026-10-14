@@ -23,6 +23,10 @@ export interface EscrowBookingRecord {
   postVisitDecision?: 'ACCEPTED' | 'REJECTED' | 'EMERGENCY_CANCEL' | null;
   moveInOtp?: string | null; // 6-digit PIN
   moveInVerifiedAt?: string | null;
+  arrivalVerifiedAt?: string | null;
+  arrivalVerificationMethod?: 'GPS' | 'LANDLORD_FALLBACK' | null;
+  arrivalDistanceMeters?: number | null;
+  arrivalFallbackCode?: string | null;
   handshakeStatus:
     | 'PENDING'
     | 'VISIT_OTP_VERIFIED'
@@ -58,6 +62,8 @@ export interface EscrowBookingRecord {
     city: string;
     state: string;
     pincode: string;
+    latitude?: number | null;
+    longitude?: number | null;
     gender: string;
     images: string[];
     monthlyRent: number;
@@ -184,6 +190,8 @@ function createInitialStore(): GlobalEscrowState {
           city: 'Ludhiana',
           state: 'Punjab',
           pincode: '141012',
+          latitude: 30.8984,
+          longitude: 75.8564,
           gender: 'MALE',
           images: ['https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800'],
           monthlyRent: 6000,
@@ -248,6 +256,10 @@ function createInitialStore(): GlobalEscrowState {
         postVisitDecision: 'ACCEPTED',
         moveInOtp: '792410',
         moveInVerifiedAt: null,
+        arrivalVerifiedAt: null,
+        arrivalVerificationMethod: null,
+        arrivalDistanceMeters: null,
+        arrivalFallbackCode: '619482',
         handshakeStatus: 'VISIT_OTP_VERIFIED',
         moveInDate: in35Days,
         agreedMoveInDate: in35Days,
@@ -277,6 +289,8 @@ function createInitialStore(): GlobalEscrowState {
           city: 'Ludhiana',
           state: 'Punjab',
           pincode: '141004',
+          latitude: 30.9010,
+          longitude: 75.8070,
           gender: 'ANY',
           images: ['https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800'],
           monthlyRent: 6000,

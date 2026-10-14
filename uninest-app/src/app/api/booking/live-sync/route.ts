@@ -2,12 +2,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { findStoreBooking, getEscrowStore, getStoreBookings } from '@/lib/escrowStore';
 
+import { getSession } from '@/lib/auth/actions';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function sanitizeBookingUsers(booking: any) {
+function sanitizeBookingForRole(booking: any, isLandlordOrAdmin: boolean) {
   if (!booking || typeof booking !== 'object') return booking;
   const copy = { ...booking };
+
+  // Never leak visitOtp, arrivalFallbackCode, or unverified moveInOtp to students!
+  if (!isLandlordOrAdmin) {
+    delete copy.visitOtp;
+    delete copy.visitOtpExpiresAt;
+    delete copy.arrivalFallbackCode;
+    if (!copy.arrivalVerifiedAt) {
+      delete copy.moveInOtp;
+    }
+  } else {
+    // Landlords should not see the student's move-in PIN until it has been entered and verified
+    if (!copy.moveInVerifiedAt) {
+      delete copy.moveInOtp;
+    }
+  }
+
   if (copy.user && typeof copy.user === 'object') {
     const { passwordHash: _pw, ...safeUser } = copy.user;
     copy.user = safeUser;
@@ -27,6 +45,10 @@ function sanitizeBookingUsers(booking: any) {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getSession().catch(() => null);
+    const isLandlordOrAdmin =
+      session?.role === 'LANDLORD' || session?.role === 'ADMIN';
+
     const { searchParams } = new URL(request.url);
     const bookingId = searchParams.get('bookingId');
 
@@ -93,7 +115,7 @@ export async function GET(request: NextRequest) {
         {
           success: true,
           timestamp: new Date().toISOString(),
-          booking: sanitizeBookingUsers(merged),
+          booking: sanitizeBookingForRole(merged, isLandlordOrAdmin),
           studentStats: store.studentStats,
         },
         {
@@ -137,20 +159,23 @@ export async function GET(request: NextRequest) {
 
     const combinedMap = new Map<string, any>();
     for (const b of storeBookings) {
-      combinedMap.set(b.id, sanitizeBookingUsers(b));
+      combinedMap.set(b.id, sanitizeBookingForRole(b, isLandlordOrAdmin));
     }
     for (const b of dbBookings) {
       const mem = combinedMap.get(b.id);
       combinedMap.set(
         b.id,
-        sanitizeBookingUsers({
-          ...mem,
-          ...b,
-          visitOtp: b.visitOtp || mem?.visitOtp || null,
-          moveInOtp: b.moveInOtp || mem?.moveInOtp || null,
-          escrowAmount: b.escrowAmount ?? mem?.escrowAmount ?? null,
-          agreement: b.agreement || mem?.agreement || null,
-        })
+        sanitizeBookingForRole(
+          {
+            ...mem,
+            ...b,
+            visitOtp: b.visitOtp || mem?.visitOtp || null,
+            moveInOtp: b.moveInOtp || mem?.moveInOtp || null,
+            escrowAmount: b.escrowAmount ?? mem?.escrowAmount ?? null,
+            agreement: b.agreement || mem?.agreement || null,
+          },
+          isLandlordOrAdmin
+        )
       );
     }
 

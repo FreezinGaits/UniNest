@@ -43,5 +43,17 @@ export default async function BookingDetailPage({ params }: PageProps) {
     booking = storeBooking ? { ...storeBooking, id: storeBooking.id } : null;
   }
 
+  // Strict Sanitization: Never expose secrets in the initial student page payload
+  if (booking) {
+    const safeBooking = { ...booking };
+    delete safeBooking.visitOtp;
+    delete safeBooking.visitOtpExpiresAt;
+    delete safeBooking.arrivalFallbackCode;
+    if (!safeBooking.arrivalVerifiedAt) {
+      delete safeBooking.moveInOtp;
+    }
+    booking = safeBooking;
+  }
+
   return <BookingWorkspaceClient booking={booking} />;
 }

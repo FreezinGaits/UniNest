@@ -1,43 +1,95 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getSession } from '@/lib/auth/actions';
 import { findStoreBooking, updateStoreBooking } from '@/lib/escrowStore';
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId } = await request.json();
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const { bookingId } = await request.json().catch(() => ({}));
 
     if (!bookingId) {
       return NextResponse.json({ error: 'Booking ID is required' }, { status: 400 });
     }
 
-    // Generate 6-digit Move-In Key
-    const moveInKey = Math.floor(100000 + Math.random() * 900000).toString();
-    const graceEnd = new Date();
-    graceEnd.setDate(graceEnd.getDate() + 7); // 7-day grace window
+    // 1. Fetch booking
+    let dbBooking: any = null;
+    try {
+      dbBooking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          user: true,
+          property: { include: { landlord: { include: { user: true } } } },
+        },
+      });
+    } catch {
+      // Fallback to in-memory store
+    }
 
-    // 1. Update in-memory store
+    const rawStoreBooking = findStoreBooking(bookingId);
+    const storeBooking = rawStoreBooking?.id === bookingId ? rawStoreBooking : undefined;
+    const activeBooking = dbBooking || storeBooking;
+
+    if (!activeBooking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    }
+
+    // 2. Ownership check
+    const bookingUserEmail = activeBooking.user?.email || activeBooking.userEmail;
+    const bookingUserId = activeBooking.userId || activeBooking.user?.id;
+    const isOwner =
+      (session.userId && bookingUserId && session.userId === bookingUserId) ||
+      (session.email && bookingUserEmail && session.email.toLowerCase() === bookingUserEmail.toLowerCase()) ||
+      session.role === 'ADMIN';
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: 'Forbidden: You are not authorized to access this booking.' },
+        { status: 403 }
+      );
+    }
+
+    // 3. Strict Precondition: Physical Arrival must be verified before Handshake Key is revealed!
+    if (!activeBooking.arrivalVerifiedAt && !storeBooking?.arrivalVerifiedAt) {
+      return NextResponse.json(
+        {
+          error: 'ARRIVAL_NOT_VERIFIED',
+          message:
+            'Move-In Handshake Key is shielded. Physical arrival verification at the property premises is required before unlocking.',
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. Retrieve or generate Move-In Key
+    let moveInKey = activeBooking.moveInOtp || storeBooking?.moveInOtp;
+    if (!moveInKey) {
+      moveInKey = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    const graceEnd = activeBooking.graceWindowEndsAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 5. Update in-memory store
     const updatedStore = updateStoreBooking(bookingId, (b) => ({
+      ...b,
       moveInOtp: moveInKey,
       status: 'MOVE_IN_READY',
       escrowAmount: b.escrowAmount || 600000,
-      graceWindowEndsAt: graceEnd.toISOString(),
-      notes: `Stage 2 Move-In Key (${moveInKey.slice(0, 3)}-${moveInKey.slice(3)}) generated. Share with Landlord upon physical check-in to release ₹6,000 Escrow.`,
+      graceWindowEndsAt: graceEnd,
     }));
 
-    // 2. Try updating Prisma DB if online
+    // 6. Update Prisma DB if online
     try {
-      const booking = await prisma.booking.findUnique({
-        where: { id: bookingId },
-        include: { property: { include: { landlord: { include: { user: true } } } } },
-      });
-
-      if (booking) {
+      if (dbBooking) {
         await prisma.booking.update({
           where: { id: bookingId },
           data: {
             moveInOtp: moveInKey,
             status: 'MOVE_IN_READY',
-            graceWindowEndsAt: graceEnd,
           },
         });
       }
@@ -51,12 +103,12 @@ export async function POST(request: NextRequest) {
       success: true,
       moveInKey: formattedKey,
       rawKey: moveInKey,
-      graceWindowEndsAt: graceEnd.toISOString(),
+      graceWindowEndsAt: graceEnd,
       booking: updatedStore || findStoreBooking(bookingId),
-      message: `Your 6-Digit Move-In Handshake Key is ${formattedKey}. Share this with your landlord after inspecting your room & receiving keys. 7-Day Grace Window active.`,
+      message: `Your 6-Digit Move-In Handshake Key is ${formattedKey}. Share this with your landlord after inspecting your room & receiving keys.`,
     });
   } catch (error: any) {
-    console.error('Move-in key generation error:', error);
-    return NextResponse.json({ error: error?.message || 'Failed to generate Move-In Key' }, { status: 500 });
+    console.error('Move-in key retrieval error:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to retrieve Move-In Key' }, { status: 500 });
   }
 }

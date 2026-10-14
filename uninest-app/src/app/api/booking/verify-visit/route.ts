@@ -2,9 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { findStoreBooking, getEscrowStore, updateStoreBooking } from '@/lib/escrowStore';
 
+import { getSession } from '@/lib/auth/actions';
+
 function sanitizeBookingUsers(booking: any) {
   if (!booking || typeof booking !== 'object') return booking;
   const copy = { ...booking };
+  delete copy.visitOtp;
+  delete copy.visitOtpExpiresAt;
+  delete copy.arrivalFallbackCode;
+  if (!copy.arrivalVerifiedAt) {
+    delete copy.moveInOtp;
+  }
   if (copy.user && typeof copy.user === 'object') {
     const { passwordHash: _pw, ...safeUser } = copy.user;
     copy.user = safeUser;
@@ -24,11 +32,12 @@ function sanitizeBookingUsers(booking: any) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { bookingId, otp, decision, reason, feedback } = await request.json();
+    const { bookingId, otp, decision: rawDecision, reason, feedback } = await request.json();
+    const decision = rawDecision || (otp ? 'VERIFY_ONLY' : undefined);
     // decision: 'VERIFY_ONLY' | 'ACCEPTED' | 'REJECTED' | 'EMERGENCY_CANCEL'
 
     if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID required' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Booking ID required' }, { status: 400 });
     }
 
     const store = getEscrowStore();
@@ -52,7 +61,26 @@ export async function POST(request: NextRequest) {
 
     const activeBooking = dbBooking || currentBooking;
     if (!activeBooking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+    }
+
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const bookingUserEmail = activeBooking.user?.email || activeBooking.userEmail;
+    const bookingUserId = activeBooking.userId || activeBooking.user?.id;
+    const isOwner =
+      (session.userId && bookingUserId && session.userId === bookingUserId) ||
+      (session.email && bookingUserEmail && session.email.toLowerCase() === bookingUserEmail.toLowerCase()) ||
+      session.role === 'ADMIN';
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You are not authorized to verify visits for this booking.', message: 'Forbidden: You are not authorized to verify visits for this booking.' },
+        { status: 403 }
+      );
     }
 
     // ─── 1. PRE-VISIT EMERGENCY WAIVER (2 per semester) ──────────────────────
@@ -132,11 +160,27 @@ export async function POST(request: NextRequest) {
       // When decision is VERIFY_ONLY, validate the 4-digit OTP
       if (decision === 'VERIFY_ONLY') {
         if (!cleanOtp || cleanOtp.length !== 4) {
-          return NextResponse.json({ error: 'Please enter the 4-digit Visit OTP shared by the landlord.' }, { status: 400 });
+          return NextResponse.json(
+            { success: false, error: 'Please enter the 4-digit Visit OTP shared by the landlord.', message: 'Please enter the 4-digit Visit OTP shared by the landlord.' },
+            { status: 400 }
+          );
+        }
+        if (activeBooking.visitVerifiedAt) {
+          return NextResponse.json(
+            { success: false, error: 'Conflict: This visit has already been verified previously.', message: 'Conflict: This visit has already been verified previously.' },
+            { status: 409 }
+          );
+        }
+        const expiresAt = activeBooking.visitOtpExpiresAt || currentBooking?.visitOtpExpiresAt;
+        if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+          return NextResponse.json(
+            { success: false, error: 'This Visit OTP has expired (72h validity). Ask the landlord to generate a new Visit OTP.', message: 'This Visit OTP has expired (72h validity). Ask the landlord to generate a new Visit OTP.' },
+            { status: 400 }
+          );
         }
         if (!expectedOtp || cleanOtp !== expectedOtp) {
           return NextResponse.json(
-            { error: `Invalid Visit OTP. Ask the landlord to generate/share the 4-digit PIN.` },
+            { success: false, error: `Invalid Visit OTP. Ask the landlord to generate/share the 4-digit PIN.`, message: `Invalid Visit OTP. Ask the landlord to generate/share the 4-digit PIN.` },
             { status: 400 }
           );
         }
@@ -313,9 +357,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ error: 'Invalid decision type' }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Invalid decision type' }, { status: 400 });
   } catch (error: any) {
     console.error('Visit verification error:', error);
-    return NextResponse.json({ error: error?.message || 'Failed to verify visit' }, { status: 500 });
+    return NextResponse.json({ success: false, error: error?.message || 'Failed to verify visit' }, { status: 500 });
   }
 }

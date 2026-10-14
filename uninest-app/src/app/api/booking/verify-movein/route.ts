@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { findStoreBooking, updateStoreBooking } from '@/lib/escrowStore';
 
+import { getSession } from '@/lib/auth/actions';
+
 function sanitizeBookingUsers(booking: any) {
   if (!booking || typeof booking !== 'object') return booking;
   const copy = { ...booking };
@@ -24,6 +26,11 @@ function sanitizeBookingUsers(booking: any) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getSession().catch(() => null);
+    if (!session) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     const { bookingId, moveInKey } = await request.json();
 
     if (!bookingId || !moveInKey) {
@@ -50,14 +57,51 @@ export async function POST(request: NextRequest) {
 
     const activeBooking = dbBooking || storeBooking;
     if (!activeBooking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 });
+    }
+
+    // Authorization: Must be landlord of this property or platform admin
+    const landlordUserEmail =
+      activeBooking.property?.landlord?.user?.email ||
+      activeBooking.property?.ownerEmail;
+    const isAuthorizedLandlord =
+      session.role === 'ADMIN' ||
+      (landlordUserEmail && session.email && session.email.toLowerCase() === landlordUserEmail.toLowerCase()) ||
+      (activeBooking.property?.landlord?.userId && session.userId === activeBooking.property.landlord.userId);
+
+    if (!isAuthorizedLandlord) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Only the property landlord or administrator can verify move-in keys.' },
+        { status: 403 }
+      );
+    }
+
+    // Replay Protection
+    if (activeBooking.status === 'ACTIVE' || activeBooking.moveInVerifiedAt != null) {
+      return NextResponse.json(
+        { success: false, error: 'Conflict: Move-in handshake has already been completed and tenancy is active.' },
+        { status: 409 }
+      );
+    }
+
+    // Strict Physical Arrival Prerequisite
+    if (!activeBooking.arrivalVerifiedAt && !storeBooking?.arrivalVerifiedAt) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'ARRIVAL_NOT_VERIFIED',
+          message:
+            'Move-in handshake cannot be completed: The student has not yet completed Physical Arrival Verification at the property.',
+        },
+        { status: 403 }
+      );
     }
 
     const expectedKey = activeBooking.moveInOtp || storeBooking?.moveInOtp;
 
     if (!expectedKey || cleanKey !== expectedKey) {
       return NextResponse.json(
-        { error: `Invalid Move-In Key. Please verify the 6-digit PIN with the student.` },
+        { success: false, error: `Invalid Move-In Key. Please verify the 6-digit PIN with the student.` },
         { status: 400 }
       );
     }

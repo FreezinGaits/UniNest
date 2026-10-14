@@ -21,4 +21,6 @@ export interface PropertyItem {
   lastEditedAt?: string;
   type?: string;
   gender?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }

@@ -46,6 +46,7 @@ import { formatINR } from '@/lib/utils';
 import { downloadDocumentPDF, DocumentPDFData } from '@/lib/pdfGenerator';
 import { VisitSchedulingModal } from '@/components/booking/VisitSchedulingModal';
 import { UniNestMessagesModal } from '@/components/booking/UniNestMessagesModal';
+import { verifyGpsProximity } from '@/lib/proximityEngine';
 
 interface BookingWorkspaceClientProps {
   booking: any;
@@ -105,56 +106,156 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
   const [copiedMoveInKey, setCopiedMoveInKey] = useState(false);
 
   // Physical PG Arrival & Handshake PIN Vault States
-  const [isArrivalVerified, setIsArrivalVerified] = useState<boolean>(false);
+  const [isArrivalVerified, setIsArrivalVerified] = useState<boolean>(
+    Boolean(initialBooking?.arrivalVerifiedAt)
+  );
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [arrivalChecklist, setArrivalChecklist] = useState({
     present: false,
     inspected: false,
     keysReceived: false,
   });
-  const [arrivalGpsStatus, setArrivalGpsStatus] = useState<'idle' | 'checking' | 'verified'>('idle');
+  const [arrivalGpsStatus, setArrivalGpsStatus] = useState<
+    'idle' | 'locating' | 'verified' | 'out_of_range' | 'inaccurate' | 'missing_coords' | 'denied' | 'error'
+  >('idle');
+  const [arrivalDistanceMeters, setArrivalDistanceMeters] = useState<number | null>(
+    initialBooking?.arrivalDistanceMeters ?? null
+  );
+  const [arrivalAccuracy, setArrivalAccuracy] = useState<number | null>(null);
+  const [arrivalErrorMessage, setArrivalErrorMessage] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ latitude: number; longitude: number; accuracy?: number | null } | null>(null);
+  const [useFallbackCode, setUseFallbackCode] = useState(false);
+  const [fallbackCodeInput, setFallbackCodeInput] = useState('');
+  const [isSubmittingArrival, setIsSubmittingArrival] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && initialBooking?.id) {
-      const stored = localStorage.getItem(`uninest_arrival_verified_${initialBooking.id}`);
-      if (stored === 'true') {
-        setIsArrivalVerified(true);
-      }
+    if (booking?.arrivalVerifiedAt) {
+      setIsArrivalVerified(true);
     }
-  }, [initialBooking?.id]);
+  }, [booking?.arrivalVerifiedAt]);
 
   const handleVerifyGpsProximity = () => {
-    setArrivalGpsStatus('checking');
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          setArrivalGpsStatus('verified');
-        },
-        () => {
-          setTimeout(() => setArrivalGpsStatus('verified'), 600);
-        },
-        { timeout: 4000 }
-      );
-    } else {
-      setTimeout(() => setArrivalGpsStatus('verified'), 600);
-    }
-  };
+    setArrivalGpsStatus('locating');
+    setArrivalErrorMessage(null);
 
-  const handleConfirmPhysicalArrival = () => {
-    if (!arrivalChecklist.present || !arrivalChecklist.inspected || !arrivalChecklist.keysReceived) {
-      alert('Please complete all 3 physical arrival checklist items before unlocking your PIN.');
+    const propLat = property?.latitude;
+    const propLng = property?.longitude;
+
+    if (propLat == null || propLng == null || isNaN(Number(propLat)) || isNaN(Number(propLng))) {
+      setArrivalGpsStatus('missing_coords');
+      setArrivalErrorMessage(
+        'This property does not have registered GPS coordinates on file. Please switch to the Landlord On-Site In-Person Check-In Code below.'
+      );
       return;
     }
-    setIsArrivalVerified(true);
-    if (typeof window !== 'undefined' && booking?.id) {
-      localStorage.setItem(`uninest_arrival_verified_${booking.id}`, 'true');
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setArrivalGpsStatus('error');
+      setArrivalErrorMessage('Geolocation is not supported by your browser.');
+      return;
     }
-    setShowArrivalModal(false);
-    setActionBanner({
-      type: 'success',
-      title: '📍 Physical PG Arrival Verified — Handshake PIN Unlocked!',
-      message: 'Your 6-digit Move-In Handshake PIN is now visible. Share it with your landlord only after verifying your room condition and collecting keys.',
-    });
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        setUserCoords(coords);
+        setArrivalAccuracy(pos.coords.accuracy ?? null);
+
+        const result = verifyGpsProximity(coords, {
+          latitude: Number(propLat),
+          longitude: Number(propLng),
+        });
+
+        if (result.verified) {
+          setArrivalGpsStatus('verified');
+          setArrivalDistanceMeters(result.distanceMeters ?? null);
+          setArrivalErrorMessage(null);
+        } else {
+          setArrivalDistanceMeters(result.distanceMeters ?? null);
+          if (result.error === 'INACCURATE_GPS') {
+            setArrivalGpsStatus('inaccurate');
+            setArrivalErrorMessage(result.message);
+          } else {
+            setArrivalGpsStatus('out_of_range');
+            setArrivalErrorMessage(result.message);
+          }
+        }
+      },
+      (err) => {
+        if (err.code === 1) {
+          setArrivalGpsStatus('denied');
+          setArrivalErrorMessage(
+            'Location permission denied by browser. Please enable location access in settings, or use the Landlord On-Site Code.'
+          );
+        } else {
+          setArrivalGpsStatus('error');
+          setArrivalErrorMessage('GPS signal acquisition timed out. Please retry or use the Landlord On-Site Code.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  };
+
+  const handleConfirmPhysicalArrival = async () => {
+    if (!arrivalChecklist.present || !arrivalChecklist.inspected || !arrivalChecklist.keysReceived) {
+      alert('Please confirm all 3 physical arrival checklist items before unlocking your PIN.');
+      return;
+    }
+
+    if (!useFallbackCode && arrivalGpsStatus !== 'verified') {
+      alert('Physical proximity verification is required before unlocking your PIN.');
+      return;
+    }
+
+    if (useFallbackCode && !fallbackCodeInput.trim()) {
+      alert('Please enter the Landlord On-Site Fallback Code provided in person.');
+      return;
+    }
+
+    setIsSubmittingArrival(true);
+    try {
+      const res = await fetch('/api/booking/verify-arrival', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking.id,
+          checklist: arrivalChecklist,
+          method: useFallbackCode ? 'LANDLORD_FALLBACK' : 'GPS',
+          coordinates: userCoords,
+          fallbackCode: fallbackCodeInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      setIsSubmittingArrival(false);
+
+      if (res.ok && data.success) {
+        setIsArrivalVerified(true);
+        setMoveInKey(data.moveInKey);
+        setBooking((prev: any) => ({
+          ...prev,
+          ...(data.booking || {}),
+          arrivalVerifiedAt: data.arrivalVerifiedAt,
+          moveInOtp: data.rawKey,
+          status: 'MOVE_IN_READY',
+        }));
+        setShowArrivalModal(false);
+        setActionBanner({
+          type: 'success',
+          title: '📍 Physical PG Arrival Verified — Handshake PIN Unlocked!',
+          message: data.message,
+        });
+      } else {
+        alert(data.message || data.error || 'Physical arrival verification failed.');
+      }
+    } catch (e) {
+      setIsSubmittingArrival(false);
+      alert('Network error while verifying physical arrival.');
+    }
   };
 
   // Stage 2: Delay, Cancel & Discrepancy Dispute States
@@ -1128,28 +1229,17 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
 
           {!visitVerified && !booking.visitVerifiedAt ? (
             <div className="space-y-4">
-              {booking.visitOtp && (
-                <div className="bg-emerald-100/90 border border-emerald-300 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping shrink-0" />
-                    <div className="text-xs">
-                      <span className="font-extrabold text-emerald-950 block">
-                        Live Handshake Signal: Landlord Issued Visit PIN ({booking.visitOtp})
-                      </span>
-                      <span className="text-[11px] text-emerald-800">
-                        Synchronized live from Landlord Portal. Tap to auto-fill or type manually.
-                      </span>
-                    </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs text-emerald-950 space-y-1">
+                  <div className="font-extrabold text-sm">
+                    In-Person Handshake Protocol Active
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVisitOtpInput(String(booking.visitOtp))}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-xs transition-colors"
-                  >
-                    Auto-Fill {booking.visitOtp}
-                  </button>
+                  <p className="text-emerald-800 leading-relaxed">
+                    When you physically arrive at <strong>{property.name}</strong>, meet landlord <strong>{landlordUser.name || 'Vikram Singh'}</strong> at the property reception. They will verbally provide your secret 4-digit Visit OTP to verify your physical visit.
+                  </p>
                 </div>
-              )}
+              </div>
 
               {/* 4-Digit OTP Input + Verify Button */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
@@ -2381,8 +2471,8 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               </button>
             </div>
 
-            {/* Property Location Confirmation */}
-            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-2">
+            {/* Property Location & Proximity Verification */}
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-3">
               <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900">
                 <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
                 <span>{property.name}</span>
@@ -2390,30 +2480,119 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
               <p className="text-[11px] text-slate-600 pl-6">
                 {property.locality || 'Campus Area'}, {property.city || 'Ludhiana'} • Room {room.roomNumber || '101'} (Bed {bed.label || 'A'})
               </p>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 pl-6">
-                <span className="text-[11px] text-slate-500 font-medium">GPS Location Check:</span>
-                {arrivalGpsStatus === 'verified' ? (
-                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Within 100m Radius Verified
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleVerifyGpsProximity}
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                  >
-                    {arrivalGpsStatus === 'checking' ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" /> Verifying GPS...
-                      </>
+
+              {!useFallbackCode ? (
+                <div className="pt-2 border-t border-slate-200/60 pl-6 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-600 font-medium">GPS Geofence (250m Radius):</span>
+                    {arrivalGpsStatus === 'verified' ? (
+                      <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Verified ({arrivalDistanceMeters ?? 0}m away)
+                      </span>
                     ) : (
-                      <>
-                        <Navigation className="w-3 h-3" /> Verify Proximity Now
-                      </>
+                      <button
+                        type="button"
+                        onClick={handleVerifyGpsProximity}
+                        disabled={arrivalGpsStatus === 'locating'}
+                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 disabled:opacity-50"
+                      >
+                        {arrivalGpsStatus === 'locating' ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin" /> Acquiring GPS...
+                          </>
+                        ) : (
+                          <>
+                            <Navigation className="w-3 h-3" /> {arrivalGpsStatus === 'idle' ? 'Verify Proximity Now' : 'Retry GPS Check'}
+                          </>
+                        )}
+                      </button>
                     )}
-                  </button>
-                )}
-              </div>
+                  </div>
+
+                  {/* Dynamic Status / Error Messages */}
+                  {arrivalGpsStatus === 'out_of_range' && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 text-[11px] text-rose-800 flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Out of Range:</strong> You are currently {arrivalDistanceMeters && arrivalDistanceMeters > 1000 ? `${(arrivalDistanceMeters / 1000).toFixed(2)} km` : `${arrivalDistanceMeters || 0}m`} away from {property.name}. You must be physically at the property (within 250m) to unlock your PIN.
+                      </div>
+                    </div>
+                  )}
+
+                  {arrivalGpsStatus === 'inaccurate' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Low GPS Accuracy (±{Math.round(arrivalAccuracy || 0)}m):</strong> GPS signal accuracy must be within 150m. Move closer to an open window or use the Landlord On-Site Code below.
+                      </div>
+                    </div>
+                  )}
+
+                  {arrivalGpsStatus === 'missing_coords' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[11px] text-amber-900 flex items-start gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Property Coordinates Missing:</strong> This property has no registered GPS coordinates. Please use the Landlord On-Site In-Person Code below.
+                      </div>
+                    </div>
+                  )}
+
+                  {arrivalGpsStatus === 'denied' && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 text-[11px] text-rose-800 flex items-start gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Location Access Denied:</strong> Browser location permission was denied. Allow location in browser settings or use the Landlord On-Site Code.
+                      </div>
+                    </div>
+                  )}
+
+                  {arrivalGpsStatus === 'error' && (
+                    <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 text-[11px] text-rose-800 flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                      <div>{arrivalErrorMessage || 'Failed to acquire GPS location.'}</div>
+                    </div>
+                  )}
+
+                  {arrivalGpsStatus !== 'verified' && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setUseFallbackCode(true)}
+                        className="text-[11px] text-slate-500 hover:text-indigo-600 font-semibold underline underline-offset-2 flex items-center gap-1"
+                      >
+                        <ShieldAlert className="w-3 h-3 text-slate-400" />
+                        Indoor GPS issues or basement? Use Landlord On-Site Code
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-slate-200/60 pl-6 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-amber-950 flex items-center gap-1">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> Landlord On-Site Fallback Code:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setUseFallbackCode(false)}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                      ← Switch to GPS
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-600">
+                    If weak indoor signal prevents GPS lock, ask landlord/caretaker {landlordUser.name || 'Vikram Singh'} for the 6-digit In-Person Check-In Code from their UniNest dashboard.
+                  </p>
+                  <input
+                    type="text"
+                    maxLength={8}
+                    value={fallbackCodeInput}
+                    onChange={(e) => setFallbackCodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="Enter Landlord 6-digit code"
+                    className="w-full bg-white border-2 border-amber-300 rounded-xl px-3 py-2 text-sm font-mono font-bold text-slate-900 tracking-widest text-center focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Mandatory 3-Point Checklist */}
@@ -2489,14 +2668,26 @@ export function BookingWorkspaceClient({ booking: initialBooking }: BookingWorks
                 type="button"
                 onClick={handleConfirmPhysicalArrival}
                 disabled={
+                  isSubmittingArrival ||
                   !arrivalChecklist.present ||
                   !arrivalChecklist.inspected ||
-                  !arrivalChecklist.keysReceived
+                  !arrivalChecklist.keysReceived ||
+                  (!useFallbackCode && arrivalGpsStatus !== 'verified') ||
+                  (useFallbackCode && fallbackCodeInput.trim().length < 4)
                 }
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5"
               >
-                <KeyRound className="w-4 h-4" />
-                <span>Confirm Arrival &amp; Reveal PIN</span>
+                {isSubmittingArrival ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying Arrival...</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>Confirm Arrival &amp; Reveal PIN</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

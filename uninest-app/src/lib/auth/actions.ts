@@ -155,11 +155,20 @@ async function saveKnownProfile(profile: KnownUserProfile): Promise<void> {
   }
 }
 
+let _mockSessionForTesting: SessionPayload | null | undefined = undefined;
+
+export function __setMockSessionForTesting(session: SessionPayload | null | undefined) {
+  _mockSessionForTesting = session;
+}
+
 export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get('session');
-  if (!sessionCookie) return null;
+  if (_mockSessionForTesting !== undefined) {
+    return _mockSessionForTesting;
+  }
   try {
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('session');
+    if (!sessionCookie) return null;
     const payload = await verifyToken(sessionCookie.value);
     return {
       ...payload,
