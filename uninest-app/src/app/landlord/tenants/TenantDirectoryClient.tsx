@@ -20,9 +20,13 @@ import {
   Building2,
   Calendar,
   Layers,
+  History,
+  ExternalLink,
+  UserCheck,
 } from 'lucide-react';
 import { formatINR } from '@/lib/utils';
 import { UniNestMessagesModal } from '@/components/booking/UniNestMessagesModal';
+import { TenantDossierModal, TenantDossierData } from '@/components/landlord/TenantDossierModal';
 
 export interface TenantRecord {
   id: string;
@@ -173,6 +177,31 @@ export function TenantDirectoryClient({
   const handleOpenChat = (tenant: TenantRecord) => {
     setActiveChatTenant(tenant);
     setIsChatOpen(true);
+  };
+
+  // Tenant Dossier & History state
+  const [selectedDossierData, setSelectedDossierData] = useState<TenantDossierData | null>(null);
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
+
+  const handleOpenDossier = (t: TenantRecord) => {
+    setSelectedDossierData({
+      tenantName: t.name,
+      tenantPhone: t.phone,
+      tenantEmail: t.email,
+      college: t.college,
+      course: t.course,
+      rollId: `STD-2026-${t.id.slice(-3)}`,
+      propertyName: t.property,
+      roomNumber: t.roomNumber,
+      bedLabel: t.bedLabel,
+      sharingType: t.sharingType,
+      rentRupees: Math.round(t.rent / 100),
+      depositRupees: 12000,
+      moveInDate: t.leaseStart || '15 Aug 2026',
+      leaseEndDate: t.leaseEnd || '14 Jul 2027',
+      subMeterNo: t.subMeterNo,
+    });
+    setIsDossierOpen(true);
   };
 
   // Filter tenants
@@ -391,7 +420,15 @@ export function TenantDirectoryClient({
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-black text-slate-900">{t.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDossier(t)}
+                              className="text-xs font-black text-slate-900 hover:text-brand-700 flex items-center gap-1 group text-left"
+                              title="Click to view complete tenant profile & history"
+                            >
+                              <span>{t.name}</span>
+                              <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100 shrink-0" />
+                            </button>
                             <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
                               {t.bedLabel}
                             </span>
@@ -418,21 +455,29 @@ export function TenantDirectoryClient({
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs gap-2 flex-wrap">
                         <div className="flex items-center gap-1 text-[11px] text-amber-800 font-semibold">
                           <Zap className="w-3 h-3 text-amber-600" />
                           <span>50% Sub-meter: ₹{t.electricitySplitShare}</span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-slate-400">Lease to {t.leaseEnd}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenDossier(t)}
+                            className="text-xs py-1 px-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border-brand-200 font-bold flex items-center gap-1"
+                            title="View complete stay dossier, rent receipts and logging"
+                          >
+                            <History className="w-3.5 h-3.5 text-brand-600" /> History
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenChat(t)}
-                            className="text-xs py-1 px-2.5 bg-white border-slate-300 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 font-bold flex items-center gap-1"
+                            className="text-xs py-1 px-2.5 bg-white border-slate-300 hover:bg-slate-100 font-bold flex items-center gap-1"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 text-brand-600" /> Message
+                            <MessageSquare className="w-3.5 h-3.5 text-slate-600" /> Message
                           </Button>
                         </div>
                       </div>
@@ -476,7 +521,15 @@ export function TenantDirectoryClient({
                 {filteredTenants.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="px-4 py-3 font-bold text-slate-900">
-                      <div>{t.name}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDossier(t)}
+                        className="text-left font-black text-slate-900 hover:text-brand-700 flex items-center gap-1 group"
+                        title="Click to view complete tenant profile & history"
+                      >
+                        <span>{t.name}</span>
+                        <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100 shrink-0" />
+                      </button>
                       <div className="text-[11px] text-slate-400">Lease: {t.leaseEnd}</div>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600">
@@ -508,14 +561,25 @@ export function TenantDirectoryClient({
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenChat(t)}
-                        className="text-xs py-1 px-2.5 font-bold hover:bg-brand-50 hover:text-brand-700 border-slate-300"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 mr-1 text-brand-600" /> Chat
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenDossier(t)}
+                          className="text-xs py-1 px-2.5 font-bold bg-brand-50 hover:bg-brand-100 text-brand-700 border-brand-200"
+                          title="View complete stay dossier, rent receipts and logging"
+                        >
+                          <History className="w-3.5 h-3.5 mr-1 text-brand-600" /> History
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenChat(t)}
+                          className="text-xs py-1 px-2.5 font-bold hover:bg-slate-100 border-slate-300"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 mr-1 text-slate-600" /> Chat
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -535,6 +599,13 @@ export function TenantDirectoryClient({
           bookingId={activeChatTenant.bookingId}
         />
       )}
+
+      {/* Tenant Profile & Complete Stay Dossier Modal */}
+      <TenantDossierModal
+        isOpen={isDossierOpen}
+        onClose={() => setIsDossierOpen(false)}
+        data={selectedDossierData}
+      />
     </div>
   );
 }

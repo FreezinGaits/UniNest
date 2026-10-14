@@ -47,7 +47,10 @@ import {
   Trash2,
   Info,
   SlidersHorizontal,
+  ExternalLink,
+  History,
 } from 'lucide-react';
+import { TenantDossierModal, TenantDossierData } from '@/components/landlord/TenantDossierModal';
 
 interface ManagePropertyClientProps {
   id: string;
@@ -100,6 +103,69 @@ export function ManagePropertyClient({
     bedLabel: string;
     tenant: string;
   } | null>(null);
+
+  // Modals state: Tenant Profile & History Dossier
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
+  const [dossierData, setDossierData] = useState<TenantDossierData | null>(null);
+
+  const handleOpenDossier = (tenantName: string, room: RoomData, bed: BedData) => {
+    const isAman = tenantName.toLowerCase().includes('aman');
+    const isRohit = tenantName.toLowerCase().includes('rohit');
+    const isPriya = tenantName.toLowerCase().includes('priya');
+    const isKaran = tenantName.toLowerCase().includes('karan');
+
+    const dossier: TenantDossierData = {
+      tenantName,
+      tenantPhone:
+        bed.tenantPhone ||
+        (isAman
+          ? '+91 97890-12345'
+          : isPriya
+          ? '+91 98443-21098'
+          : isKaran
+          ? '+91 98555-44321'
+          : '+91 98765-43210'),
+      tenantEmail: isAman
+        ? 'aman.verma@pcte.edu.in'
+        : isPriya
+        ? 'priya.sharma@pcte.edu.in'
+        : isKaran
+        ? 'karan.gill@pcte.edu.in'
+        : 'rahul@uninest.in',
+      college: isRohit
+        ? 'PCTE Institute of Management'
+        : isPriya
+        ? 'PCTE College of Pharmacy'
+        : 'PCTE Institute of Technology',
+      course: isRohit
+        ? 'MBA (1st Year)'
+        : isPriya
+        ? 'M.Pharm (1st Year)'
+        : isKaran
+        ? 'B.Pharm (3rd Year)'
+        : 'B.Tech CSE (2nd Year)',
+      rollId: isAman
+        ? 'STD-2026-993'
+        : isPriya
+        ? 'STD-2026-904'
+        : isKaran
+        ? 'STD-2026-812'
+        : 'STD-2026-992',
+      propertyName: property?.name || 'PCTE Smart Student Residency',
+      roomNumber: `Room ${room.roomNumber}`,
+      bedLabel: bed.bedLabel,
+      floor: room.floor || Math.floor(parseInt(room.roomNumber, 10) / 100) || 1,
+      sharingType: `${room.beds.length}-Sharing`,
+      rentRupees: bed.rent || room.rentRupees || 6000,
+      depositRupees: 12000,
+      moveInDate: '15 Aug 2026',
+      leaseEndDate: '14 Jul 2027',
+      subMeterNo: `Sub-Meter #${room.roomNumber}`,
+    };
+
+    setDossierData(dossier);
+    setIsDossierOpen(true);
+  };
 
   // Modals state: Add Room
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
@@ -712,9 +778,15 @@ export function ManagePropertyClient({
                         <div className="space-y-0.5">
                           {isOccupied ? (
                             <>
-                              <p className="font-bold text-slate-900 text-xs truncate">
-                                👤 {b.tenant}
-                              </p>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDossier(b.tenant || 'Tenant', room, b)}
+                                className="font-extrabold text-blue-700 hover:text-blue-900 hover:underline text-xs truncate flex items-center gap-1 text-left w-full group"
+                                title="Click to view complete tenant profile, rent receipts & history"
+                              >
+                                <span className="truncate">👤 {b.tenant}</span>
+                                <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 shrink-0" />
+                              </button>
                               {b.tenantPhone && (
                                 <p className="text-[11px] text-slate-500 flex items-center gap-1">
                                   <Phone className="w-3 h-3 text-slate-400" /> {b.tenantPhone}
@@ -738,14 +810,28 @@ export function ManagePropertyClient({
                         {/* Interactive Landlord Actions for this Bed */}
                         <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200/60">
                           {isOccupied ? (
-                            <button
-                              onClick={() =>
-                                handleOpenCheckOut(room.id, b.id, b.bedLabel, b.tenant || 'Tenant')
-                              }
-                              className="w-full py-1 px-2 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
-                            >
-                              <LogOut className="w-3 h-3" /> Check-Out
-                            </button>
+                            <div className="flex items-center gap-1.5 w-full">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenDossier(b.tenant || 'Tenant', room, b)}
+                                className="flex-1 py-1 px-2 rounded-lg bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors"
+                                title="View tenant profile, payment receipts, sub-meter split and history"
+                              >
+                                <History className="w-3 h-3 text-brand-600" />
+                                <span>Profile &amp; History</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenCheckOut(room.id, b.id, b.bedLabel, b.tenant || 'Tenant')
+                                }
+                                className="py-1 px-2 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors shrink-0"
+                                title="Initiate tenant move-out & deposit settlement"
+                              >
+                                <LogOut className="w-3 h-3" />
+                                <span>Check-Out</span>
+                              </button>
+                            </div>
                           ) : (
                             <>
                               <button
@@ -1197,6 +1283,23 @@ export function ManagePropertyClient({
           </div>
         </div>
       </Modal>
+
+      {/* ================= MODAL: TENANT PROFILE & COMPLETE STAY DOSSIER ================= */}
+      <TenantDossierModal
+        isOpen={isDossierOpen}
+        onClose={() => setIsDossierOpen(false)}
+        data={dossierData}
+        onInitiateCheckOut={(name, roomNum, bedLbl) => {
+          const cleanRoomNum = roomNum.replace('Room ', '');
+          const matchedRoom = rooms.find(
+            (r) => r.roomNumber === cleanRoomNum || `Room ${r.roomNumber}` === roomNum
+          );
+          const matchedBed = matchedRoom?.beds.find((b) => b.bedLabel === bedLbl);
+          if (matchedRoom && matchedBed) {
+            handleOpenCheckOut(matchedRoom.id, matchedBed.id, matchedBed.bedLabel, name);
+          }
+        }}
+      />
     </div>
   );
 }
