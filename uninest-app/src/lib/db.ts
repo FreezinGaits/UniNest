@@ -25,8 +25,10 @@ if (isDefaultLocalPlaceholder && !globalForPrisma.dbOfflineUntil) {
   globalForPrisma.dbOfflineUntil = Number.MAX_SAFE_INTEGER;
 }
 
-const DB_TIMEOUT_MS = 200;
-const CIRCUIT_COOLDOWN_MS = 300_000; // 5 minutes fast-fail cooldown when DB is unreachable
+// Cloud databases (e.g. Neon serverless pooler) need sufficient time for TLS & connection handshakes.
+// Timeout set to 3000ms to allow cloud connections while still preventing indefinite hangs.
+const DB_TIMEOUT_MS = 3000;
+const CIRCUIT_COOLDOWN_MS = 15_000; // 15 seconds cooldown when DB is temporarily unreachable
 
 function isConnectionError(err: any): boolean {
   if (!err) return false;
