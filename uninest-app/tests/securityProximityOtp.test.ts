@@ -167,7 +167,7 @@ async function runSecurityTestSuite() {
   console.log('\n--- Test Group 2: Stage 1 Physical Visit Proof OTP Security ---');
 
   await runTest('Prevents students from generating or calling Visit OTP API (403 Forbidden)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/visit-otp', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
     });
@@ -178,7 +178,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Allows authorized landlord to generate 4-digit Visit OTP with 72h expiry', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const req = createMockRequest('/api/booking/visit-otp', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
     });
@@ -193,7 +193,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects invalid Visit OTP entered by student (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-visit', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       otp: '0000', // Wrong OTP
@@ -206,7 +206,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects expired Visit OTP (> 72 hours)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -226,7 +226,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Accepts valid Visit OTP and sets visitVerifiedAt', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -248,7 +248,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Prevents replay of already-verified Visit OTP (409 Conflict)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-visit', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       otp: '8412',
@@ -265,7 +265,7 @@ async function runSecurityTestSuite() {
   console.log('\n--- Test Group 3: Stage 2 Physical Arrival & Handshake PIN Vault ---');
 
   await runTest('Rejects unauthenticated arrival verification request (401 Unauthorized)', async () => {
-    __setMockSessionForTesting(null);
+    await __setMockSessionForTesting(null);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: true },
@@ -277,7 +277,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects arrival verification from unauthorized user (403 Forbidden)', async () => {
-    __setMockSessionForTesting(ATTACKER_SESSION);
+    await __setMockSessionForTesting(ATTACKER_SESSION);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: true },
@@ -289,7 +289,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects arrival verification with incomplete checklist items (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: false }, // unchecked keys
@@ -304,7 +304,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects arrival verification if Stage 1 Visit OTP was skipped (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -327,7 +327,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Direct API bypass prevention: Rejects out-of-range GPS submitted to backend (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -349,7 +349,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Direct API bypass prevention: Rejects inaccurate GPS submitted to backend (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: true },
@@ -364,7 +364,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Rejects invalid Landlord On-Site Fallback Code (400 Bad Request)', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: true },
@@ -379,7 +379,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Verifies genuine physical arrival via GPS & unlocks 6-digit Move-In Handshake PIN', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/verify-arrival', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       checklist: { present: true, inspected: true, keysReceived: true },
@@ -401,7 +401,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Supports secure Landlord In-Person Fallback check-in for indoor signal loss', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-advance-2026-demo');
     if (booking) {
@@ -431,7 +431,7 @@ async function runSecurityTestSuite() {
   console.log('\n--- Test Group 4: Zero-Knowledge Shielding & Anti-Leakage Verification ---');
 
   await runTest('Student live-sync NEVER leaks landlord Visit OTP or fallback code', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const req = createMockRequest('/api/booking/live-sync?bookingId=bkg-pcte-2026-demo', 'GET');
     const res = await liveSyncHandler(req);
     assert.strictEqual(res.status, 200);
@@ -450,7 +450,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Student live-sync NEVER leaks Move-In PIN BEFORE arrival verification', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -470,7 +470,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Landlord live-sync NEVER leaks student Move-In PIN before physical move-in completed', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -496,7 +496,7 @@ async function runSecurityTestSuite() {
   console.log('\n--- Test Group 5: Stage 2 Escrow Release Handshake Key & Replay Protection ---');
 
   await runTest('Landlord cannot verify move-in before student physical arrival (403 Forbidden)', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -516,7 +516,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Landlord entering wrong move-in key is rejected (400 Bad Request)', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -536,7 +536,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Landlord entering correct 6-digit key successfully completes move-in and escrow release', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-pcte-2026-demo');
     if (booking) {
@@ -560,7 +560,7 @@ async function runSecurityTestSuite() {
   });
 
   await runTest('Replay prevention: Re-submitting move-in key on completed booking is rejected (409 Conflict)', async () => {
-    __setMockSessionForTesting(LANDLORD_SESSION);
+    await __setMockSessionForTesting(LANDLORD_SESSION);
     const req = createMockRequest('/api/booking/verify-movein', 'POST', {
       bookingId: 'bkg-pcte-2026-demo',
       moveInKey: '654-321',
@@ -577,7 +577,7 @@ async function runSecurityTestSuite() {
   console.log('\n--- Test Group 6: Concurrency & Race Condition Resilience ---');
 
   await runTest('Handles concurrent arrival verification requests cleanly without race condition', async () => {
-    __setMockSessionForTesting(STUDENT_SESSION);
+    await __setMockSessionForTesting(STUDENT_SESSION);
     const store = getEscrowStore();
     const booking = store.bookings.find((b) => b.id === 'bkg-advance-2026-demo');
     if (booking) {

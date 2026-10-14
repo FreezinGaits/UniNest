@@ -157,7 +157,7 @@ async function saveKnownProfile(profile: KnownUserProfile): Promise<void> {
 
 let _mockSessionForTesting: SessionPayload | null | undefined = undefined;
 
-export function __setMockSessionForTesting(session: SessionPayload | null | undefined) {
+export async function __setMockSessionForTesting(session: SessionPayload | null | undefined) {
   _mockSessionForTesting = session;
 }
 
