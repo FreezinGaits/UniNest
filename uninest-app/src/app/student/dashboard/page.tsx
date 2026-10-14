@@ -253,20 +253,25 @@ export default async function StudentDashboard() {
             </div>
           ) : (
             bookings.map((b: any) => (
-              <div key={b.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                <div className="space-y-1">
-                  <span className="font-extrabold text-slate-900 text-sm block">{b.property?.name || 'PCTE Smart Student Residency'}</span>
+              <div
+                key={b.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+              >
+                <div className="space-y-1 min-w-0">
+                  <span className="font-extrabold text-slate-900 text-sm block leading-snug">
+                    {b.property?.name || 'PCTE Smart Student Residency'}
+                  </span>
                   <p className="text-xs text-slate-500">
                     {b.property?.locality || 'Ferozepur Road'} • Room {b.bed?.room?.roomNumber || '204'}, Bed {b.bed?.bedNumber || 'A'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/70">
                   <Badge variant={b.status === 'RESERVED' ? 'warning' : 'success'} size="sm">
                     {b.status}
                   </Badge>
                   <Link href={`/student/bookings/${b.id}`}>
-                    <Button size="sm" variant="outline" className="text-xs">
-                      Workspace
+                    <Button size="sm" variant="outline" className="text-xs font-bold">
+                      Workspace →
                     </Button>
                   </Link>
                 </div>

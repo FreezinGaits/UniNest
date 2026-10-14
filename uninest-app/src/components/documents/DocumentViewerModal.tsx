@@ -38,8 +38,8 @@ export function DocumentViewerModal({ isOpen, onClose, doc }: DocumentViewerModa
     <Modal isOpen={isOpen} onClose={onClose} size="xl" title="">
       <div className="flex flex-col h-full space-y-4 -mt-2">
         {/* Modal Header Bar with Actions & Top-Right Close Button */}
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-200 shrink-0">
-          <div className="space-y-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 shrink-0">
+          <div className="space-y-1 min-w-0 pr-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                 {doc.referenceNo}
@@ -48,32 +48,36 @@ export function DocumentViewerModal({ isOpen, onClose, doc }: DocumentViewerModa
                 {doc.status}
               </Badge>
             </div>
-            <h2 className="text-lg font-extrabold text-slate-900 leading-snug truncate">{doc.title}</h2>
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug truncate" title={doc.title}>
+              {doc.title}
+            </h2>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              size="sm"
-              className="font-bold text-xs flex items-center gap-1.5 border-slate-300 hover:bg-slate-100"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print
-            </Button>
-            <Button
-              onClick={handleDownload}
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download PDF
-            </Button>
+          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handlePrint}
+                variant="outline"
+                size="sm"
+                className="font-bold text-xs flex items-center gap-1.5 border-slate-300 hover:bg-slate-100 px-2.5 py-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print</span>
+              </Button>
+              <Button
+                onClick={handleDownload}
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm px-3 py-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF</span>
+              </Button>
+            </div>
             {/* Top Right Close Button */}
             <button
               onClick={onClose}
               type="button"
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-1"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-auto sm:ml-1"
               aria-label="Close document modal"
             >
               <X className="w-5 h-5" />

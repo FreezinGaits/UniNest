@@ -25,27 +25,43 @@ function LegalCenterContent() {
     (['escrow', 'lease', 'privacy', 'terms'].includes(initialDoc) ? initialDoc : 'escrow') as any
   );
 
+  const handleBack = () => {
+    const from = searchParams.get('from');
+    const bookingId = searchParams.get('bookingId');
+    if (from) {
+      router.push(from);
+    } else if (bookingId) {
+      router.push(`/student/bookings/${bookingId}`);
+    } else if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/student/dashboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* Top Bar */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 min-h-[3.5rem] py-2 sm:py-0 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => router.back()}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl transition-colors"
+              onClick={handleBack}
+              className="inline-flex items-center gap-1 sm:gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 sm:px-3 py-1.5 rounded-xl transition-colors shrink-0"
+              title="Return to previous page"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Workspace</span>
+              <span className="hidden sm:inline">Back to Workspace</span>
+              <span className="sm:hidden">Back</span>
             </button>
-            <div className="h-4 w-px bg-slate-200" />
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-emerald-700 rounded-lg flex items-center justify-center">
+            <div className="h-4 w-px bg-slate-200 shrink-0 hidden sm:block" />
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <div className="w-7 h-7 bg-emerald-700 rounded-lg flex items-center justify-center shrink-0">
                 <Scale className="w-4 h-4 text-white" />
               </div>
-              <span className="font-extrabold text-sm sm:text-base text-slate-900">
-                UniNest Legal & Statutory Compliance Center
+              <span className="font-extrabold text-xs sm:text-base text-slate-900 truncate">
+                UniNest Legal & Compliance
               </span>
             </div>
           </div>
@@ -53,10 +69,11 @@ function LegalCenterContent() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition-colors shrink-0"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Print / Save as PDF</span>
+            <span className="hidden sm:inline">Print / Save as PDF</span>
+            <span className="sm:hidden">PDF</span>
           </button>
         </div>
       </header>

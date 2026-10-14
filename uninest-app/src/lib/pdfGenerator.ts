@@ -39,8 +39,8 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
 
   if (doc.category === 'RECEIPT') {
     bodyContent = `
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px border-dashed #cbd5e1; padding-bottom: 16px; margin-bottom: 16px;">
+      <div class="doc-card" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+        <div class="receipt-summary-row" style="border-bottom: 2px dashed #cbd5e1; padding-bottom: 16px; margin-bottom: 16px;">
           <div>
             <span style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #64748b; letter-spacing: 0.05em;">TAX INVOICE & RENT RECEIPT</span>
             <h2 style="margin: 4px 0 0 0; font-size: 20px; color: #0f172a; font-weight: 800;">Monthly Accommodation Services</h2>
@@ -105,7 +105,7 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else if (doc.category === 'AGREEMENT') {
     bodyContent = `
-      <div style="border: 2px solid #0f172a; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+      <div class="doc-card" style="border: 2px solid #0f172a; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
         <div style="text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 20px;">
           <span style="background-color: #0f172a; color: #fff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 4px; letter-spacing: 0.1em; text-transform: uppercase;">GOVERNMENT OF PUNJAB e-STAMP CERTIFICATE</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 22px; font-weight: 900; color: #0f172a;">DIGITAL LEASE & RESIDENTIAL AGREEMENT</h2>
@@ -133,8 +133,8 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else if (doc.category === 'KYC') {
     bodyContent = `
-      <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
-        <div style="display: flex; justify-object: space-between; align-items: center; margin-bottom: 16px;">
+      <div class="doc-card" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
           <div>
             <span style="font-size: 11px; font-weight: 800; color: #166534; text-transform: uppercase;">GOVERNMENT IDENTITY AUDIT</span>
             <h2 style="margin: 4px 0 0 0; font-size: 20px; color: #14532d; font-weight: 900;">Aadhaar KYC Verification Certificate</h2>
@@ -154,7 +154,7 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else if (doc.category === 'COLLEGE') {
     bodyContent = `
-      <div style="border: 2px solid #2563eb; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #eff6ff;">
+      <div class="doc-card" style="border: 2px solid #2563eb; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #eff6ff;">
         <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #93c5fd; padding-bottom: 16px;">
           <h2 style="margin: 0; font-size: 20px; color: #1e40af; font-weight: 900;">PCTE INSTITUTE OF HIGHER EDUCATION</h2>
           <p style="margin: 4px 0 0 0; font-size: 12px; color: #3b82f6; font-weight: 700;">Office of Student Welfare & Off-Campus Accommodation Desk</p>
@@ -168,7 +168,7 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else if (doc.category === 'POLICE') {
     bodyContent = `
-      <div style="border: 2px solid #1e3a8a; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #f8fafc;">
+      <div class="doc-card" style="border: 2px solid #1e3a8a; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #f8fafc;">
         <div style="text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 16px; margin-bottom: 20px;">
           <div style="font-size: 11px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.05em;">PUNJAB POLICE HEADQUARTERS • LUDHIANA COMMISSIONERATE</div>
           <h2 style="margin: 6px 0 2px 0; font-size: 20px; color: #0f172a; font-weight: 900;">TENANT VERIFICATION REGISTRATION FORM (FORM-11)</h2>
@@ -213,7 +213,7 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else if (doc.category === 'PROPERTY') {
     bodyContent = `
-      <div style="border: 2px solid #7c3aed; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #faf5ff;">
+      <div class="doc-card" style="border: 2px solid #7c3aed; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #faf5ff;">
         <div style="text-align: center; border-bottom: 2px solid #ddd6fe; padding-bottom: 16px; margin-bottom: 20px;">
           <span style="background-color: #7c3aed; color: #fff; font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 4px; letter-spacing: 0.1em; text-transform: uppercase;">PROPERTY MANAGEMENT COMPLIANCE & RULES</span>
           <h2 style="margin: 8px 0 4px 0; font-size: 20px; font-weight: 900; color: #581c87;">${title}</h2>
@@ -252,7 +252,7 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     `;
   } else {
     bodyContent = `
-      <div style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #ffffff;">
+      <div class="doc-card" style="border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; margin-bottom: 24px; background-color: #ffffff;">
         <h2 style="margin: 0 0 12px 0; font-size: 18px; color: #0f172a; font-weight: 800;">Move-In Amenities & Condition Handover Inspection</h2>
         <p style="font-size: 13px; color: #475569; margin-bottom: 16px;">Detailed 18-point inspection completed for <strong>${room}</strong> by ${doc.issuer}.</p>
         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
@@ -270,15 +270,26 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
     <html lang="en">
     <head>
       <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
       <title>${doc.referenceNo} - ${doc.title}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap');
+        * {
+          box-sizing: border-box;
+        }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          -webkit-text-size-adjust: 100%;
+        }
         body {
           font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-          margin: 0;
-          padding: 40px;
+          padding: 36px 32px;
           color: #0f172a;
           background-color: #ffffff;
+          line-height: 1.5;
+          word-wrap: break-word;
         }
         .header {
           display: flex;
@@ -286,13 +297,15 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           align-items: flex-start;
           border-bottom: 3px solid #0f172a;
           padding-bottom: 20px;
-          margin-bottom: 30px;
+          margin-bottom: 28px;
+          gap: 16px;
         }
         .brand-title {
           font-size: 26px;
           font-weight: 900;
           color: #0f172a;
           letter-spacing: -0.03em;
+          line-height: 1.1;
         }
         .brand-sub {
           font-size: 12px;
@@ -300,9 +313,11 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          margin-top: 2px;
         }
         .doc-meta {
           text-align: right;
+          flex-shrink: 0;
         }
         .ref-badge {
           font-family: monospace;
@@ -312,6 +327,8 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           border-radius: 6px;
           font-size: 13px;
           font-weight: 700;
+          display: inline-block;
+          word-break: break-all;
         }
         .footer {
           margin-top: 40px;
@@ -322,6 +339,14 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           align-items: center;
           font-size: 11px;
           color: #64748b;
+          gap: 12px;
+        }
+        .stamp-box-wrapper {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+          margin-top: 30px;
+          gap: 16px;
         }
         .stamp-box {
           border: 2px dashed #059669;
@@ -329,6 +354,70 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
           padding: 10px 16px;
           border-radius: 10px;
           display: inline-block;
+        }
+        .signatory-box {
+          text-align: right;
+          font-size: 12px;
+          color: #475569;
+        }
+        .doc-card {
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .receipt-summary-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          box-sizing: border-box;
+        }
+
+        @media (max-width: 640px) {
+          body {
+            padding: 16px 14px;
+          }
+          .header {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 12px !important;
+            padding-bottom: 14px !important;
+            margin-bottom: 18px !important;
+          }
+          .brand-title {
+            font-size: 20px !important;
+          }
+          .doc-meta {
+            text-align: left !important;
+          }
+          .receipt-summary-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+          }
+          .stamp-box-wrapper {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 16px !important;
+          }
+          .signatory-box {
+            text-align: left !important;
+          }
+          .footer {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 8px !important;
+            margin-top: 24px !important;
+          }
+          table {
+            font-size: 11px !important;
+          }
+          th, td {
+            padding: 8px 6px !important;
+          }
         }
         @media print {
           body { padding: 20px; }
@@ -354,13 +443,13 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
       ${bodyContent}
 
       <!-- Official Digital Seal & Stamp -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
+      <div class="stamp-box-wrapper">
         <div class="stamp-box">
           <div style="font-size: 10px; text-transform: uppercase; font-weight: 900; color: #047857;">DIGITALLY SIGNED & VERIFIED</div>
           <div style="font-size: 12px; font-weight: 800; color: #065f46; margin-top: 2px;">UniNest Automated Escrow Trust Engine</div>
           <div style="font-size: 10px; color: #047857; margin-top: 2px;">Sha-256 Hash: e8f90a...37b12</div>
         </div>
-        <div style="text-align: right; font-size: 12px; color: #475569;">
+        <div class="signatory-box">
           <div style="font-weight: 800; color: #0f172a;">Authorized Signatory</div>
           <div style="margin-top: 20px; border-bottom: 1px solid #94a3b8; width: 180px; display: inline-block;"></div>
           <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Passi Residency Management Desk</div>
