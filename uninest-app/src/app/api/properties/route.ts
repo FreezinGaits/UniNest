@@ -108,10 +108,35 @@ export async function POST(req: NextRequest) {
       }
 
       if (!landlord) {
-        landlord = await prisma.landlord.findFirst();
+        const demoUser = await prisma.user.findFirst({
+          where: { role: 'LANDLORD' },
+        });
+        const userId = demoUser
+          ? demoUser.id
+          : (
+              await prisma.user.create({
+                data: {
+                  name: data.ownerName || 'Vikram Singh',
+                  email: data.ownerEmail || 'landlord@uninest.demo',
+                  passwordHash: '$2a$10$demohashplaceholder',
+                  phone: '9898989801',
+                  role: 'LANDLORD',
+                },
+              })
+            ).id;
+
+        landlord = await prisma.landlord.create({
+          data: {
+            userId,
+            businessName: data.ownerName || 'UniNest Host',
+          },
+        });
       }
 
       if (landlord) {
+        const finalLat = data.latitude != null ? data.latitude : 30.8984;
+        const finalLng = data.longitude != null ? data.longitude : 75.8564;
+
         await prisma.$transaction(async (tx) => {
           const prop = await tx.property.create({
             data: {
@@ -127,9 +152,10 @@ export async function POST(req: NextRequest) {
               description: data.description,
               landlordId: landlord.id,
               verificationStatus: 'UNDER_REVIEW',
+              isActive: true,
               images: propertyImages,
-              latitude: data.latitude,
-              longitude: data.longitude,
+              latitude: finalLat,
+              longitude: finalLng,
             },
           });
 

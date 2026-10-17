@@ -550,7 +550,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply Filters: Students must ONLY see properties that are officially VERIFIED by Admin
-    let filtered = propertiesList.filter((p) => p.verificationStatus === 'VERIFIED');
+    let filtered = propertiesList.filter(
+      (p) => p.verificationStatus === 'VERIFIED' || p.verificationStatus === 'APPROVED' || p.verified === true
+    );
 
     if (state) {
       filtered = filtered.filter((p) => p.state?.toLowerCase() === state.toLowerCase());
@@ -575,7 +577,8 @@ export async function GET(request: NextRequest) {
           p.name?.toLowerCase().includes(qLower) ||
           p.locality?.toLowerCase().includes(qLower) ||
           p.address?.toLowerCase().includes(qLower) ||
-          p.city?.toLowerCase().includes(qLower)
+          p.city?.toLowerCase().includes(qLower) ||
+          p.description?.toLowerCase().includes(qLower)
       );
     }
 
@@ -584,7 +587,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (verified === 'true') {
-      filtered = filtered.filter((p) => p.verificationStatus === 'VERIFIED' || p.verified === true);
+      filtered = filtered.filter((p) => p.verificationStatus === 'VERIFIED' || p.verificationStatus === 'APPROVED' || p.verified === true);
     }
 
     if (minRent) {
@@ -658,7 +661,12 @@ export async function GET(request: NextRequest) {
 
     if (maxDistance) {
       const maxD = parseFloat(maxDistance);
-      filtered = filtered.filter((p) => p.computedDistance <= maxD);
+      filtered = filtered.filter((p) => {
+        if (q && (p.name?.toLowerCase().includes(q.toLowerCase()) || p.locality?.toLowerCase().includes(q.toLowerCase()))) {
+          return true;
+        }
+        return p.computedDistance <= maxD;
+      });
     }
 
     if (maxTotalCost) {

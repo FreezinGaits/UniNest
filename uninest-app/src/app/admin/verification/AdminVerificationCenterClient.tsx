@@ -230,7 +230,7 @@ export function AdminVerificationCenterClient({ initialProperties }: AdminVerifi
       const res = await fetch('/api/admin/properties/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ propertyId, status: newStatus, rejectionReason: reason }),
+        body: JSON.stringify({ propertyId, status: newStatus, rejectionReason: reason, propertyData: targetProp }),
       });
 
       if (res.ok) {

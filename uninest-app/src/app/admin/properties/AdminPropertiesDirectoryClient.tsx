@@ -189,7 +189,7 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
     fetch('/api/admin/properties/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyId, status: newStatus }),
+      body: JSON.stringify({ propertyId, status: newStatus, propertyData: target }),
     }).catch(() => {});
 
     // Log in audit storage
@@ -475,7 +475,7 @@ export function AdminPropertiesDirectoryClient({ initialProperties }: AdminPrope
                                 const res = await fetch('/api/admin/properties/verify', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ propertyId: p.id, status: 'VERIFIED' }),
+                                  body: JSON.stringify({ propertyId: p.id, status: 'VERIFIED', propertyData: p }),
                                 });
                                 if (res.ok) {
                                   saveLocalOverride(p.id, 'VERIFIED');

@@ -12,7 +12,13 @@ import {
   STATES_DATA,
   COLLEGES_DATA,
   estimateCommuteTime,
+  calculateHaversineDistance,
+  PCTE_LAT,
+  PCTE_LNG,
 } from '@/lib/locationData';
+import { getClientProperties } from '@/lib/clientProperties';
+import { getLocalOverrides } from '@/lib/messagesStorage';
+import { getPropertyRooms } from '@/lib/roomBedStore';
 import DemoMapView from '@/components/search/DemoMapView';
 import { HeartSaveButton } from '@/components/property/HeartSaveButton';
 import {
@@ -213,8 +219,132 @@ export default function StudentSearchPage() {
 
         const res = await fetch(`/api/properties/search?${params.toString()}`);
         const data = await res.json();
-        const rawList = Array.isArray(data.properties) ? data.properties : [];
-        const verifiedOnlyList = rawList.filter((p: PropertyResult) => p.verificationStatus === 'VERIFIED');
+        let rawList: PropertyResult[] = Array.isArray(data?.properties) ? data.properties : [];
+
+        // Seamlessly merge client-side properties (e.g. newly created & verified properties like "Meri kothi")
+        if (typeof window !== 'undefined') {
+          const clientProps = getClientProperties();
+          const overrides = getLocalOverrides();
+
+          // 1. Apply overrides to server-returned properties
+          rawList = rawList.map((p) => {
+            const ov = overrides[p.id];
+            if (ov) {
+              return { ...p, verificationStatus: ov.verificationStatus };
+            }
+            return p;
+          });
+
+          // 2. Add verified custom properties from client storage
+          for (const cp of clientProps) {
+            const ov = overrides[cp.id];
+            const currentStatus = String(ov?.verificationStatus || cp.verificationStatus || 'UNDER_REVIEW').toUpperCase();
+            const isApproved = currentStatus === 'VERIFIED' || currentStatus === 'APPROVED';
+
+            if (isApproved) {
+              const roomsData = getPropertyRooms(cp as any);
+              const totalBeds = roomsData.reduce((acc, r) => acc + r.beds.length, 0) || cp.totalBeds || 8;
+              const availBeds = roomsData.reduce(
+                (acc, r) => acc + r.beds.filter((b) => b.status === 'AVAILABLE').length,
+                0
+              );
+              const minBaseRent = cp.rentPerMonth || 6000;
+              const trueMonthlyCost = minBaseRent + 1500;
+              const propLat = (cp as any).latitude ?? PCTE_LAT;
+              const propLng = (cp as any).longitude ?? PCTE_LNG;
+              const dist = calculateHaversineDistance(
+                propLat,
+                propLng,
+                selectedCollege.latitude,
+                selectedCollege.longitude
+              );
+
+              const formattedCp: PropertyResult = {
+                id: cp.id,
+                name: cp.name,
+                type: cp.type || 'PG',
+                address: cp.address,
+                locality: cp.locality,
+                city: cp.city || 'Ludhiana',
+                state: 'Punjab',
+                gender: cp.gender || 'ANY',
+                latitude: propLat,
+                longitude: propLng,
+                verificationStatus: 'VERIFIED',
+                verifiedAt: new Date().toISOString(),
+                lastAvailabilityConfirm: new Date().toISOString(),
+                wifiAvailable: true,
+                foodAvailable: true,
+                laundryAvailable: true,
+                parkingAvailable: true,
+                amenities: ['Power Backup', 'Wi-Fi', 'CCTV Security', 'Purified Water'],
+                rules: ['Gate Closing 10:30 PM', 'ID Card Mandatory'],
+                wifiCharge: 0,
+                foodCharge: 150000,
+                maintenanceCharge: 30000,
+                electricityRate: 900,
+                computedDistance: dist,
+                minBaseRent,
+                minDeposit: minBaseRent * 2,
+                totalBeds,
+                availBeds,
+                trueMonthlyCost,
+                rating: 4.8,
+                reviewCount: 10,
+                images: Array.isArray(cp.images) && cp.images.length > 0 ? cp.images : [
+                  'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1000&q=80',
+                  'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1000&q=80'
+                ],
+                landlord: {
+                  businessName: 'Vikram Singh (Landlord)',
+                  responseRate: 98,
+                  avgResponseTime: '< 15 mins',
+                  user: { name: 'Vikram Singh', phone: '9898989801' },
+                },
+                rooms: roomsData.map((r) => ({
+                  id: r.id,
+                  roomNumber: r.roomNumber,
+                  sharing: r.sharing,
+                  rent: r.rentRupees * 100,
+                  deposit: r.rentRupees * 200,
+                  hasAC: r.hasAC ?? true,
+                  beds: r.beds.map((b) => ({ id: b.id, status: b.status })),
+                })),
+                reviews: [],
+                collegeLinks: [{ distance: dist, college: { collegeName: selectedCollege.name } }],
+              };
+
+              // Filter checks
+              const matchesCity = !selectedCity || formattedCp.city.toLowerCase() === selectedCity.toLowerCase();
+              const matchesLocality = !selectedLocality || formattedCp.locality?.toLowerCase() === selectedLocality.toLowerCase();
+              const qLower = searchQuery.trim().toLowerCase();
+              const matchesQuery = !qLower ||
+                formattedCp.name.toLowerCase().includes(qLower) ||
+                (formattedCp.locality && formattedCp.locality.toLowerCase().includes(qLower)) ||
+                (formattedCp.address && formattedCp.address.toLowerCase().includes(qLower));
+
+              const isDirectQueryMatch = !!(qLower && formattedCp.name.toLowerCase().includes(qLower));
+              const matchesRadius = !selectedRadius || dist <= Number(selectedRadius) || isDirectQueryMatch;
+
+              if (matchesCity && matchesLocality && matchesQuery && matchesRadius) {
+                const existingIdx = rawList.findIndex(
+                  (p) => p.id === cp.id || p.name.trim().toLowerCase() === cp.name.trim().toLowerCase()
+                );
+                if (existingIdx >= 0) {
+                  rawList[existingIdx] = { ...rawList[existingIdx], ...formattedCp };
+                } else {
+                  rawList.unshift(formattedCp);
+                }
+              }
+            } else {
+              rawList = rawList.filter((p) => p.id !== cp.id);
+            }
+          }
+        }
+
+        const verifiedOnlyList = rawList.filter(
+          (p: PropertyResult) => p.verificationStatus === 'VERIFIED' || p.verificationStatus === 'APPROVED'
+        );
         setProperties(verifiedOnlyList);
       } catch (err) {
         console.error('Search failed:', err);

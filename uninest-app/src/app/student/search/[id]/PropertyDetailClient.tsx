@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -19,6 +19,8 @@ import { DemoPaymentModal } from '@/components/booking/DemoPaymentModal';
 import { VisitSchedulingModal } from '@/components/booking/VisitSchedulingModal';
 import { UniNestMessagesModal } from '@/components/booking/UniNestMessagesModal';
 import { HeartSaveButton } from '@/components/property/HeartSaveButton';
+import { getClientProperties } from '@/lib/clientProperties';
+import { getPropertyRooms } from '@/lib/roomBedStore';
 
 interface PropertyDetailClientProps {
   property: any;
@@ -26,8 +28,64 @@ interface PropertyDetailClientProps {
   initialVisit?: any;
 }
 
-export function PropertyDetailClient({ property, initialBooking, initialVisit }: PropertyDetailClientProps) {
+export function PropertyDetailClient({ property: initialProperty, initialBooking, initialVisit }: PropertyDetailClientProps) {
   const router = useRouter();
+  const [property, setProperty] = useState(initialProperty);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const clientProps = getClientProperties();
+      const matched = clientProps.find(
+        (cp) => cp.id === initialProperty.id || (initialProperty.name && cp.name.trim().toLowerCase() === initialProperty.name.trim().toLowerCase())
+      );
+      if (matched) {
+        const roomsData = getPropertyRooms(matched as any);
+        const mappedRooms = roomsData.map((r) => ({
+          id: r.id,
+          roomNumber: r.roomNumber,
+          floor: r.floor || 1,
+          sharing: r.sharing,
+          rent: r.rentRupees * 100,
+          deposit: r.rentRupees * 200,
+          hasAC: r.hasAC ?? true,
+          hasAttBath: r.hasAttBath ?? true,
+          hasAttachedBath: r.hasAttBath ?? true,
+          beds: r.beds.map((b) => ({
+            id: b.id,
+            label: b.label,
+            bedNumber: b.bedLabel,
+            status: b.status,
+          })),
+        }));
+
+        setProperty((prev: any) => ({
+          ...prev,
+          id: matched.id,
+          name: matched.name,
+          type: matched.type || 'PG',
+          locality: matched.locality,
+          city: matched.city || 'Ludhiana',
+          address: matched.address,
+          description: matched.description || prev?.description,
+          verificationStatus: matched.verificationStatus || 'VERIFIED',
+          images: Array.isArray(matched.images) && matched.images.length > 0 ? matched.images : prev?.images,
+          rooms: mappedRooms.length > 0 ? mappedRooms : prev?.rooms,
+        }));
+
+        if (mappedRooms.length > 0) {
+          setSelectedRoom(mappedRooms[0]);
+          const firstAvail = mappedRooms[0].beds?.find((b: any) => b.status === 'AVAILABLE') || mappedRooms[0].beds?.[0];
+          if (firstAvail) {
+            setSelectedBed(firstAvail);
+            setSelectedBedLabel(firstAvail.label || firstAvail.bedNumber || 'A');
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Error hydrating custom property details:', err);
+    }
+  }, [initialProperty.id, initialProperty.name]);
   // State machine
   const [booking, setBooking] = useState(initialBooking);
   const [visit, setVisit] = useState(initialVisit);
