@@ -54,11 +54,15 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
       {/* Modal Card */}
       <div
         className={cn(
-          'relative z-10 w-full max-w-full min-w-0 bg-white rounded-2xl shadow-2xl border border-slate-200',
+          'relative z-10 w-full min-w-0 bg-white rounded-2xl shadow-2xl border border-slate-200',
           'flex flex-col max-h-[92vh] sm:max-h-[88vh] my-auto animate-scale-in overflow-hidden',
           sizes[size],
           className
         )}
+        style={{
+          maxWidth: 'min(100%, calc(100vw - 16px))',
+          boxSizing: 'border-box',
+        }}
       >
         {/* Sticky Header */}
         {title && (

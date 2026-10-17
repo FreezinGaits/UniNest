@@ -331,189 +331,201 @@ export function generateDocumentHTML(doc: DocumentPDFData): string {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap');
         *, *::before, *::after {
           box-sizing: border-box !important;
-          max-width: 100%;
+          max-width: 100% !important;
         }
         html, body {
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          max-width: 100%;
-          overflow-x: hidden;
+          margin: 0 !important;
+          padding: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          overflow-x: hidden !important;
           -webkit-text-size-adjust: 100%;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
         }
         body {
-          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          padding: 24px 20px;
-          color: #0f172a;
-          background-color: #ffffff;
-          line-height: 1.5;
-          word-break: break-word;
-          overflow-wrap: anywhere;
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+          padding: 10px 8px !important;
+          color: #0f172a !important;
+          background-color: #ffffff !important;
+          line-height: 1.4 !important;
         }
         .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          border-bottom: 2px solid #0f172a;
-          padding-bottom: 14px;
-          margin-bottom: 18px;
-          gap: 12px;
-          flex-wrap: wrap;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          border-bottom: 2px solid #0f172a !important;
+          padding-bottom: 10px !important;
+          margin-bottom: 12px !important;
+          gap: 6px !important;
+          width: 100% !important;
         }
         .brand-title {
-          font-size: 24px;
-          font-weight: 900;
-          color: #0f172a;
-          letter-spacing: -0.03em;
-          line-height: 1.1;
+          font-size: 18px !important;
+          font-weight: 900 !important;
+          color: #0f172a !important;
+          letter-spacing: -0.03em !important;
+          line-height: 1.1 !important;
         }
         .brand-sub {
-          font-size: 11px;
-          color: #059669;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-top: 2px;
+          font-size: 10px !important;
+          color: #059669 !important;
+          font-weight: 800 !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.05em !important;
+          margin-top: 2px !important;
         }
         .doc-meta {
-          text-align: right;
-          flex-shrink: 0;
+          text-align: left !important;
+          width: 100% !important;
         }
         .ref-badge {
-          font-family: monospace;
-          background-color: #0f172a;
-          color: #ffffff;
-          padding: 5px 10px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 700;
-          display: inline-block;
-          word-break: break-all;
+          font-family: monospace !important;
+          background-color: #0f172a !important;
+          color: #ffffff !important;
+          padding: 4px 8px !important;
+          border-radius: 6px !important;
+          font-size: 11px !important;
+          font-weight: 700 !important;
+          display: inline-block !important;
+          word-break: break-all !important;
         }
         .doc-title-main {
-          font-size: 19px;
-          font-weight: 900;
-          margin-bottom: 16px;
-          color: #0f172a;
-          line-height: 1.25;
-        }
-        .footer {
-          margin-top: 28px;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 14px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 11px;
-          color: #64748b;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-        .stamp-box-wrapper {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          margin-top: 24px;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-        .stamp-box {
-          border: 2px dashed #059669;
-          background-color: #ecfdf5;
-          padding: 8px 12px;
-          border-radius: 8px;
-          display: inline-block;
-          min-width: 200px;
-        }
-        .signatory-box {
-          text-align: right;
-          font-size: 11px;
-          color: #475569;
+          font-size: 15px !important;
+          font-weight: 900 !important;
+          margin-bottom: 12px !important;
+          color: #0f172a !important;
+          line-height: 1.3 !important;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
         }
         .doc-card {
-          width: 100%;
-          max-width: 100%;
-          box-sizing: border-box;
-          overflow: hidden;
+          width: 100% !important;
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+          overflow: hidden !important;
+          padding: 10px 8px !important;
+          margin-bottom: 14px !important;
         }
         .receipt-summary-row {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 12px;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          gap: 6px !important;
+          width: 100% !important;
         }
         table {
-          width: 100%;
-          max-width: 100%;
-          table-layout: fixed;
-          border-collapse: collapse;
-          box-sizing: border-box;
+          width: 100% !important;
+          max-width: 100% !important;
+          table-layout: fixed !important;
+          border-collapse: collapse !important;
+          box-sizing: border-box !important;
+          font-size: 11px !important;
         }
         th, td {
-          word-break: break-word;
-          overflow-wrap: anywhere;
-          white-space: normal;
+          word-break: break-word !important;
+          overflow-wrap: anywhere !important;
+          white-space: normal !important;
+          padding: 5px 3px !important;
+        }
+        .stamp-box-wrapper {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: stretch !important;
+          gap: 10px !important;
+          margin-top: 16px !important;
+          width: 100% !important;
+        }
+        .stamp-box {
+          border: 2px dashed #059669 !important;
+          background-color: #ecfdf5 !important;
+          padding: 6px 10px !important;
+          border-radius: 8px !important;
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+        .signatory-box {
+          text-align: left !important;
+          font-size: 10px !important;
+          color: #475569 !important;
+          width: 100% !important;
+        }
+        .footer {
+          margin-top: 20px !important;
+          border-top: 1px solid #e2e8f0 !important;
+          padding-top: 10px !important;
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: flex-start !important;
+          font-size: 10px !important;
+          color: #64748b !important;
+          gap: 4px !important;
+          width: 100% !important;
         }
 
-        @media (max-width: 640px) {
+        /* Tablet & Desktop Enhancements */
+        @media (min-width: 641px) {
           body {
-            padding: 12px 10px !important;
+            padding: 24px 20px !important;
           }
           .header {
-            flex-direction: column !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
             align-items: flex-start !important;
-            gap: 10px !important;
-            padding-bottom: 12px !important;
-            margin-bottom: 14px !important;
+            padding-bottom: 14px !important;
+            margin-bottom: 18px !important;
           }
           .brand-title {
-            font-size: 20px !important;
+            font-size: 24px !important;
           }
           .doc-meta {
-            text-align: left !important;
+            text-align: right !important;
+            width: auto !important;
           }
           .doc-title-main {
-            font-size: 16px !important;
-            margin-bottom: 12px !important;
-          }
-          .receipt-summary-row {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 8px !important;
+            font-size: 20px !important;
+            margin-bottom: 16px !important;
           }
           .doc-card {
-            padding: 12px 10px !important;
-            margin-bottom: 14px !important;
+            padding: 18px !important;
+            margin-bottom: 20px !important;
           }
-          .stamp-box-wrapper {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 12px !important;
-            margin-top: 18px !important;
-          }
-          .stamp-box {
-            width: 100% !important;
-            min-width: 0 !important;
-          }
-          .signatory-box {
-            text-align: left !important;
-          }
-          .footer {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 6px !important;
-            margin-top: 20px !important;
-            font-size: 10px !important;
+          .receipt-summary-row {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
           }
           table {
-            font-size: 11px !important;
+            font-size: 12px !important;
           }
           th, td {
-            padding: 6px 4px !important;
+            padding: 8px 6px !important;
+          }
+          .stamp-box-wrapper {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: flex-end !important;
+            margin-top: 24px !important;
+          }
+          .stamp-box {
+            width: auto !important;
+            min-width: 200px !important;
+          }
+          .signatory-box {
+            text-align: right !important;
+            font-size: 11px !important;
+            width: auto !important;
+          }
+          .footer {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            margin-top: 28px !important;
+            padding-top: 14px !important;
           }
         }
         @media print {
-          body { padding: 20px; }
+          body { padding: 20px !important; }
           .no-print { display: none !important; }
         }
       </style>
