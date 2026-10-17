@@ -44,7 +44,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
   };
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] grid place-items-center p-3 sm:p-4 md:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" 
@@ -54,23 +54,23 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
       {/* Modal Card */}
       <div
         className={cn(
-          'relative z-10 w-full bg-white rounded-2xl shadow-2xl border border-slate-200',
-          'flex flex-col max-h-[88vh] my-auto animate-scale-in',
+          'relative z-10 w-full max-w-full min-w-0 bg-white rounded-2xl shadow-2xl border border-slate-200',
+          'flex flex-col max-h-[92vh] sm:max-h-[88vh] my-auto animate-scale-in overflow-hidden',
           sizes[size],
           className
         )}
       >
         {/* Sticky Header */}
         {title && (
-          <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 bg-white rounded-t-2xl shrink-0">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">{title}</h2>
-              {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+          <div className="flex items-start justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 bg-white rounded-t-2xl shrink-0">
+            <div className="min-w-0 pr-2">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">{title}</h2>
+              {description && <p className="text-xs text-slate-500 mt-0.5 truncate">{description}</p>}
             </div>
             <button
               onClick={onClose}
               type="button"
-              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 ml-4"
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0 ml-2"
               aria-label="Close Modal"
             >
               <X className="w-5 h-5" />
@@ -79,7 +79,7 @@ export function Modal({ isOpen, onClose, title, description, children, size = 'm
         )}
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 md:p-6 scrollbar-thin min-w-0">
           {children}
         </div>
       </div>

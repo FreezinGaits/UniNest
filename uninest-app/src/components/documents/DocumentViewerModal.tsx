@@ -34,76 +34,100 @@ export function DocumentViewerModal({ isOpen, onClose, doc }: DocumentViewerModa
 
   const htmlPreview = generateDocumentHTML(doc);
 
+  const handleOpenNewTab = () => {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(htmlPreview);
+      newWindow.document.close();
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl" title="">
-      <div className="flex flex-col h-full space-y-4 -mt-2">
-        {/* Modal Header Bar with Actions & Top-Right Close Button */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 shrink-0">
-          <div className="space-y-1 min-w-0 pr-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                {doc.referenceNo}
-              </span>
-              <Badge variant="success" size="sm">
-                {doc.status}
-              </Badge>
-            </div>
-            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 leading-snug truncate" title={doc.title}>
-              {doc.title}
-            </h2>
+      <div className="flex flex-col h-full space-y-3 -mt-2 w-full max-w-full min-w-0">
+        {/* Modal Top Bar: Badges on left, Close ('X') pinned at top right */}
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="font-mono text-[11px] sm:text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-md truncate max-w-[200px]">
+              {doc.referenceNo}
+            </span>
+            <Badge variant="success" size="sm">
+              {doc.status}
+            </Badge>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handlePrint}
-                variant="outline"
-                size="sm"
-                className="font-bold text-xs flex items-center gap-1.5 border-slate-300 hover:bg-slate-100 px-2.5 py-1.5"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Print</span>
-              </Button>
-              <Button
-                onClick={handleDownload}
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-sm px-3 py-1.5"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PDF</span>
-              </Button>
-            </div>
-            {/* Top Right Close Button */}
-            <button
-              onClick={onClose}
-              type="button"
-              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors ml-auto sm:ml-1"
-              aria-label="Close document modal"
+          {/* Guaranteed visible Top-Right Close Button */}
+          <button
+            onClick={onClose}
+            type="button"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 transition-colors shrink-0"
+            aria-label="Close document modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Title & Action Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+          <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 leading-snug break-words">
+            {doc.title}
+          </h2>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              size="sm"
+              className="flex-1 sm:flex-initial font-bold text-xs flex items-center justify-center gap-1.5 border-slate-300 hover:bg-slate-100 px-3 py-1.5"
             >
-              <X className="w-5 h-5" />
-            </button>
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print</span>
+            </Button>
+            <Button
+              onClick={handleDownload}
+              size="sm"
+              className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm px-3.5 py-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF</span>
+            </Button>
           </div>
         </div>
 
-        {/* Live Document Preview Frame (Single Clean Scrollbar / No Nested Overflow) */}
-        <div className="bg-slate-100 p-2 sm:p-4 rounded-2xl border border-slate-200 shadow-inner overflow-hidden">
-          <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden h-[62vh]">
+        {/* Live Document Preview Frame (100% Mobile Responsive Container) */}
+        <div className="bg-slate-100 p-1 sm:p-3 rounded-2xl border border-slate-200 shadow-inner overflow-hidden w-full max-w-full min-w-0">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden h-[58vh] sm:h-[65vh] w-full max-w-full min-w-0 relative">
             <iframe
               srcDoc={htmlPreview}
               title={doc.title}
-              className="w-full h-full border-none overflow-auto"
+              className="w-full h-full border-0 block"
+              style={{
+                width: '100%',
+                minWidth: '100%',
+                maxWidth: '100%',
+                height: '100%',
+                border: 'none',
+              }}
               sandbox="allow-same-origin allow-scripts"
             />
           </div>
         </div>
 
-        {/* Clean Footer Info without 'Close Preview' button */}
-        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 shrink-0">
-          <div className="flex items-center gap-1.5">
+        {/* Clean Footer Info with New Tab Fallback */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-500 pt-1 gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 truncate">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Encrypted e-Signed Document • Verified by UniNest Trust Engine</span>
+            <span className="truncate">Encrypted e-Signed Document • UniNest Trust Engine</span>
           </div>
-          <span className="text-[11px] text-slate-400 font-mono">ID: {doc.id}</span>
+          <div className="flex items-center gap-3 shrink-0 text-[11px]">
+            <button
+              onClick={handleOpenNewTab}
+              className="text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+            >
+              Open in New Window ↗
+            </button>
+            <span className="text-slate-400 font-mono">ID: {doc.id}</span>
+          </div>
         </div>
       </div>
     </Modal>

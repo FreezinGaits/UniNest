@@ -46,6 +46,28 @@ interface PaymentRecord {
 
 const DEMO_PAYMENTS: PaymentRecord[] = [
   {
+    id: 'pay-demo-5',
+    referenceNo: 'UNP-UPI-2026-000005',
+    title: 'October 2026 Monthly Rent Receipt (₹6,000 Paid)',
+    description: 'Rent payment — Oct 2026',
+    amountPaise: 600000,
+    amountFormatted: '₹6,000.00',
+    date: '05 Oct 2026',
+    method: 'UPI AutoPay (HDFC Bank •••• 8921)',
+    status: 'SUCCESS',
+  },
+  {
+    id: 'pay-demo-4',
+    referenceNo: 'UNP-UPI-2026-000004',
+    title: 'September 2026 Monthly Rent Receipt (₹6,000 Paid)',
+    description: 'Rent payment — Sep 2026',
+    amountPaise: 600000,
+    amountFormatted: '₹6,000.00',
+    date: '01 Oct 2026',
+    method: 'UPI AutoPay',
+    status: 'SUCCESS',
+  },
+  {
     id: 'pay-demo-3',
     referenceNo: 'UNP-UPI-2026-000003',
     title: 'August 2026 Monthly Rent Receipt (₹6,000 Paid)',
@@ -90,7 +112,7 @@ export default function RentPaymentsPage() {
   const [payments, setPayments] = useState<PaymentRecord[]>(ctxIsDemo ? DEMO_PAYMENTS : []);
 
   const [autoPayEnabled, setAutoPayEnabled] = useState(ctxIsDemo);
-  const [rentPaid, setRentPaid] = useState(false);
+  const [rentPaid, setRentPaid] = useState(ctxIsDemo); // Default true when AutoPay is active
   const [paidReceiptDoc, setPaidReceiptDoc] = useState<DocumentPDFData | null>(null);
   const [paymentFailMsg, setPaymentFailMsg] = useState(false);
   const [difficultyModalOpen, setDifficultyModalOpen] = useState(false);
@@ -122,6 +144,24 @@ export default function RentPaymentsPage() {
         if (savedPayments[0]?.docData) {
           setPaidReceiptDoc(savedPayments[0].docData);
         }
+      } else if (demo) {
+        setRentPaid(true);
+        const octDoc: DocumentPDFData = {
+          id: 'doc-oct-2026',
+          title: 'October 2026 Monthly Rent Receipt (₹6,000 Paid)',
+          category: 'RECEIPT',
+          referenceNo: 'UNP-UPI-2026-000005',
+          issueDate: '05 Oct 2026',
+          fileSize: '340 KB',
+          status: 'ISSUED',
+          issuer: 'HDFC Bank e-Mandate / NPCI AutoPay',
+          amount: '₹6,000.00',
+          tenantName: 'Rahul Sharma',
+          roomDetails: 'PCTE Smart Student Residency (Room 204, Bed A)',
+          paymentMethod: 'UPI AutoPay (HDFC Bank •••• 8921)',
+          transactionId: 'UMN_UNIN992014882104',
+        };
+        setPaidReceiptDoc(octDoc);
       }
 
       if (demo) {
@@ -173,7 +213,7 @@ export default function RentPaymentsPage() {
     setRentPaid(true);
     setPaymentFailMsg(false);
 
-    const refNo = `UNP-UPI-2026-07${Math.floor(10 + Math.random() * 90)}`;
+    const refNo = `UNP-UPI-2026-10${Math.floor(10 + Math.random() * 90)}`;
     const issueDate = new Date().toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
@@ -183,7 +223,7 @@ export default function RentPaymentsPage() {
 
     const newDoc: DocumentPDFData = {
       id: `doc-rent-${Date.now()}`,
-      title: `July 2026 Monthly Rent Receipt (₹6,000 Paid)`,
+      title: `October 2026 Monthly Rent Receipt (₹6,000 Paid)`,
       category: 'RECEIPT',
       referenceNo: refNo,
       issueDate,
@@ -262,6 +302,9 @@ export default function RentPaymentsPage() {
     setIsViewerOpen(true);
   }
 
+  // Active status calculations
+  const isSettled = rentPaid || (isDemo && autoPayEnabled);
+
   return (
     <div className="space-y-6 animate-fade-in pb-16">
       {/* Top Banner */}
@@ -273,15 +316,15 @@ export default function RentPaymentsPage() {
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold">Rent & Payments</h1>
           <p className="text-xs sm:text-sm text-slate-300">
-            Manage monthly rent dues, AutoPay mandates, payment receipts, and financial relief options.
+            Manage monthly rent cycles, AutoPay bank mandates, e-signed tax receipts, and financial relief options.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-right">
             <span className="text-[10px] uppercase font-bold text-slate-300 block">Current Balance</span>
-            <span className="text-lg font-extrabold text-emerald-400">
-              {rentPaid || !isDemo ? '₹0 Dues' : '₹6,000 Due'}
+            <span className={`text-lg font-extrabold ${isSettled ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {isSettled ? '₹0 Dues' : '₹6,000 Due'}
             </span>
           </div>
         </div>
@@ -295,14 +338,18 @@ export default function RentPaymentsPage() {
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
               <h2 className="text-base sm:text-lg font-extrabold">UPI AutoPay Mandate</h2>
               <Badge variant={isDemo && autoPayEnabled ? 'success' : 'outline'}>
-                {isDemo && autoPayEnabled ? 'ACTIVE' : 'INACTIVE'}
+                {isDemo && autoPayEnabled ? 'ACTIVE' : 'PAUSED / MANUAL MODE'}
               </Badge>
             </div>
-            {isDemo ? (
+            {isDemo && autoPayEnabled ? (
               <p className="text-xs text-slate-300">
-                Next Deduction: <strong className="text-white">5th of next month</strong> · Amount:{' '}
+                Next Deduction: <strong className="text-emerald-300">5th November 2026</strong> · Amount:{' '}
                 <strong className="text-white">₹6,000</strong> · Method:{' '}
-                <strong className="text-white">UPI AutoPay (HDFC Bank •••• 8921)</strong>
+                <strong className="text-white">HDFC Bank •••• 8921 (NPCI UMN: UNIN992014882104)</strong>
+              </p>
+            ) : isDemo ? (
+              <p className="text-xs text-amber-200">
+                AutoPay is paused. Please settle rent manually before the 10th of every month to avoid late flags.
               </p>
             ) : (
               <p className="text-xs text-slate-300">
@@ -313,10 +360,18 @@ export default function RentPaymentsPage() {
           {isDemo && (
             <div className="flex items-center gap-3 shrink-0">
               <button
-                onClick={() => setAutoPayEnabled(!autoPayEnabled)}
+                onClick={() => {
+                  const nextState = !autoPayEnabled;
+                  setAutoPayEnabled(nextState);
+                  if (!nextState) {
+                    setRentPaid(false); // Simulate manual unpaid status for testing
+                  } else {
+                    setRentPaid(true); // Active AutoPay settles the cycle
+                  }
+                }}
                 className="px-4 py-2.5 text-xs font-extrabold rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all shadow-sm"
               >
-                {autoPayEnabled ? 'Pause AutoPay Mandate' : 'Enable AutoPay Mandate'}
+                {autoPayEnabled ? 'Pause AutoPay (Test Manual Pay)' : 'Re-Enable AutoPay Mandate'}
               </button>
             </div>
           )}
@@ -327,32 +382,46 @@ export default function RentPaymentsPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
           <Calendar className="w-5 h-5 text-indigo-600" />
-          <span>Current Month Rent Status</span>
+          <span>Current Billing Cycle (October 2026)</span>
         </h2>
 
         <Card className="p-6 border-slate-200/80 shadow-sm space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  {isDemo ? 'July 2026 Monthly Rent' : 'Monthly Rent Summary'}
+                  {isDemo ? 'October 2026 Monthly Rent' : 'Monthly Rent Summary'}
                 </span>
-                <Badge variant={rentPaid ? 'success' : isDemo ? 'warning' : 'outline'}>
-                  {rentPaid ? '✓ PAID' : isDemo ? 'DUE (Due 5th July)' : 'No Active Rent Due'}
+                <Badge variant={isSettled ? 'success' : 'warning'}>
+                  {isSettled
+                    ? autoPayEnabled
+                      ? '✓ PAID VIA AUTOPAY'
+                      : '✓ PAID DIRECT UPI'
+                    : 'DUE (Due 5th Oct · Grace Period Active)'}
                 </Badge>
               </div>
               <p className="text-3xl font-black text-slate-900">
-                {rentPaid || !isDemo ? '₹0' : formatINR(600000)}
+                {isSettled ? '₹0.00' : formatINR(600000)}
               </p>
               <p className="text-xs text-slate-500 font-medium">
                 {isDemo
-                  ? 'Room 204 (Bed A) • PCTE Smart Student Residency'
+                  ? 'Room 204 (Bed A) • PCTE Smart Student Residency • Passi Residency Desk'
                   : 'No Active Rent Due'}
               </p>
+              {isSettled && autoPayEnabled && (
+                <p className="text-[11px] text-emerald-700 font-medium bg-emerald-50 px-2.5 py-1 rounded-lg inline-block border border-emerald-200">
+                  ✓ Automatically debited on 05 Oct 2026 via HDFC Bank e-Mandate (Zero late penalty · 100% Good Standing).
+                </p>
+              )}
+              {!isSettled && (
+                <p className="text-[11px] text-amber-800 font-medium bg-amber-50 px-2.5 py-1 rounded-lg inline-block border border-amber-200">
+                  ℹ️ <strong>5-Day Grace Period Active:</strong> Rent is due 5th. Grace window runs until 10th with zero late fee and protected deposit.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {!rentPaid ? (
+              {!isSettled ? (
                 <>
                   <button
                     onClick={() => setUpiModalOpen(true)}
@@ -376,9 +445,9 @@ export default function RentPaymentsPage() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-2 text-emerald-800 bg-emerald-50 border border-emerald-200 px-4 py-2.5 rounded-2xl font-extrabold text-xs shadow-sm">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    <span>Rent Paid · Invoice Uploaded to Vault ({paidReceiptDoc?.referenceNo})</span>
+                    <span>Rent Settled · E-Signed Receipt Verified</span>
                   </div>
-                  {paidReceiptDoc && (
+                  {paidReceiptDoc ? (
                     <button
                       onClick={() => {
                         setPreviewDoc(paidReceiptDoc);
@@ -387,9 +456,32 @@ export default function RentPaymentsPage() {
                       className="py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all"
                     >
                       <Eye className="w-4 h-4" />
-                      <span>View & Download Invoice</span>
+                      <span>View & Download October Receipt</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        handleViewTxnPDF(
+                          'October 2026 Monthly Rent Receipt (₹6,000 Paid)',
+                          'UNP-UPI-2026-000005',
+                          '₹6,000.00',
+                          '05 Oct 2026',
+                          'UPI AutoPay (HDFC Bank •••• 8921)'
+                        );
+                      }}
+                      className="py-2.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs shadow-md flex items-center gap-1.5 transition-all"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View & Download October Receipt</span>
                     </button>
                   )}
+                  <button
+                    onClick={() => setUpiModalOpen(true)}
+                    className="py-2.5 px-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-extrabold text-xs border border-indigo-200 flex items-center gap-1.5 transition-all"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Advance Pay for Nov 2026</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -426,6 +518,55 @@ export default function RentPaymentsPage() {
             </div>
           )}
         </Card>
+      </section>
+
+      {/* Educational & Trust Engine Explainer Card */}
+      <section className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <HelpCircle className="w-4 h-4 text-indigo-600" />
+          <span>How Rent, UPI AutoPay, & Grace Periods Work on UniNest</span>
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1">
+            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-indigo-600" />
+              <span>1. Auto-Debit on 5th</span>
+            </div>
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              Rent is scheduled for the 5th of every month. Active UPI AutoPay debits automatically with 0 manual hassle.
+            </p>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1">
+            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>2. 5-Day Grace Window</span>
+            </div>
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              If manual payment is used, you have until the 10th of the month with zero late fees or courtesy notifications.
+            </p>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1">
+            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-purple-600" />
+              <span>3. Instant Tax Invoices</span>
+            </div>
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              Every settlement produces an ISO 27001 verified digital receipt permanently preserved in your Documents Vault.
+            </p>
+          </div>
+
+          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-1">
+            <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <span>4. Deposit & Trust Guard</span>
+            </div>
+            <p className="text-slate-500 text-[11px] leading-relaxed">
+              On-time payments award +15 Trust Score points monthly and safeguard 100% of your ₹12,000 security deposit.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* RENT DIFFICULTY / RELIEF MODAL */}
