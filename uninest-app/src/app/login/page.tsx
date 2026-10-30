@@ -17,6 +17,14 @@ import {
   ShieldCheck,
   Scale,
   History,
+  CheckCircle2,
+  MapPin,
+  Zap,
+  BedDouble,
+  Star,
+  Sparkles,
+  Clock,
+  Camera,
 } from 'lucide-react';
 
 const RECENT_LOGINS_KEY = 'uninest_recent_logins_v1';
@@ -225,58 +233,175 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Brand */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl" />
-          <div className="absolute bottom-40 right-20 w-96 h-96 bg-brand-300 rounded-full blur-3xl" />
+      {/* Left side - Brand & Live Project Visual Showcase */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-700 via-brand-800 to-slate-950 text-white relative overflow-y-auto p-8 xl:p-12 flex-col justify-between">
+        {/* Decorative ambient background glows */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-10 left-10 w-80 h-80 bg-emerald-400 rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-brand-500 rounded-full blur-3xl" />
         </div>
-        <div className="relative z-10 flex flex-col justify-center px-12 lg:px-16">
-          <Link href="/" className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <Building2 className="w-7 h-7 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-white">UniNest</span>
-          </Link>
-          <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight mb-4">
-            Student Housing,
-            <br />
-            <span className="text-brand-200">Protected by Escrow.</span>
-          </h1>
-          <p className="text-lg text-brand-100 max-w-md leading-relaxed">
-            From finding a verified PG to signing your 11-month tripartite Leave & License agreement — protected by our Two-Stage OTP Handshake Escrow.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-4 text-xs font-semibold text-brand-100">
-            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/15">
-              <ShieldCheck className="w-4 h-4 text-emerald-300" />
+
+        <div className="relative z-10 space-y-6">
+          {/* Brand header */}
+          <div className="flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-11 h-11 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20 shadow-md">
+                <Building2 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="text-2xl font-black text-white tracking-tight">UniNest</span>
+                <span className="text-[10px] block font-mono text-emerald-300 font-bold tracking-widest uppercase">
+                  Student Housing &amp; Escrow OS
+                </span>
+              </div>
+            </Link>
+
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              50+ Verified PGs Live in Ludhiana
+            </span>
+          </div>
+
+          {/* Heading */}
+          <div>
+            <h1 className="text-3xl xl:text-4xl font-extrabold text-white leading-tight">
+              Student Housing, <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-200">
+                Protected by Two-Stage Escrow.
+              </span>
+            </h1>
+            <p className="mt-2 text-sm text-brand-100/90 max-w-lg leading-relaxed">
+              No fake listings, no lost security deposits, and zero roommate electricity disputes. Connect directly with verified PGs around PCTE, PAU, and GNDEC.
+            </p>
+          </div>
+
+          {/* Core Feature Badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-brand-100">
+            <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
               <span>Two-Stage OTP Escrow</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/15">
-              <Scale className="w-4 h-4 text-brand-200" />
-              <span>Sec 10A IT Act E-Sign</span>
+            <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs">
+              <Scale className="w-3.5 h-3.5 text-brand-200" />
+              <span>Sec 10A IT Act e-Stamp</span>
             </div>
-            <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/15">
-              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-              <span>Ludhiana Hub (PCTE / PAU / GNDEC)</span>
+            <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-full border border-white/15 backdrop-blur-xs">
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>PSPCL ₹9/unit Sub-Meter Split</span>
             </div>
           </div>
+
+          {/* Interactive Project Showcase Card (High Fidelity UI Preview) */}
+          <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl border border-white/15 p-4 shadow-2xl space-y-3.5">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                <span className="text-xs font-bold text-white tracking-wide">Featured Campus PG Verified Live</span>
+              </div>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                PCTE Gate 2 (250m)
+              </span>
+            </div>
+
+            {/* Inner PG Card preview */}
+            <div className="flex gap-3 items-center">
+              <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-white/10 bg-slate-800">
+                <img
+                  src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=300&q=80"
+                  alt="Room preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0 text-xs">
+                <h4 className="font-bold text-white truncate text-sm">PCTE Smart Student Residency</h4>
+                <p className="text-[11px] text-slate-300 truncate">Plot 42, BRS Nagar, Ferozepur Road</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-emerald-400 font-extrabold text-xs">₹6,000/mo</span>
+                  <span className="text-[10px] text-slate-400">• True Monthly Cost: ₹8,200</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bed selector visual preview */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-200">
+                <div className="flex justify-between items-center font-bold">
+                  <span>Bed 102-A (Window)</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                </div>
+                <span className="text-[10px] text-emerald-400/80 block mt-0.5">Available for Reservation</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">
+                <div className="flex justify-between items-center">
+                  <span>Bed 102-B (Desk)</span>
+                  <span className="text-[10px] font-bold text-amber-400">Occupied</span>
+                </div>
+                <span className="text-[10px] text-slate-400/70 block mt-0.5">Rahul Sharma (PCTE)</span>
+              </div>
+            </div>
+
+            {/* Two-Stage Handshake Tracker Visual */}
+            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[11px] space-y-1.5">
+              <div className="flex items-center justify-between text-slate-300">
+                <span className="font-bold text-white flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Two-Stage Move-In Security
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono">100% Escrow Protected</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
+                <div className="bg-white/5 p-1.5 rounded-lg border border-white/10">
+                  <strong className="text-amber-300 block">Stage 1: 4-Digit Visit OTP</strong>
+                  <span className="text-slate-300 text-[10px]">Verifies physical on-site walk-through</span>
+                </div>
+                <div className="bg-white/5 p-1.5 rounded-lg border border-white/10">
+                  <strong className="text-emerald-300 block">Stage 2: 250m GPS Geofence</strong>
+                  <span className="text-slate-300 text-[10px]">Releases 6-digit move-in PIN to Host</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Trust & Ecosystem Bar */}
+        <div className="relative z-10 pt-4 border-t border-white/10 mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-brand-100">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Portals:</span>
+            <span className="px-2 py-0.5 rounded bg-white/10 text-white font-semibold text-[10px]">Students</span>
+            <span className="px-2 py-0.5 rounded bg-white/10 text-white font-semibold text-[10px]">Landlords</span>
+            <span className="px-2 py-0.5 rounded bg-white/10 text-white font-semibold text-[10px]">PCTE Housing</span>
+            <span className="px-2 py-0.5 rounded bg-white/10 text-white font-semibold text-[10px]">QuickFix</span>
+          </div>
+          <span className="text-[10px] text-emerald-300 font-bold flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            100% Escrow Shield
+          </span>
         </div>
       </div>
 
       {/* Right side - Login / Register Form */}
       <div className="flex-1 flex items-center justify-center p-6 bg-surface-secondary">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="flex items-center justify-between mb-6 lg:hidden">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-text-primary">UniNest</span>
-            </Link>
-            <Link href="/legal" className="text-xs font-semibold text-brand-600 hover:underline">
-              Legal & Escrow Policy
-            </Link>
+          {/* Mobile Enhanced Header */}
+          <div className="mb-6 lg:hidden">
+            <div className="flex items-center justify-between mb-3">
+              <Link href="/" className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center shadow-sm">
+                  <Building2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <span className="text-xl font-bold text-text-primary block leading-none">UniNest</span>
+                  <span className="text-[10px] font-semibold text-brand-700">Verified Housing &amp; Escrow</span>
+                </div>
+              </Link>
+              <Link href="/legal" className="text-xs font-semibold text-brand-600 hover:underline">
+                Escrow Policy
+              </Link>
+            </div>
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200/80 rounded-xl text-[11px] text-emerald-800 font-medium flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Two-Stage OTP Escrow &amp; 11-Month e-Stamp Agreement Enabled</span>
+            </div>
           </div>
 
           {/* Mode Toggle */}
