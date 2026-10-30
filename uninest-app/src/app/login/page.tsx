@@ -26,6 +26,7 @@ import {
   Clock,
   Camera,
 } from 'lucide-react';
+import { CampusBuildingsIllustration } from '@/components/auth/CampusBuildingsIllustration';
 
 const RECENT_LOGINS_KEY = 'uninest_recent_logins_v1';
 
@@ -291,76 +292,8 @@ function LoginContent() {
             </div>
           </div>
 
-          {/* Interactive Project Showcase Card (High Fidelity UI Preview) */}
-          <div className="bg-slate-900/85 backdrop-blur-md rounded-2xl border border-white/15 p-4 shadow-2xl space-y-3.5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <span className="text-xs font-bold text-white tracking-wide">Featured Campus PG Verified Live</span>
-              </div>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                PCTE Gate 2 (250m)
-              </span>
-            </div>
-
-            {/* Inner PG Card preview */}
-            <div className="flex gap-3 items-center">
-              <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 border border-white/10 bg-slate-800">
-                <img
-                  src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=300&q=80"
-                  alt="Room preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1 min-w-0 text-xs">
-                <h4 className="font-bold text-white truncate text-sm">PCTE Smart Student Residency</h4>
-                <p className="text-[11px] text-slate-300 truncate">Plot 42, BRS Nagar, Ferozepur Road</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-emerald-400 font-extrabold text-xs">₹6,000/mo</span>
-                  <span className="text-[10px] text-slate-400">• True Monthly Cost: ₹8,200</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bed selector visual preview */}
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="p-2 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-200">
-                <div className="flex justify-between items-center font-bold">
-                  <span>Bed 102-A (Window)</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                </div>
-                <span className="text-[10px] text-emerald-400/80 block mt-0.5">Available for Reservation</span>
-              </div>
-              <div className="p-2 rounded-lg bg-white/5 border border-white/10 text-slate-400">
-                <div className="flex justify-between items-center">
-                  <span>Bed 102-B (Desk)</span>
-                  <span className="text-[10px] font-bold text-amber-400">Occupied</span>
-                </div>
-                <span className="text-[10px] text-slate-400/70 block mt-0.5">Rahul Sharma (PCTE)</span>
-              </div>
-            </div>
-
-            {/* Two-Stage Handshake Tracker Visual */}
-            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-[11px] space-y-1.5">
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="font-bold text-white flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  Two-Stage Move-In Security
-                </span>
-                <span className="text-[10px] text-emerald-400 font-mono">100% Escrow Protected</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
-                <div className="bg-white/5 p-1.5 rounded-lg border border-white/10">
-                  <strong className="text-amber-300 block">Stage 1: 4-Digit Visit OTP</strong>
-                  <span className="text-slate-300 text-[10px]">Verifies physical on-site walk-through</span>
-                </div>
-                <div className="bg-white/5 p-1.5 rounded-lg border border-white/10">
-                  <strong className="text-emerald-300 block">Stage 2: 250m GPS Geofence</strong>
-                  <span className="text-slate-300 text-[10px]">Releases 6-digit move-in PIN to Host</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Architectural Design of Campus Buildings (Theme-Matched) */}
+          <CampusBuildingsIllustration />
         </div>
 
         {/* Bottom Trust & Ecosystem Bar */}
